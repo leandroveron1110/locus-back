@@ -1,0 +1,311 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum para los días de la semana
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// Definición del Enum para los roles de Usuario
+enum UserRole {
+  CLIENT
+  OWNER
+  ADMIN
+}
+
+// Modelo de Usuario (Propietario del Negocio, Clientes, Administradores)
+model User {
+  id           String    @id @default(uuid()) @map("id")
+  firstName    String    @map("nombre")
+  lastName     String    @map("apellido")
+  email        String    @unique @map("email")
+  passwordHash String    @map("password_hash")
+  role         UserRole  @default(CLIENT) @map("rol")
+  createdAt    DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  businesses Business[]
+
+  @@map("usuarios") // Mantener en español para el mapeo DB
+}
+
+// --- NUEVO MODELO: Category ---
+// Almacena las categorías estandarizadas para los negocios.
+model Category {
+  id          String   @id @default(uuid()) @map("id")
+  name        String   @unique @map("nombre") // Ej: "Restaurante", "Peluquería", "Gimnasio", "Servicios a Domicilio"
+  iconUrl     String?  @map("url_icono")    // Opcional: URL de un icono para la categoría
+  description String?  @map("descripcion") // Descripción de la categoría
+  active      Boolean  @default(true) @map("activo")
+  createdAt   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  businesses Business[] // Relación: una categoría puede tener muchos negocios asociados
+
+  @@map("categorias")
+}
+
+// Modelo de Negocio (MODIFICADO para usar Category)
+model Business {
+  id                String    @id @default(uuid()) @map("id")
+  ownerId           String    @map("propietario_id")
+  name              String
+  // REMOVIDO: category String @map("rubro")
+  categoryId        String    @map("categoria_id") // <-- NUEVO CAMPO: ID de la categoría estandarizada
+  shortDescription  String?   @map("descripcion_corta") @db.Text
+  fullDescription   String?   @map("descripcion_completa") @db.Text
+  address           String    @map("direccion")
+  phone             String    @map("telefono")
+  whatsapp          String
+  email             String?
+  logoUrl           String?   @map("logo_url")
+  galleryUrls       String[]  @map("galeria_urls")
+  status            String    @default("pending_review") @map("estado")
+  createdAt         DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  instagramUrl      String?   @map("url_instagram")
+  facebookUrl       String?   @map("url_facebook")
+  websiteUrl        String?   @map("url_web")
+  modulesConfig     Json?     @default("{}") @map("modulos_config")
+  latitude          Decimal?  @db.Decimal(10, 7) @map("latitud")
+  longitude         Decimal?  @db.Decimal(10, 7) @map("longitud")
+
+  averageRating     Decimal?  @map("promedio_calificacion") @db.Decimal(2, 1)
+  ratingsCount      Int?      @default(0) @map("cantidad_calificaciones")
+
+  owner    User     @relation(fields: [ownerId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id]) // <-- NUEVA RELACIÓN: Un negocio pertenece a UNA categoría
+
+  tags Tag[] @relation("NegocioToTag")
+
+  weeklySchedules WeeklySchedule[]
+  contentModules  ContentModule[]
+  menuSections    MenuSection[]
+  specialSchedules SpecialSchedule[]
+  ratings         Rating[]
+  offeredServices OfferedService[]
+  bookings        Booking[]
+  products        Product[]
+  orders          Order[]
+  events          Event[]
+
+  @@map("negocios") // Mantener en español para el mapeo DB
+}
+
+// Modelo Tag (sin cambios estructurales, solo traducción de campos)
+model Tag {
+  id        String   @id @default(uuid()) @map("id")
+  name      String   @unique @map("nombre")
+  active    Boolean  @default(true) @map("activo")
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  businesses Business[] @relation("NegocioToTag")
+
+  @@map("tags") // Mantener en español para el mapeo DB
+}
+
+// >>> NUEVO MODELO: HorarioSemanal <<<
+// Almacena los horarios de apertura regulares de un negocio para cada día de la semana.
+model WeeklySchedule {
+  id          String    @id @default(uuid()) @map("id")
+  businessId  String    @map("negocio_id")
+  dayOfWeek   DayOfWeek @map("dia_semana") // Utiliza el Enum DiaSemana
+  openingTime DateTime  @map("hora_apertura") @db.Time(0) // Solo la hora (ej. '09:00:00')
+  closingTime DateTime  @map("hora_cierre") @db.Time(0) // Solo la hora (ej. '17:00:00')
+  createdAt   DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Un negocio puede tener múltiples rangos de horario en un mismo día
+  // (ej. Lunes de 9 a 13 y de 15 a 19).
+  // La unicidad asegura que no haya DUPLICADOS EXACTOS del mismo rango.
+  @@unique([businessId, dayOfWeek, openingTime, closingTime])
+  @@map("horarios_semanales") // Mantener en español para el mapeo DB
+}
+
+
+// === Modelos de Módulos (el resto se mantienen sin cambios en su estructura, solo traducción de nombres y campos) ===
+
+model ContentModule {
+  id         String   @id @default(uuid()) @map("id")
+  businessId String   @map("negocio_id")
+  moduleType String   @map("tipo_modulo")
+  title      String?
+  data       Json
+  order      Int      @default(0) @map("orden")
+  createdAt  DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  @@unique([businessId, moduleType])
+  @@map("contenido_modulos")
+}
+
+model MenuSection {
+  id        String   @id @default(uuid()) @map("id")
+  businessId String   @map("negocio_id")
+  name      String   @map("nombre")
+  order     Int      @default(0) @map("orden")
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business  Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  menuItems MenuItem[]
+  @@unique([businessId, name])
+  @@map("menu_secciones")
+}
+
+model MenuItem {
+  id          String   @id @default(uuid()) @map("id")
+  sectionId   String   @map("seccion_id")
+  name        String   @map("nombre")
+  description String?  @db.Text @map("descripcion")
+  price       Decimal  @db.Decimal(10, 2) @map("precio")
+  imageUrl    String?  @map("imagen_url")
+  order       Int      @default(0) @map("orden")
+  createdAt   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  section     MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  @@map("menu_items")
+}
+
+model SpecialSchedule {
+  id            String    @id @default(uuid()) @map("id")
+  businessId    String    @map("negocio_id")
+  date          DateTime  @db.Date @map("fecha")
+  openingTime   DateTime? @db.Time(0) @map("apertura")
+  closingTime   DateTime? @db.Time(0) @map("cierre")
+  closedAllDay  Boolean   @default(false) @map("cerrado_todo_el_dia")
+  description   String?   @map("descripcion")
+  createdAt     DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business      Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  @@unique([businessId, date])
+  @@map("horarios_especiales")
+}
+
+model Rating {
+  id         String   @id @default(uuid()) @map("id")
+  businessId String   @map("negocio_id")
+  clientId   String?  @map("cliente_id")
+  rating     Int      @map("calificacion")
+  comment    String?  @db.Text @map("comentario")
+  createdAt  DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  @@map("calificaciones")
+}
+
+model OfferedService {
+  id            String   @id @default(uuid()) @map("id")
+  businessId    String   @map("negocio_id")
+  name          String   @map("nombre")
+  description   String?  @db.Text @map("descripcion")
+  price         Decimal? @db.Decimal(10, 2) @map("precio")
+  durationMinutes Int?   @map("duracion_minutos")
+  active        Boolean  @default(true) @map("activo")
+  createdAt     DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  bookings      Booking[]
+  @@map("servicios_ofrecidos")
+}
+
+model Booking {
+  id               String    @id @default(uuid()) @map("id")
+  businessId       String    @map("negocio_id")
+  offeredServiceId String?   @map("servicio_ofrecido_id")
+  clientId         String?   @map("cliente_id")
+  clientName       String?   @map("nombre_cliente")
+  clientEmail      String?   @map("email_cliente")
+  clientPhone      String?   @map("telefono_cliente")
+  bookingDate      DateTime  @map("fecha_reserva") @db.Date
+  startTime        DateTime  @map("hora_inicio") @db.Time(0)
+  endTime          DateTime  @map("hora_fin") @db.Time(0)
+  status           String    @default("pendiente") @map("estado")
+  comments         String?   @db.Text @map("comentarios")
+  createdAt        DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business         Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  offeredService   OfferedService? @relation(fields: [offeredServiceId], references: [id], onDelete: SetNull)
+  @@map("reservas")
+}
+
+model Product {
+  id          String   @id @default(uuid()) @map("id")
+  businessId  String   @map("negocio_id")
+  name        String   @map("nombre")
+  description String?  @db.Text @map("descripcion")
+  price       Decimal  @db.Decimal(10, 2) @map("precio")
+  stock       Int      @default(0)
+  imageUrl    String?  @map("imagen_url")
+  category    String?  @map("categoria") // Considerar si este campo 'category' debe ser reemplazado por la nueva Category de Business si se estandariza el producto también
+  active      Boolean  @default(true) @map("activo")
+  createdAt   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+  @@map("productos")
+}
+
+model Order {
+  id             String   @id @default(uuid()) @map("id")
+  businessId     String   @map("negocio_id")
+  clientId       String?  @map("cliente_id")
+  clientName     String?  @map("nombre_cliente")
+  shippingAddress String   @map("direccion_envio")
+  contactPhone   String?  @map("telefono_contacto")
+  total          Decimal  @db.Decimal(10, 2) @map("total")
+  orderStatus    String   @default("pendiente") @map("estado_pedido")
+  deliveryType   String   @map("tipo_entrega") @default("delivery")
+  clientNotes    String?  @map("notas_cliente") @db.Text
+  orderDate      DateTime @default(now()) @map("fecha_pedido") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  items          OrderItem[]
+  @@map("pedidos")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid()) @map("id")
+  orderId   String  @map("pedido_id")
+  productId String  @map("producto_id")
+  quantity  Int     @map("cantidad")
+  unitPrice Decimal @map("precio_unitario") @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+  @@map("pedido_items")
+}
+
+model Event {
+  id           String    @id @default(uuid()) @map("id")
+  businessId   String    @map("negocio_id")
+  name         String    @map("nombre")
+  description  String?   @db.Text @map("descripcion")
+  startDate    DateTime  @map("fecha_inicio") @db.Timestamptz(3)
+  endDate      DateTime? @map("fecha_fin") @db.Timestamptz(3)
+  location     String?   @map("ubicacion")
+  maxCapacity  Int?      @map("capacidad_maxima")
+  ticketsAvailable Int?  @map("entradas_disponibles")
+  ticketPrice  Decimal?  @map("precio_entrada") @db.Decimal(10, 2)
+  imageUrl     String?   @map("imagen_url")
+  active       Boolean   @default(true) @map("activo")
+  createdAt    DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  @@map("eventos")
+}
