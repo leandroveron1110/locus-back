@@ -6,6 +6,9 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module'; // ¡Importa tu nuevo AuthModule!
 import { UsersModule } from './users/users.module';
+import { CategoriesModule } from './categories/categories.module';
+import { TargsModule } from './targs/targs.module';
+import { BusinessModule } from './business/business.module';
 
 @Module({
   imports: [
@@ -15,8 +18,11 @@ import { UsersModule } from './users/users.module';
       isGlobal: true,
     }),
     PrismaModule,
-    AuthModule, // Agrega AuthModule a los imports
-    UsersModule, // UsersModule debe estar aquí y exportar UsersService
+    AuthModule,
+    UsersModule,
+    CategoriesModule,
+    TargsModule,
+    BusinessModule,
   ],
   controllers: [AppController],
   providers: [AppService],

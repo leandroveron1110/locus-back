@@ -27,120 +27,170 @@ enum UserRole {
   ADMIN
 }
 
+// Modelo para definir los diferentes estados de una entidad
+model Status {
+  id          String   @id @default(uuid()) @map("id")
+  name        String   @map("nombre") // Nombre técnico/clave del estado (ej. "PENDING_REVIEW", "ACTIVE")
+  displayName String   @map("nombre_visual") // Nombre amigable para mostrar en la UI (ej. "Pendiente de Revisión", "Activo")
+  description String?  @db.Text @map("descripcion") // Descripción detallada del estado
+  entityType  String   @map("tipo_entidad") // Ej: "BUSINESS", "ORDER", "BOOKING", "USER"
+  isFinal     Boolean  @default(false) @map("es_final") // Si es un estado final (ej. "COMPLETED", "CANCELLED")
+  order       Int      @default(0) @map("orden") // Orden de visualización
+  createdAt   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+    // 👇 Relación inversa con User
+  users      User[]    @relation("UserStatus")
+
+  // 👇 Relación inversa con Business
+  businesses Business[] @relation("BusinessStatus")
+
+  // 👇 Relación inversa con Booking
+  bookings   Booking[]  @relation("BookingStatus")
+
+  // 👇 Relación inversa con Order
+  orders     Order[]    @relation("OrderStatus")
+
+  @@unique([name, entityType])
+  @@map("estados")
+}
+
 // Modelo de Usuario (Propietario del Negocio, Clientes, Administradores)
 model User {
-  id           String    @id @default(uuid()) @map("id")
-  firstName    String    @map("nombre")
-  lastName     String    @map("apellido")
-  email        String    @unique @map("email")
-  passwordHash String    @map("password_hash")
-  role         UserRole  @default(CLIENT) @map("rol")
-  createdAt    DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt    DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  id           String     @id @default(uuid()) @map("id")
+  firstName    String     @map("nombre")
+  lastName     String     @map("apellido")
+  email        String     @unique @map("email")
+  passwordHash String     @map("password_hash")
+  role         UserRole   @default(CLIENT) @map("rol")
+  createdAt    DateTime   @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  // CAMBIO CLAVE: statusId y currentStatus son OPCIONALES para permitir la migración si hay datos existentes sin un statusId.
+  statusId     String?    @map("estado_id")
+  currentStatus Status?   @relation(fields: [statusId], references: [id], name: "UserStatus")
 
-  businesses Business[]
+  businesses   Business[]
 
-  @@map("usuarios") // Mantener en español para el mapeo DB
+  @@map("usuarios")
 }
+
 
 // --- NUEVO MODELO: Category ---
 // Almacena las categorías estandarizadas para los negocios.
 model Category {
-  id          String   @id @default(uuid()) @map("id")
-  name        String   @unique @map("nombre") // Ej: "Restaurante", "Peluquería", "Gimnasio", "Servicios a Domicilio"
-  iconUrl     String?  @map("url_icono")    // Opcional: URL de un icono para la categoría
-  description String?  @map("descripcion") // Descripción de la categoría
-  active      Boolean  @default(true) @map("activo")
-  createdAt   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  id          String    @id @default(uuid()) @map("id")
+  name        String    @unique @map("nombre") // Ej: "Restaurante", "Peluquería", "Gimnasio", "Servicios a Domicilio"
+  iconUrl     String?   @map("url_icono") // Opcional: URL de un icono para la categoría
+  description String?   @map("descripcion") // Descripción de la categoría
+  active      Boolean   @default(true) @map("activo")
+  createdAt   DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
-  businesses Business[] // Relación: una categoría puede tener muchos negocios asociados
+  businesses  Business[] // Relación: una categoría puede tener muchos negocios asociados
 
   @@map("categorias")
 }
 
-// Modelo de Negocio (MODIFICADO para usar Category)
-model Business {
-  id                String    @id @default(uuid()) @map("id")
-  ownerId           String    @map("propietario_id")
-  name              String
-  // REMOVIDO: category String @map("rubro")
-  categoryId        String    @map("categoria_id") // <-- NUEVO CAMPO: ID de la categoría estandarizada
-  shortDescription  String?   @map("descripcion_corta") @db.Text
-  fullDescription   String?   @map("descripcion_completa") @db.Text
-  address           String    @map("direccion")
-  phone             String    @map("telefono")
-  whatsapp          String
-  email             String?
-  logoUrl           String?   @map("logo_url")
-  galleryUrls       String[]  @map("galeria_urls")
-  status            String    @default("pending_review") @map("estado")
-  createdAt         DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt         DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  instagramUrl      String?   @map("url_instagram")
-  facebookUrl       String?   @map("url_facebook")
-  websiteUrl        String?   @map("url_web")
-  modulesConfig     Json?     @default("{}") @map("modulos_config")
-  latitude          Decimal?  @db.Decimal(10, 7) @map("latitud")
-  longitude         Decimal?  @db.Decimal(10, 7) @map("longitud")
+// --- NUEVO MODELO: Image ---
+// Almacena URLs de imágenes para negocios, incluyendo el logo y las imágenes de galería.
+model Image {
+  id          String   @id @default(uuid()) @map("id")
+  url         String   @map("url")
+  businessId  String   @map("negocio_id")
+  type        String   @default("gallery") @map("tipo") // Ej: 'logo', 'gallery', 'banner'
+  provider    String   @default("default") @map("proveedor") // Ej: 'firebase', 's3', 'cloudinary', 'local'
+  order       Int?     @map("orden") // Solo relevante para imágenes de galería
+  createdAt   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
-  averageRating     Decimal?  @map("promedio_calificacion") @db.Decimal(2, 1)
-  ratingsCount      Int?      @default(0) @map("cantidad_calificaciones")
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  owner    User     @relation(fields: [ownerId], references: [id])
-  category Category @relation(fields: [categoryId], references: [id]) // <-- NUEVA RELACIÓN: Un negocio pertenece a UNA categoría
-
-  tags Tag[] @relation("NegocioToTag")
-
-  weeklySchedules WeeklySchedule[]
-  contentModules  ContentModule[]
-  menuSections    MenuSection[]
-  specialSchedules SpecialSchedule[]
-  ratings         Rating[]
-  offeredServices OfferedService[]
-  bookings        Booking[]
-  products        Product[]
-  orders          Order[]
-  events          Event[]
-
-  @@map("negocios") // Mantener en español para el mapeo DB
+  @@map("imagenes")
+  @@unique([businessId, type], name: "OneLogoPerBusiness") // Opcional: Asegura que un negocio solo tenga una imagen de tipo 'logo'
 }
 
-// Modelo Tag (sin cambios estructurales, solo traducción de campos)
+
+// Modelo de Negocio (ACTUALIZADO para usar Image y quitar campos de URL)
+model Business {
+  id                String            @id @default(uuid()) @map("id")
+  ownerId           String            @map("propietario_id")
+  name              String
+  categoryId        String            @map("categoria_id")
+  shortDescription  String?           @map("descripcion_corta") @db.Text
+  fullDescription   String?           @map("descripcion_completa") @db.Text
+  address           String            @map("direccion")
+  phone             String            @map("telefono")
+  whatsapp          String
+  email             String?
+  // REMOVIDO: status String @default("pending_review") @map("estado")
+  // CAMBIO CLAVE: statusId y currentStatus son OPCIONALES
+  statusId          String?           @map("estado_id")
+  createdAt         DateTime          @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  instagramUrl      String?           @map("url_instagram")
+  facebookUrl       String?           @map("url_facebook")
+  websiteUrl        String?           @map("url_web")
+  modulesConfig     Json?             @default("{}") @map("modulos_config")
+  latitude          Decimal?          @db.Decimal(10, 7) @map("latitud")
+  longitude         Decimal?          @db.Decimal(10, 7) @map("longitud")
+
+  averageRating     Decimal?          @map("promedio_calificacion") @db.Decimal(2, 1)
+  ratingsCount      Int?              @default(0) @map("cantidad_calificaciones")
+
+  owner             User              @relation(fields: [ownerId], references: [id])
+  category          Category          @relation(fields: [categoryId], references: [id])
+  tags              Tag[]             @relation("NegocioToTag")
+
+  images            Image[]
+
+  // NUEVA RELACIÓN: Un negocio tiene UN estado (definido en la tabla Status)
+  currentStatus     Status?           @relation(fields: [statusId], references: [id], name: "BusinessStatus")
+
+  weeklySchedules   WeeklySchedule[]
+  contentModules    ContentModule[]
+  menuSections      MenuSection[]
+  specialSchedules  SpecialSchedule[]
+  ratings           Rating[]
+  offeredServices   OfferedService[]
+  bookings          Booking[]
+  products          Product[]
+  orders            Order[]
+  events            Event[]
+
+  @@map("negocios")
+}
+
+// Modelo Tag
 model Tag {
-  id        String   @id @default(uuid()) @map("id")
-  name      String   @unique @map("nombre")
-  active    Boolean  @default(true) @map("activo")
-  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  id          String     @id @default(uuid()) @map("id")
+  name        String     @unique @map("nombre")
+  active      Boolean    @default(true) @map("activo")
+  createdAt   DateTime   @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
-  businesses Business[] @relation("NegocioToTag")
+  businesses  Business[] @relation("NegocioToTag")
 
-  @@map("tags") // Mantener en español para el mapeo DB
+  @@map("tags")
 }
 
 // >>> NUEVO MODELO: HorarioSemanal <<<
-// Almacena los horarios de apertura regulares de un negocio para cada día de la semana.
 model WeeklySchedule {
   id          String    @id @default(uuid()) @map("id")
   businessId  String    @map("negocio_id")
-  dayOfWeek   DayOfWeek @map("dia_semana") // Utiliza el Enum DiaSemana
-  openingTime DateTime  @map("hora_apertura") @db.Time(0) // Solo la hora (ej. '09:00:00')
-  closingTime DateTime  @map("hora_cierre") @db.Time(0) // Solo la hora (ej. '17:00:00')
+  dayOfWeek   DayOfWeek @map("dia_semana")
+  openingTime DateTime  @map("hora_apertura") @db.Time(0)
+  closingTime DateTime  @map("hora_cierre") @db.Time(0)
   createdAt   DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  // Un negocio puede tener múltiples rangos de horario en un mismo día
-  // (ej. Lunes de 9 a 13 y de 15 a 19).
-  // La unicidad asegura que no haya DUPLICADOS EXACTOS del mismo rango.
   @@unique([businessId, dayOfWeek, openingTime, closingTime])
-  @@map("horarios_semanales") // Mantener en español para el mapeo DB
+  @@map("horarios_semanales")
 }
 
 
-// === Modelos de Módulos (el resto se mantienen sin cambios en su estructura, solo traducción de nombres y campos) ===
+// === Modelos de Módulos ===
 
 model ContentModule {
   id         String   @id @default(uuid()) @map("id")
@@ -157,28 +207,28 @@ model ContentModule {
 }
 
 model MenuSection {
-  id        String   @id @default(uuid()) @map("id")
-  businessId String   @map("negocio_id")
-  name      String   @map("nombre")
-  order     Int      @default(0) @map("orden")
-  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business  Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  menuItems MenuItem[]
+  id         String     @id @default(uuid()) @map("id")
+  businessId String     @map("negocio_id")
+  name       String     @map("nombre")
+  order      Int        @default(0) @map("orden")
+  createdAt  DateTime   @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt  DateTime   @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  menuItems  MenuItem[]
   @@unique([businessId, name])
   @@map("menu_secciones")
 }
 
 model MenuItem {
-  id          String   @id @default(uuid()) @map("id")
-  sectionId   String   @map("seccion_id")
-  name        String   @map("nombre")
-  description String?  @db.Text @map("descripcion")
-  price       Decimal  @db.Decimal(10, 2) @map("precio")
-  imageUrl    String?  @map("imagen_url")
-  order       Int      @default(0) @map("orden")
-  createdAt   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  id          String      @id @default(uuid()) @map("id")
+  sectionId   String      @map("seccion_id")
+  name        String      @map("nombre")
+  description String?     @db.Text @map("descripcion")
+  price       Decimal     @db.Decimal(10, 2) @map("precio")
+  imageUrl    String?     @map("imagen_url")
+  order       Int         @default(0) @map("orden")
+  createdAt   DateTime    @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
   section     MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   @@map("menu_items")
 }
@@ -210,102 +260,110 @@ model Rating {
 }
 
 model OfferedService {
-  id            String   @id @default(uuid()) @map("id")
-  businessId    String   @map("negocio_id")
-  name          String   @map("nombre")
-  description   String?  @db.Text @map("descripcion")
-  price         Decimal? @db.Decimal(10, 2) @map("precio")
-  durationMinutes Int?   @map("duracion_minutos")
-  active        Boolean  @default(true) @map("activo")
-  createdAt     DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt     DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  bookings      Booking[]
+  id              String    @id @default(uuid()) @map("id")
+  businessId      String    @map("negocio_id")
+  name            String    @map("nombre")
+  description     String?   @db.Text @map("descripcion")
+  price           Decimal?  @db.Decimal(10, 2) @map("precio")
+  durationMinutes Int?      @map("duracion_minutos")
+  active          Boolean   @default(true) @map("activo")
+  createdAt       DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  bookings        Booking[]
   @@map("servicios_ofrecidos")
 }
 
 model Booking {
-  id               String    @id @default(uuid()) @map("id")
-  businessId       String    @map("negocio_id")
-  offeredServiceId String?   @map("servicio_ofrecido_id")
-  clientId         String?   @map("cliente_id")
-  clientName       String?   @map("nombre_cliente")
-  clientEmail      String?   @map("email_cliente")
-  clientPhone      String?   @map("telefono_cliente")
-  bookingDate      DateTime  @map("fecha_reserva") @db.Date
-  startTime        DateTime  @map("hora_inicio") @db.Time(0)
-  endTime          DateTime  @map("hora_fin") @db.Time(0)
-  status           String    @default("pendiente") @map("estado")
-  comments         String?   @db.Text @map("comentarios")
-  createdAt        DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt        DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business         Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  id               String          @id @default(uuid()) @map("id")
+  businessId       String          @map("negocio_id")
+  offeredServiceId String?         @map("servicio_ofrecido_id")
+  clientId         String?         @map("cliente_id")
+  clientName       String?         @map("nombre_cliente")
+  clientEmail      String?         @map("email_cliente")
+  clientPhone      String?         @map("telefono_cliente")
+  bookingDate      DateTime        @map("fecha_reserva") @db.Date
+  startTime        DateTime        @map("hora_inicio") @db.Time(0)
+  endTime          DateTime        @map("hora_fin") @db.Time(0)
+  // REMOVIDO: status String @default("pendiente") @map("estado")
+  // CAMBIO CLAVE: statusId y currentStatus son OPCIONALES
+  statusId         String         @map("estado_id")
+  comments         String?         @db.Text @map("comentarios")
+  createdAt        DateTime        @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business         Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   offeredService   OfferedService? @relation(fields: [offeredServiceId], references: [id], onDelete: SetNull)
+  currentStatus    Status?         @relation(fields: [statusId], references: [id], name: "BookingStatus") // <-- Agregado nombre
+
   @@map("reservas")
 }
 
 model Product {
-  id          String   @id @default(uuid()) @map("id")
-  businessId  String   @map("negocio_id")
-  name        String   @map("nombre")
-  description String?  @db.Text @map("descripcion")
-  price       Decimal  @db.Decimal(10, 2) @map("precio")
-  stock       Int      @default(0)
-  imageUrl    String?  @map("imagen_url")
-  category    String?  @map("categoria") // Considerar si este campo 'category' debe ser reemplazado por la nueva Category de Business si se estandariza el producto también
-  active      Boolean  @default(true) @map("activo")
-  createdAt   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  orderItems  OrderItem[]
+  id         String      @id @default(uuid()) @map("id")
+  businessId String      @map("negocio_id")
+  name       String      @map("nombre")
+  description String?    @db.Text @map("descripcion")
+  price      Decimal     @db.Decimal(10, 2) @map("precio")
+  stock      Int         @default(0)
+  imageUrl   String?     @map("imagen_url")
+  category   String?     @map("categoria") // Considerar si este campo 'category' debe ser reemplazado por la nueva Category de Business si se estandariza el producto también
+  active     Boolean     @default(true) @map("activo")
+  createdAt  DateTime    @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt  DateTime    @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
   @@map("productos")
 }
 
 model Order {
-  id             String   @id @default(uuid()) @map("id")
-  businessId     String   @map("negocio_id")
-  clientId       String?  @map("cliente_id")
-  clientName     String?  @map("nombre_cliente")
-  shippingAddress String   @map("direccion_envio")
-  contactPhone   String?  @map("telefono_contacto")
-  total          Decimal  @db.Decimal(10, 2) @map("total")
-  orderStatus    String   @default("pendiente") @map("estado_pedido")
-  deliveryType   String   @map("tipo_entrega") @default("delivery")
-  clientNotes    String?  @map("notas_cliente") @db.Text
-  orderDate      DateTime @default(now()) @map("fecha_pedido") @db.Timestamptz(3)
-  updatedAt      DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  items          OrderItem[]
+  id              String      @id @default(uuid()) @map("id")
+  businessId      String      @map("negocio_id")
+  clientId        String?     @map("cliente_id")
+  clientName      String?     @map("nombre_cliente")
+  shippingAddress String      @map("direccion_envio")
+  contactPhone    String?     @map("telefono_contacto")
+  total           Decimal     @db.Decimal(10, 2) @map("total")
+  // REMOVIDO: orderStatus String @default("pendiente") @map("estado_pedido")
+  // CAMBIO CLAVE: statusId y currentStatus son OPCIONALES
+  statusId        String?     @map("estado_id")
+  deliveryType    String      @map("tipo_entrega") @default("delivery")
+  clientNotes     String?     @map("notas_cliente") @db.Text
+  orderDate       DateTime    @default(now()) @map("fecha_pedido") @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business        Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  items           OrderItem[]
+  currentStatus   Status?     @relation(fields: [statusId], references: [id], name: "OrderStatus") // <-- Agregado nombre
+
   @@map("pedidos")
 }
 
 model OrderItem {
-  id        String  @id @default(uuid()) @map("id")
-  orderId   String  @map("pedido_id")
-  productId String  @map("producto_id")
-  quantity  Int     @map("cantidad")
-  unitPrice Decimal @map("precio_unitario") @db.Decimal(10, 2)
-  subtotal  Decimal @db.Decimal(10, 2)
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id])
+  id          String  @id @default(uuid()) @map("id")
+  orderId     String  @map("pedido_id")
+  productId   String  @map("producto_id")
+  quantity    Int     @map("cantidad")
+  unitPrice   Decimal @map("precio_unitario") @db.Decimal(10, 2)
+  subtotal    Decimal @db.Decimal(10, 2)
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product @relation(fields: [productId], references: [id])
   @@map("pedido_items")
 }
 
 model Event {
-  id           String    @id @default(uuid()) @map("id")
-  businessId   String    @map("negocio_id")
-  name         String    @map("nombre")
-  description  String?   @db.Text @map("descripcion")
-  startDate    DateTime  @map("fecha_inicio") @db.Timestamptz(3)
-  endDate      DateTime? @map("fecha_fin") @db.Timestamptz(3)
-  location     String?   @map("ubicacion")
-  maxCapacity  Int?      @map("capacidad_maxima")
-  ticketsAvailable Int?  @map("entradas_disponibles")
-  ticketPrice  Decimal?  @map("precio_entrada") @db.Decimal(10, 2)
-  imageUrl     String?   @map("imagen_url")
-  active       Boolean   @default(true) @map("activo")
-  createdAt    DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt    DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  id             String    @id @default(uuid()) @map("id")
+  businessId     String    @map("negocio_id")
+  name           String    @map("nombre")
+  description    String?   @db.Text @map("descripcion")
+  startDate      DateTime  @map("fecha_inicio") @db.Timestamptz(3)
+  endDate        DateTime? @map("fecha_fin") @db.Timestamptz(3)
+  location       String?   @map("ubicacion")
+  maxCapacity    Int?      @map("capacidad_maxima")
+  ticketsAvailable Int?    @map("entradas_disponibles")
+  ticketPrice    Decimal?  @map("precio_entrada") @db.Decimal(10, 2)
+  imageUrl       String?   @map("imagen_url")
+  active         Boolean   @default(true) @map("activo")
+  createdAt      DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   @@map("eventos")
 }
