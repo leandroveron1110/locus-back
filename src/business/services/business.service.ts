@@ -7,9 +7,7 @@ import { UpdateBusinessDto } from '../dto/Request/update-business.dto';
 @Injectable()
 export class BusinessService {
   constructor(
-    private prisma: PrismaService,
-    // NO inyectamos StatusService, CategoryService, TagService, ImageService aquí.
-    // La gestión de esas relaciones se hará a través de otros servicios o controladores específicos.
+    private prisma: PrismaService
   ) {}
 
   /**
@@ -23,21 +21,12 @@ export class BusinessService {
       const business = await this.prisma.business.create({
         data: {
           ...data,
-          // Conectar relaciones usando solo los IDs que recibe.
-          // La validez de ownerId y categoryId debería ser verificada por el controlador
-          // o un servicio de coordinación llamando a UserService y CategoryService.
           owner: { connect: { id: ownerId } },
           category: { connect: { id: categoryId } },
-          modulesConfig: modulesConfig || {}, // Asegura que modulesConfig sea un objeto, por defecto vacío
-          // NO se manejan 'currentStatus', 'tags', 'images' aquí directamente en la creación,
-          // ya que esas son responsabilidades de otros servicios o de operaciones posteriores.
+          modulesConfig: modulesConfig || {}
         },
-        // En la respuesta de creación, solo incluimos lo estrictamente core del Business
-        // Si necesitas Category o Owner en la respuesta, puedes incluirlos,
-        // pero recuerda que en microservicios, estos vendrían de otras llamadas.
         include: {
-          category: true, // Incluido solo si es muy esencial para la respuesta de creación
-          // owner: true, // Idealmente, se obtiene del UserService
+          category: true,
         },
       });
       return business;
