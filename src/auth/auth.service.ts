@@ -37,7 +37,7 @@ export class AuthService {
    * @returns Un objeto con el token de acceso.
    * @throws UnauthorizedException Si las credenciales son inválidas.
    */
-  async login(loginDto: LoginDto): Promise<{ accessToken: string }> {
+  async login(loginDto: LoginDto): Promise<{ id: string, accessToken: string }> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
 
     if (!user) {
@@ -48,6 +48,7 @@ export class AuthService {
     const payload: JwtPayload = { sub: user.id, rol: user.role, email: user.email };
 
     return {
+      id: user.id,
       accessToken: this.jwtService.sign(payload), // Firma el token
     };
   }

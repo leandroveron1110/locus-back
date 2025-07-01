@@ -1,18 +1,20 @@
 // src/modules/weekly-schedule/weekly-schedule.service.ts
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
-import { BusinessService } from 'src/business/services/business.service';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Inject } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateWeeklyScheduleDto } from '../dtos/Request/create-weekly-schedule.dto';
 import { WeeklyScheduleResponseDto } from '../dtos/Response/weekly-schedule-response.dto';
 import { DayOfWeek } from '@prisma/client';
 import { UpdateWeeklyScheduleDto } from '../dtos/Request/update-weekly-schedule.dto';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IBusinessService } from 'src/business/interfaces/business.interface';
 
 
 @Injectable()
 export class WeeklyScheduleService {
   constructor(
     private prisma: PrismaService,
-    private businessService: BusinessService, // Inyecta BusinessService
+    @Inject(TOKENS.IBusinessService)
+    private businessService: IBusinessService,
   ) {}
 
   /**

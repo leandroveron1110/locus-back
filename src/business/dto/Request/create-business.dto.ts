@@ -1,154 +1,116 @@
-// src/business/dto/create-business.dto.ts
 import {
   IsString,
-  IsOptional,
-  IsUrl,
-  IsEmail,
-  IsPhoneNumber,
-  IsObject,
-  IsNumber,
   IsNotEmpty,
-  MinLength,
-  MaxLength,
-  IsLatitude,
-  IsLongitude,
+  IsOptional,
+  IsEmail,
+  IsUUID,
+  IsPhoneNumber,
+  IsUrl,
+  IsObject,
+  ValidateNested,
+  Min,
+  Max,
+  IsDecimal,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client'; // Para el tipo JsonValue
+import { Type } from 'class-transformer';
+
+// --- Interfaces para modulesConfig (pueden estar en un archivo separado como types/modules-config.ts) ---
+export interface ModuleConfigEntry {
+  enabled: boolean;
+  url?: string; // Opcional: URL del microservicio si está externalizado
+  // Agrega aquí otras configuraciones específicas del módulo si son necesarias
+  // Por ejemplo, para productos: showPrices?: boolean;
+}
+
+export interface ModulesConfig {
+  weeklySchedule?: ModuleConfigEntry;
+  offeredServices?: ModuleConfigEntry;
+  products?: ModuleConfigEntry;
+  menu?: ModuleConfigEntry;
+  events?: ModuleConfigEntry;
+  // Añade más módulos configurables según tu necesidad
+}
+// --- Fin de Interfaces para modulesConfig ---
 
 export class CreateBusinessDto {
-  @ApiProperty({
-    description: 'ID del propietario del negocio (Usuario).',
-    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
-  })
-  @IsNotEmpty({ message: 'El ID del propietario no puede estar vacío.' })
-  @IsString({ message: 'El ID del propietario debe ser un string.' })
-  ownerId: string;
+  @IsUUID('4', { message: 'ownerId debe ser un UUID válido.' })
+  @IsNotEmpty({ message: 'ownerId es requerido.' })
+  ownerId: string; // ID del usuario propietario
 
-  @ApiProperty({
-    description: 'Nombre del negocio.',
-    example: 'Cafetería El Buen Día',
-  })
-  @IsNotEmpty({ message: 'El nombre del negocio no puede estar vacío.' })
-  @IsString({ message: 'El nombre debe ser un string.' })
-  @MinLength(3, { message: 'El nombre debe tener al menos 3 caracteres.' })
-  @MaxLength(100, { message: 'El nombre no puede exceder los 100 caracteres.' })
+  @IsString({ message: 'El nombre debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'El nombre del negocio es requerido.' })
   name: string;
 
-  @ApiProperty({
-    description: 'ID de la categoría a la que pertenece el negocio.',
-    example: 'cat-cafe-123',
-  })
-  @IsNotEmpty({ message: 'El ID de la categoría no puede estar vacío.' })
-  @IsString({ message: 'El ID de la categoría debe ser un string.' })
-  categoryId: string;
+  @IsUUID('4', { message: 'categoryId debe ser un UUID válido.' })
+  @IsNotEmpty({ message: 'categoryId es requerido.' })
+  categoryId: string; // ID de la categoría a la que pertenece el negocio
 
-  @ApiPropertyOptional({
-    description: 'Descripción corta del negocio (máximo 255 caracteres).',
-    example: 'Tu lugar favorito para café y pasteles caseros.',
-  })
   @IsOptional()
-  @IsString({ message: 'La descripción corta debe ser un string.' })
-  @MaxLength(255, {
-    message: 'La descripción corta no puede exceder los 255 caracteres.',
-  })
-  shortDescription?: string;
+  @IsString({ message: 'La descripción corta debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'La descripción corta no puede estar vacía si está presente.' })
+  shortDescription?: string; // Mapeado a 'descripcion_corta'
 
-  @ApiPropertyOptional({
-    description: 'Descripción completa y detallada del negocio.',
-    example:
-      'Amplia variedad de cafés de especialidad, opciones veganas y un ambiente acogedor para trabajar o relajarse.',
-  })
   @IsOptional()
-  @IsString({ message: 'La descripción completa debe ser un string.' })
-  fullDescription?: string;
+  @IsString({ message: 'La descripción completa debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'La descripción completa no puede estar vacía si está presente.' })
+  fullDescription?: string; // Mapeado a 'descripcion_completa'
 
-  @ApiProperty({
-    description: 'Dirección física del negocio.',
-    example: 'Av. Corrientes 1234, Buenos Aires',
-  })
-  @IsNotEmpty({ message: 'La dirección no puede estar vacía.' })
-  @IsString({ message: 'La dirección debe ser un string.' })
+  @IsString({ message: 'La dirección debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'La dirección es requerida.' })
   address: string;
 
-  @ApiProperty({
-    description:
-      'Número de teléfono de contacto del negocio (formato internacional).',
-    example: '+5491112345678',
-  })
-  @IsNotEmpty({ message: 'El teléfono no puede estar vacío.' })
-  @IsPhoneNumber('ZA', { message: 'El formato del teléfono no es válido.' }) // 'ZZ' para validación genérica de cualquier país
+  @IsString({ message: 'El teléfono debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'El teléfono es requerido.' })
+  // Puedes usar @IsPhoneNumber si tienes 'libphonenumber-js' instalado
+  // @IsPhoneNumber('AR', { message: 'El teléfono debe ser un número de teléfono válido para Argentina.' })
   phone: string;
 
-  @ApiProperty({
-    description: 'Número de WhatsApp del negocio (formato internacional).',
-    example: '+5491112345678',
-  })
-  @IsNotEmpty({ message: 'El número de WhatsApp no puede estar vacío.' })
-  @IsString({ message: 'El número de WhatsApp debe ser un string.' }) // Puedes usar IsPhoneNumber si quieres validación estricta
+  @IsString({ message: 'El WhatsApp debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'El WhatsApp es requerido.' })
+  // @IsPhoneNumber('AR', { message: 'El WhatsApp debe ser un número de teléfono válido para Argentina.' }) // Si es un número
   whatsapp: string;
 
-  @ApiPropertyOptional({
-    description: 'Dirección de correo electrónico del negocio.',
-    example: 'info@buendia.com',
-  })
   @IsOptional()
   @IsEmail({}, { message: 'El email debe ser una dirección de correo válida.' })
   email?: string;
 
-  @ApiPropertyOptional({
-    description: 'URL del perfil de Instagram del negocio.',
-    example: 'https://instagram.com/buendia_cafe',
-  })
+  // IMPORTANTE: Según tu esquema, 'statusId' es OPCIONAL.
+  // Si no se proporciona, Prisma usará el valor predeterminado si está definido en la base de datos (o será null).
+  @IsOptional()
+  @IsUUID('4', { message: 'statusId debe ser un UUID válido.' })
+  statusId?: string; // ID del estado inicial del negocio (ej. "pending_review")
+
   @IsOptional()
   @IsUrl({}, { message: 'La URL de Instagram debe ser una URL válida.' })
-  instagramUrl?: string;
+  instagramUrl?: string; // Mapeado a 'url_instagram'
 
-  @ApiPropertyOptional({
-    description: 'URL del perfil de Facebook del negocio.',
-    example: 'https://facebook.com/buendia.cafe',
-  })
   @IsOptional()
   @IsUrl({}, { message: 'La URL de Facebook debe ser una URL válida.' })
-  facebookUrl?: string;
+  facebookUrl?: string; // Mapeado a 'url_facebook'
 
-  @ApiPropertyOptional({
-    description: 'URL del sitio web del negocio.',
-    example: 'https://www.buendia.com',
-  })
   @IsOptional()
   @IsUrl({}, { message: 'La URL del sitio web debe ser una URL válida.' })
-  websiteUrl?: string;
+  websiteUrl?: string; // Mapeado a 'url_web'
 
-  @ApiPropertyOptional({
-    description:
-      'Configuración de los módulos opcionales activados para el negocio (JSON).',
-  })
   @IsOptional()
-  @IsObject({ message: 'La configuración de módulos debe ser un objeto JSON.' })
-  modulesConfig?: Prisma.JsonValue; // Este tipo te permite pasar cualquier JSON válido
+  @IsObject({ message: 'modulesConfig debe ser un objeto válido.' })
+  @ValidateNested()
+  @Type(() => Object) // Importante para que class-transformer intente validar el objeto anidado
+  modulesConfig?: ModulesConfig; // Mapeado a 'modulos_config'
 
-  @ApiPropertyOptional({
-    description: 'Latitud de la ubicación del negocio.',
-    example: -34.6037,
-    type: 'number',
-  })
   @IsOptional()
-  @IsNumber({}, { message: 'La latitud debe ser un número.' })
-  @IsLatitude({
-    message: 'La latitud debe ser una coordenada geográfica válida.',
-  })
-  latitude?: number;
+  @Type(() => Number) // Convertir a número antes de validar
+  // @IsDecimal({ decimal_digits: '0,7' }, { message: 'La latitud debe ser un número decimal con hasta 7 dígitos.' })
+  // @Min(-90, { message: 'La latitud debe ser mayor o igual a -90.' })
+  // @Max(90, { message: 'La latitud debe ser menor o igual a 90.' })
+  latitude?: number; // Mapeado a 'latitud'
 
-  @ApiPropertyOptional({
-    description: 'Longitud de la ubicación del negocio.',
-    example: -58.3816,
-    type: 'number',
-  })
   @IsOptional()
-  @IsNumber({}, { message: 'La longitud debe ser un número.' })
-  @IsLongitude({
-    message: 'La longitud debe ser una coordenada geográfica válida.',
-  })
-  longitude?: number;
+  @Type(() => Number) // Convertir a número antes de validar
+  // @IsDecimal({ decimal_digits: '0,7' }, { message: 'La longitud debe ser un número decimal con hasta 7 dígitos.' })
+  // @Min(-180, { message: 'La longitud debe ser mayor o igual a -180.' })
+  // @Max(180, { message: 'La longitud debe ser menor o igual a 180.' })
+  longitude?: number; // Mapeado a 'longitud'
+
+  // averageRating y ratingsCount son manejados por el sistema, no se crean directamente
 }

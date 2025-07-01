@@ -35,8 +35,8 @@ export class CategoryController {
   // --- Rutas para ADMINISTRADORES (Crear, Actualizar, Desactivar Categorías) ---
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  @Roles(UserRole.ADMIN)
+  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
+  // @Roles(UserRole.CLIENT)
   @HttpCode(HttpStatus.CREATED) // Código 201 para creación exitosa
   async create(
     @Body() createCategoryDto: CreateCategoryDto,

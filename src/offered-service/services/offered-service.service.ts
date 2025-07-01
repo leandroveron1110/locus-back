@@ -1,17 +1,19 @@
 // src/modules/offered-service/offered-service.service.ts
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { BusinessService } from 'src/business/services/business.service';
+import { Injectable, NotFoundException, ConflictException, Inject } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateOfferedServiceDto } from '../dtos/Request/create-offered-service.dto';
 import { OfferedServiceResponseDto } from '../dtos/Response/offered-service-response.dto';
 import { UpdateOfferedServiceDto } from '../dtos/Request/update-offered-service.dto';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IBusinessService } from 'src/business/interfaces/business.interface';
 
 
 @Injectable()
 export class OfferedServiceService {
   constructor(
     private prisma: PrismaService,
-    private businessService: BusinessService, // Inyecta BusinessService
+        @Inject(TOKENS.IBusinessService)
+        private businessService: IBusinessService,
   ) {}
 
   /**

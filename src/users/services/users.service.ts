@@ -44,10 +44,16 @@ export class UsersService {
    * @param id El ID único del usuario.
    * @returns El objeto User si se encuentra, o null.
    */
-  async findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({
+  async findById(id: string): Promise<User> {
+    const user = await this.prisma.user.findUnique({
       where: { id },
     });
+
+    if(!user) {
+      throw new NotFoundException(`Usuario con el ID ${id} no encontrado`)
+    }
+
+    return user;
   }
 
   /**

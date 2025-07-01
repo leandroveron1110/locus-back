@@ -1,25 +1,30 @@
-// Si necesitas transformar el objeto de Prisma, importa la clase Transformer
-import { Image as PrismaImage } from '@prisma/client'; // Importa el tipo Image de Prisma
+// src/modules/image/dtos/Response/image-response.dto.ts
+import { Image } from '@prisma/client'; // Importa el tipo de Prisma para 'Image'
 
 export class ImageResponseDto {
   id: string;
   url: string;
-  businessId: string;
-  type: string;
-  provider: string;
-  order?: number;
+  publicId: string;
+  format?: string;
+  resourceType: string;
+  width?: number;
+  height?: number;
+  bytes?: number;
+  folder?: string;
   createdAt: Date;
   updatedAt: Date;
 
-  // Método estático para crear una instancia de ImageResponseDto desde un objeto Prisma Image
-  static fromPrisma(image: PrismaImage): ImageResponseDto {
+  static fromPrisma(image: Image): ImageResponseDto {
     const dto = new ImageResponseDto();
     dto.id = image.id;
     dto.url = image.url;
-    dto.businessId = image.businessId;
-    dto.type = image.type;
-    dto.provider = image.provider;
-    dto.order = image.order ?? undefined; // Si es null en Prisma, lo hace undefined
+    dto.publicId = image.publicId;
+    dto.format = image.format ?? undefined;
+    dto.resourceType = image.resourceType;
+    dto.width = image.width ?? undefined;
+    dto.height = image.height ?? undefined;
+    dto.bytes = image.bytes ? Number(image.bytes) : undefined; // Convertir BigInt a Number
+    dto.folder = image.folder ?? undefined;
     dto.createdAt = image.createdAt;
     dto.updatedAt = image.updatedAt;
     return dto;

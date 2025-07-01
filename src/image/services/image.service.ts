@@ -1,69 +1,57 @@
-// src/modules/image/image.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { BusinessService } from 'src/business/services/business.service';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateImageDto, ImageType } from '../dtos/Request/create-image.dto';
-import { ImageResponseDto } from '../dtos/Response/image-response.dto';
+// src/modules/image/services/image.service.ts
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service'; // Asegúrate de que esta ruta sea correcta
+import { CreateImageDto } from '../dtos/Request/create-image.dto';
 import { UpdateImageDto } from '../dtos/Request/update-image.dto';
-
+import { ImageResponseDto } from '../dtos/Response/image-response.dto';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { IImageService } from '../interfaces/image-service.interface';
 
 @Injectable()
-export class ImageService {
-  constructor(
-    private prisma: PrismaService,
-    private businessService: BusinessService, // Inyecta BusinessService
-  ) {}
+export class ImageService implements IImageService {
+  private readonly logger = new Logger(ImageService.name);
+
+  constructor(private prisma: PrismaService) {}
 
   /**
-   * Crea una nueva imagen asociada a un negocio.
-   * @param createImageDto Datos para crear la imagen.
-   * @returns La imagen creada.
+   * Crea una nueva entrada de metadatos de imagen en la base de datos.
+   * Esto NO asocia la imagen a ninguna entidad (negocio, producto, etc.).
+   * Esa asignación se hace en los servicios específicos (ej., BusinessImageService).
+   * @param createImageDto Datos de la imagen a crear.
+   * @returns La imagen creada (metadatos).
    */
   async create(createImageDto: CreateImageDto): Promise<ImageResponseDto> {
-    const { businessId, ...data } = createImageDto;
-
-    // 1. Validar que el negocio exista
-    await this.businessService.findOne(businessId); // Esto lanzará NotFoundException si no existe
-
-    // 2. Si el tipo es 'logo', asegurar que no haya otro logo para este negocio
-    if (data.type === 'logo') {
-      const existingLogo = await this.prisma.image.findFirst({
-        where: {
-          businessId: businessId,
-          type: 'logo',
-        },
+    try {
+      this.logger.log(
+        `Intentando de crear una imagen: ${JSON.stringify(createImageDto)}`,
+      );
+      const image = await this.prisma.image.create({
+        data: createImageDto,
       });
-
-      if (existingLogo) {
-        // Podrías actualizar el logo existente o lanzar una excepción
-        // Por simplicidad, aquí lo actualizaremos si ya existe
-        return this.update(existingLogo.id, { url: data.url, provider: data.provider });
-        // O podrías lanzar un error: throw new ConflictException('Business already has a logo.');
-      }
+      this.logger.log(`Imagen creada ID: ${image.id}`);
+      return ImageResponseDto.fromPrisma(image);
+    } catch (error) {
+      this.logger.error(
+        `Failed to create image. Error: ${error.message}`,
+        error.stack,
+      );
+      throw new error();
     }
-
-    const image = await this.prisma.image.create({
-      data: {
-        ...data,
-        business: {
-          connect: { id: businessId }, // Conecta la imagen al negocio existente
-        },
-      },
-    });
-    return ImageResponseDto.fromPrisma(image);
   }
 
   /**
-   * Obtiene todas las imágenes, opcionalmente filtradas por negocio.
-   * @param businessId (Opcional) ID del negocio para filtrar.
-   * @returns Lista de imágenes.
+   * Obtiene todas las imágenes (metadatos).
+   * @returns Lista de todas las imágenes.
    */
-  async findAll(businessId?: string): Promise<ImageResponseDto[]> {
-    const images = await this.prisma.image.findMany({
-      where: {
-        businessId: businessId, // Aplica el filtro si businessId está presente
-      },
-    });
+  async findAll(): Promise<ImageResponseDto[]> {
+    this.logger.log(`Attempting to retrieve all image`);
+    const images = await this.prisma.image.findMany();
+    this.logger.log(`Found ${images.length} images.`);
     return images.map(ImageResponseDto.fromPrisma);
   }
 
@@ -74,95 +62,116 @@ export class ImageService {
    * @throws NotFoundException Si la imagen no se encuentra.
    */
   async findOne(id: string): Promise<ImageResponseDto> {
+    this.logger.log(`Attempting to find image with ID: ${id}`);
     const image = await this.prisma.image.findUnique({
       where: { id },
     });
     if (!image) {
+      this.logger.warn(`Image with ID "${id}" not found.`);
       throw new NotFoundException(`Image with ID "${id}" not found.`);
     }
+    this.logger.log(`Successfully found image with ID: ${id}`);
     return ImageResponseDto.fromPrisma(image);
   }
 
-  /**
-   * Obtiene todas las imágenes de galería para un negocio específico.
-   * @param businessId ID del negocio.
-   * @returns Lista de imágenes de galería ordenadas.
-   * @throws NotFoundException Si el negocio no existe.
-   */
-  async findGalleryImagesByBusinessId(businessId: string): Promise<ImageResponseDto[]> {
-    await this.businessService.findOne(businessId); // Valida que el negocio exista
-
+  async findManyByIds(ids: string[]): Promise<ImageResponseDto[]> {
+    if (ids.length === 0) {
+      return [];
+    }
     const images = await this.prisma.image.findMany({
       where: {
-        businessId: businessId,
-        type: ImageType.GALLERY,
-      },
-      orderBy: {
-        order: 'asc', // Ordena por el campo 'order'
+        id: { in: ids },
       },
     });
-    return images.map(ImageResponseDto.fromPrisma);
+
+    const formImages: ImageResponseDto[] = images.map((img) =>
+      ImageResponseDto.fromPrisma(img),
+    );
+
+    return formImages;
   }
 
   /**
-   * Obtiene la imagen de logo para un negocio específico.
-   * @param businessId ID del negocio.
-   * @returns La imagen de logo o null si no existe.
-   */
-  async findLogoImageByBusinessId(businessId: string): Promise<ImageResponseDto | null> {
-    await this.businessService.findOne(businessId); // Valida que el negocio exista
-
-    const logo = await this.prisma.image.findFirst({
-      where: {
-        businessId: businessId,
-        type: ImageType.LOGO,
-      },
-    });
-    return logo ? ImageResponseDto.fromPrisma(logo) : null;
-  }
-
-  /**
-   * Actualiza una imagen existente.
+   * Actualiza los metadatos de una imagen existente.
    * @param id ID de la imagen a actualizar.
-   * @param updateImageDto Datos para actualizar la imagen.
+   * @param updateImageDto Datos para actualizar.
    * @returns La imagen actualizada.
    * @throws NotFoundException Si la imagen no se encuentra.
    */
-  async update(id: string, updateImageDto: UpdateImageDto): Promise<ImageResponseDto> {
-    // Opcional: Si updateImageDto.businessId está presente, podrías validar el nuevo negocio
-    if (updateImageDto.businessId) {
-      await this.businessService.findOne(updateImageDto.businessId);
-    }
-
+  async update(
+    id: string,
+    updateImageDto: UpdateImageDto,
+  ): Promise<ImageResponseDto> {
+    this.logger.log(
+      `Attempting to update image with ID: ${id} with data: ${JSON.stringify(updateImageDto)}`,
+    );
     try {
       const updatedImage = await this.prisma.image.update({
         where: { id },
         data: updateImageDto,
       });
+      this.logger.log(`Successfully updated image with ID: ${id}`);
+
       return ImageResponseDto.fromPrisma(updatedImage);
     } catch (error) {
-      // Manejo específico para el caso de que la imagen no exista
-      if (error.code === 'P2025') { // Código de error de Prisma para 'record not found'
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        // P2025: An operation failed because it depends on one or more records that were required but not found.
+        this.logger.warn(`Image with ID "${id}" not found for update.`);
         throw new NotFoundException(`Image with ID "${id}" not found.`);
       }
-      throw error; // Propagar otros errores
+      this.logger.error(
+        `Failed to update image with ID: ${id}. Error: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
   }
 
   /**
-   * Elimina una imagen.
+   * Elimina una imagen de la base de datos.
+   * NOTA IMPORTANTE: Esto SOLO elimina el registro de la tabla 'imagenes'.
+   * La eliminación física de la imagen del proveedor de almacenamiento (ej. Cloudinary)
+   * debe manejarse por separado, por ejemplo, en un hook de eliminación
+   * o un servicio dedicado a la gestión de almacenamiento externo.
    * @param id ID de la imagen a eliminar.
    * @throws NotFoundException Si la imagen no se encuentra.
+   * @throws ConflictException Si la imagen está siendo referenciada por otra tabla (dependiendo de onDelete).
    */
   async remove(id: string): Promise<void> {
+    this.logger.log(`Attempting to remove image with ID: ${id}`);
+
+    // Primero, verificar si la imagen existe para lanzar NotFoundException si no
+    await this.findOne(id);
     try {
+      // Prisma manejará las cascadas si configuraste onDelete en el schema.
+      // Las entradas de la tabla intermedia (BusinessImage, ProductImage) que
+      // referencien esta imagen se eliminarán.
+      // Las relaciones 1:1 (logoId, avatarId, etc.) se pondrán a null.
       await this.prisma.image.delete({
         where: { id },
       });
+      this.logger.log(`Successfully removed image with ID: ${id}`);
     } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException(`Image with ID "${id}" not found.`);
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        // P2003: Foreign key constraint failed on the field
+        this.logger.warn(
+          `Failed to remove image with ID "${id}" due to foreign key constraint.`,
+          error.stack,
+        );
+        throw new ConflictException(
+          `Image with ID "${id}" cannot be removed as it is referenced by other entities.`,
+        );
       }
+      this.logger.error(
+        `Failed to remove image with ID: ${id}. Error: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

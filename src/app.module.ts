@@ -20,6 +20,7 @@ import { EventModule } from './event/event.module';
 import { RatingModule } from './rating/rating.module';
 import { SpecialScheduleModule } from './special-schedule/special-schedule.module';
 import { SearchModule } from './search/search.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { SearchModule } from './search/search.module';
     RatingModule,
     SpecialScheduleModule,
     SearchModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

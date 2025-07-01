@@ -1,45 +1,90 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client'; // Para tipos de Prisma como JsonValue y WhereInput
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma, UserRole } from '@prisma/client'; // Para tipos de Prisma como JsonValue y WhereInput
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateBusinessDto } from '../dto/Request/create-business.dto';
 import { UpdateBusinessDto } from '../dto/Request/update-business.dto';
+import { UsersService } from 'src/users/services/users.service';
+import { CategoryService } from 'src/categories/services/categories.service';
+import { StatusService } from 'src/status/services/status.service';
+import { BusinessPreviewDto, BusinessResponseDto } from '../dto/Response/business-response.dto';
+import { EntityType } from 'src/common/enums/entity-type.enum';
+import { IBusinessService } from '../interfaces/business.interface';
 
 @Injectable()
-export class BusinessService {
+export class BusinessService implements IBusinessService {
   constructor(
-    private prisma: PrismaService
+    private prisma: PrismaService,
+    private userService: UsersService,
+    private categoryService: CategoryService,
+    private statusService: StatusService,
   ) {}
 
   /**
    * Crea un nuevo negocio en la base de datos.
    * El estado inicial, las categorías, tags e imágenes se manejan externamente o en el controlador.
    */
-  async create(createBusinessDto: CreateBusinessDto) {
-    const { ownerId, categoryId, modulesConfig, ...data } = createBusinessDto;
+  async create(
+    createBusinessDto: CreateBusinessDto,
+  ): Promise<BusinessResponseDto> {
+    const { ownerId, categoryId, statusId, modulesConfig, ...data } =
+      createBusinessDto;
+
+    // 1. Validar existencia del propietario (User)
+    // El método findOne de UserService debería lanzar NotFoundException si no lo encuentra
+    await this.userService.findById(ownerId); // Usar findOne del servicio inyectado
+
+    // 2. Validar existencia de la categoría
+    await this.categoryService.findOne(categoryId); // Usar findOne del servicio inyectado
+
+    // 3. Validar existencia del estado si se proporciona
+    let currentStatus;
+    if (statusId) {
+      currentStatus = await this.statusService.findByNameAndEntityType(
+        statusId,
+        EntityType.BUSINESS,
+      ); // Asumiendo que findByNameAndEntityType existe
+    }
+    // Si no se proporciona statusId, Prisma usará el default del esquema si lo hay, o será null.
 
     try {
+      // 4. Crear el negocio, conectando las relaciones por ID
       const business = await this.prisma.business.create({
         data: {
           ...data,
           owner: { connect: { id: ownerId } },
           category: { connect: { id: categoryId } },
-          modulesConfig: modulesConfig || {}
-        },
-        include: {
-          category: true,
+          // Conectar status si está presente, de lo contrario, será null o usará el default de Prisma
+          currentStatus: statusId
+            ? { connect: { id: currentStatus.id } }
+            : undefined,
+          modulesConfig: (modulesConfig || {}) as Prisma.InputJsonValue, // Asegura que modulesConfig sea un objeto vacío si es null/undefined
         },
       });
-      return business;
+
+      // 5. Transformar el resultado de Prisma a tu DTO de respuesta
+      return BusinessResponseDto.fromPrisma(business);
     } catch (error) {
+      // Manejo específico de errores de Prisma (ej. si la unicidad falla en 'name' y 'address')
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        // P2003: Foreign key constraint failed (ej. ownerId o categoryId no existen)
+        // P2002: Unique constraint violation (ej. si name y address son @@unique y ya existen)
+        if (error.code === 'P2002') {
+          throw new ConflictException(
+            'A business with the same name and address already exists.',
+          );
+        }
+        // P2003: Foreign key constraint failed (menos probable si ya validamos con findOne,
+        // pero es una buena salvaguarda si las validaciones previas fallan silenciosamente o hay condiciones de carrera)
         if (error.code === 'P2003') {
           throw new NotFoundException(
-            'ID de propietario o categoría no válido. Asegúrese de que existan.',
+            'Invalid owner or category ID. Please ensure they exist.',
           );
         }
       }
-      throw error;
+      throw error; // Propagar cualquier otro error
     }
   }
 
@@ -69,6 +114,15 @@ export class BusinessService {
       },
     });
   }
+
+  async findAllPreview(): Promise<BusinessPreviewDto[]> {
+  const businesses = await this.prisma.business.findMany({
+    include: {
+      category: true,
+    },
+  });
+  return businesses.map(BusinessPreviewDto.fromPrisma);
+}
 
   /**
    * Busca un único negocio por su ID.

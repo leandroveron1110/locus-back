@@ -16,12 +16,12 @@ export class StatusController {
     return this.statusService.create(createStatusDto);
   }
 
-  @Get()
-  @HttpCode(HttpStatus.OK)
-  // Permite filtrar estados por tipo de entidad (ej. /statuses?entityType=BUSINESS)
-  findAll(@Query('entityType') entityType?: string): Promise<StatusResponseDto[]> {
-    return this.statusService.findAll(entityType);
-  }
+  // @Get()
+  // @HttpCode(HttpStatus.OK)
+  // // Permite filtrar estados por tipo de entidad (ej. /statuses?entityType=BUSINESS)
+  // findAll(@Query('entityType') entityType?: string): Promise<StatusResponseDto[]> {
+  //   return this.statusService.findAll(entityType);
+  // }
 
   @Get(':id')
   @HttpCode(HttpStatus.OK)
