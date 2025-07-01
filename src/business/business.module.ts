@@ -23,9 +23,17 @@ import { TOKENS } from 'src/common/constants/tokens';
   providers: [
     {
       provide: TOKENS.IBusinessService,
-      useClass: BusinessService
-    }
-    , BusinessGalleryService, BusinessLogoService],
+      useClass: BusinessService,
+    },
+    {
+      provide: TOKENS.IBusinessGalleryService,
+      useClass: BusinessGalleryService,
+    },
+    {
+      provide: TOKENS.IBusinessLogoService,
+      useClass: BusinessLogoService,
+    },
+  ],
   imports: [
     CategoriesModule,
     TargsModule,
@@ -35,6 +43,10 @@ import { TOKENS } from 'src/common/constants/tokens';
     forwardRef(() => ImageModule),
     UploadsModule,
   ],
-  exports: [TOKENS.IBusinessService],
+  exports: [
+    TOKENS.IBusinessService,
+    TOKENS.IBusinessGalleryService,
+    TOKENS.IBusinessLogoService,
+  ],
 })
 export class BusinessModule {}

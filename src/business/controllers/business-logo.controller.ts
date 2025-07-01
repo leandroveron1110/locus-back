@@ -13,6 +13,7 @@ import {
   HttpCode,
   BadRequestException,
   NotFoundException,
+  Inject,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
@@ -24,7 +25,8 @@ import {
   ApiBody,
   ApiParam,
 } from '@nestjs/swagger';
-import { BusinessLogoService } from '../services/images/business-logo.service';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IBusinessLogoService } from '../interfaces/business-logo-service.interface';
 
 // DTO para la actualización de metadatos del logo (sin el archivo)
 // Puedes crear un archivo separado si es más complejo
@@ -39,7 +41,10 @@ class UpdateLogoMetadataDto {
 @ApiTags('Business Logos')
 @Controller('businesses/:businessId/logo')
 export class BusinessLogoController {
-  constructor(private readonly businessLogoService: BusinessLogoService) {}
+  constructor(
+    @Inject(TOKENS.IBusinessLogoService)
+    private readonly businessLogoService: IBusinessLogoService)
+     {}
 
   @Post()
   @ApiOperation({ summary: 'Upload and assign a new logo to a business' })

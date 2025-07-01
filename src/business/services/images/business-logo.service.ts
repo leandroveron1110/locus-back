@@ -13,14 +13,19 @@ import { UploadsService } from 'src/uploads/services/uploads.service';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IImageService } from 'src/image/interfaces/image-service.interface';
 import { IBusinessService } from 'src/business/interfaces/business.interface';
+import { IBusinessLogoService } from 'src/business/interfaces/business-logo-service.interface';
 
 @Injectable()
-export class BusinessLogoService extends BaseImageManager {
+export class BusinessLogoService
+  extends BaseImageManager
+  implements IBusinessLogoService
+{
   constructor(
     protected readonly prisma: PrismaService,
     @Inject(TOKENS.IBusinessService)
-  private readonly businessService: IBusinessService,
-   @Inject(TOKENS.IImageService) protected readonly imageService: IImageService,
+    private readonly businessService: IBusinessService,
+    @Inject(TOKENS.IImageService)
+    protected readonly imageService: IImageService,
     uploadsService: UploadsService,
   ) {
     super(imageService, uploadsService, prisma);

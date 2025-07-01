@@ -15,7 +15,8 @@ import {
   ParseIntPipe,
   Optional,
   BadRequestException, // Asegúrate de importar BadRequestException
-  NotFoundException, // Asegúrate de importar NotFoundException
+  NotFoundException,
+  Inject, // Asegúrate de importar NotFoundException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
@@ -29,6 +30,8 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { BusinessGalleryService } from '../services/images/business-gallery.service';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IBusinessGalleryService } from '../interfaces/business-gallery.interface';
 
 // DTO para la actualización de metadatos de la imagen de galería
 class UpdateGalleryImageDto {
@@ -43,7 +46,8 @@ class UpdateGalleryImageDto {
 @Controller('businesses/:businessId/gallery')
 export class BusinessGalleryController {
   constructor(
-    private readonly businessGalleryService: BusinessGalleryService,
+    @Inject(TOKENS.IBusinessGalleryService)
+    private readonly businessGalleryService: IBusinessGalleryService,
   ) {}
 
   @Post()
