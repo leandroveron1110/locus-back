@@ -5,10 +5,11 @@ import { User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs'; // Importa bcryptjs aquí
 import { CreateUserDto } from '../dto/Request/create-user.dto';
 import { UpdateUserDto } from '../dto/Request/update-user.dto';
+import { IUserService } from '../interfaces/User-service.interface';
 
 
 @Injectable()
-export class UsersService {
+export class UsersService implements IUserService{
   constructor(private prisma: PrismaService) {}
 
   /**

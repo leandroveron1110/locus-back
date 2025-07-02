@@ -1,3 +1,5 @@
+import { Business as PrismaBusiness } from '@prisma/client'; // Importa el tipo Business de Prisma
+
 export interface ModuleConfigEntry {
   enabled: boolean;
   url?: string;
@@ -15,7 +17,6 @@ export interface ModulesConfig {
 // --- Fin de Interfaces para modulesConfig ---
 
 
-import { Business as PrismaBusiness } from '@prisma/client'; // Importa el tipo Business de Prisma
 
 export class BusinessResponseDto {
   id: string;

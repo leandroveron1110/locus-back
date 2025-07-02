@@ -40,9 +40,6 @@ export class WeeklyScheduleService {
   async create(createWeeklyScheduleDto: CreateWeeklyScheduleDto): Promise<WeeklyScheduleResponseDto> {
     const { businessId, dayOfWeek, openingTime, closingTime } = createWeeklyScheduleDto;
 
-    // 1. Validar que el negocio exista
-    await this.businessService.findOne(businessId);
-
     const parsedOpeningTime = this.parseTimeStringToDate(openingTime);
     const parsedClosingTime = this.parseTimeStringToDate(closingTime);
 
@@ -143,11 +140,6 @@ export class WeeklyScheduleService {
    */
   async update(id: string, updateWeeklyScheduleDto: UpdateWeeklyScheduleDto): Promise<WeeklyScheduleResponseDto> {
     const { businessId, dayOfWeek, openingTime, closingTime } = updateWeeklyScheduleDto;
-
-    // Opcional: Validar si el businessId que se intenta cambiar existe
-    if (businessId) {
-      await this.businessService.findOne(businessId);
-    }
 
     let parsedOpeningTime: Date | undefined;
     let parsedClosingTime: Date | undefined;

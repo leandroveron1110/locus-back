@@ -1,16 +1,18 @@
 // src/auth/jwt.strategy.ts
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { UsersService } from '../users/services/users.service'; // Necesita acceso al servicio de usuarios
 import { JwtPayload } from './interfaces/jwt-payload.interface'; // Importa tu interfaz de payload
+import { TOKENS } from 'src/common/constants/tokens';
+import { IUserService } from 'src/users/interfaces/User-service.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') { // 'jwt' es el nombre de la estrategia
  constructor(
     private configService: ConfigService,
-    private usersService: UsersService,
+    @Inject(TOKENS.IUserService)
+    private usersService: IUserService,
   ) {
     // Obtener la clave secreta y lanzar un error si no está definida
     // Esto asegura que 'secret' sea siempre un string

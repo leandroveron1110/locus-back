@@ -5,9 +5,10 @@ import { CreateStatusDto } from '../dtos/Request/create-status.dto';
 import { StatusResponseDto } from '../dtos/Response/status-response.dto';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { UpdateStatusDto } from '../dtos/Request/update-status.dto';
+import { IStatusService } from '../interfaces/status-service.interface';
 
 @Injectable()
-export class StatusService {
+export class StatusService implements IStatusService{
   constructor(private prisma: PrismaService) {}
 
   /**

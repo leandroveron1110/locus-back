@@ -1,27 +1,55 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, UserRole } from '@prisma/client'; // Para tipos de Prisma como JsonValue y WhereInput
+import { Prisma } from '@prisma/client'; // Para tipos de Prisma como JsonValue y WhereInput
 import { PrismaService } from 'src/prisma/prisma.service';
+
+// interface service
+import { IBusinessService } from '../interfaces/business.interface';
+import { ICategoryService } from 'src/categories/interfaces/Category.interface';
+import { IUserService } from 'src/users/interfaces/User-service.interface';
+import { IStatusService } from 'src/status/interfaces/status-service.interface';
+
+
 import { CreateBusinessDto } from '../dto/Request/create-business.dto';
 import { UpdateBusinessDto } from '../dto/Request/update-business.dto';
-import { UsersService } from 'src/users/services/users.service';
-import { CategoryService } from 'src/categories/services/categories.service';
-import { StatusService } from 'src/status/services/status.service';
 import { BusinessPreviewDto, BusinessResponseDto } from '../dto/Response/business-response.dto';
 import { EntityType } from 'src/common/enums/entity-type.enum';
-import { IBusinessService } from '../interfaces/business.interface';
+import { TOKENS } from 'src/common/constants/tokens';
 
 @Injectable()
 export class BusinessService implements IBusinessService {
   constructor(
     private prisma: PrismaService,
-    private userService: UsersService,
-    private categoryService: CategoryService,
-    private statusService: StatusService,
+    @Inject(TOKENS.IUserService)
+    private userService: IUserService,
+    @Inject(TOKENS.ICategoryService)
+    private categoryService: ICategoryService,
+    @Inject(TOKENS.IStatusService)
+    private statusService: IStatusService,
   ) {}
+
+
+  async findOneProfileById(id: string): Promise<any> {
+    const bussines = await this.findOne(id);
+
+    if(!bussines.statusId){
+      throw new NotFoundException(`Negocio no tiene status.`);
+    }
+    const status = await this.statusService.findOne(bussines.statusId);
+
+    bussines.category;
+    
+    let response = {
+      ...bussines,
+      ...status
+    }
+
+
+  }
 
   /**
    * Crea un nuevo negocio en la base de datos.

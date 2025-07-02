@@ -1,14 +1,17 @@
 // src/modules/status/status.controller.ts
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from '@nestjs/common';
-import { StatusService } from '../services/status.service';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query, Inject } from '@nestjs/common';
 import { CreateStatusDto } from '../dtos/Request/create-status.dto';
 import { StatusResponseDto } from '../dtos/Response/status-response.dto';
 import { UpdateStatusDto } from '../dtos/Request/update-status.dto';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IStatusService } from '../interfaces/status-service.interface';
 
 
 @Controller('statuses') // Prefijo de ruta para este controlador (plural)
 export class StatusController {
-  constructor(private readonly statusService: StatusService) {}
+  constructor(
+    @Inject(TOKENS.IStatusService)
+    private readonly statusService: IStatusService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED) // 201 Created

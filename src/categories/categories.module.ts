@@ -1,10 +1,16 @@
 import { Module } from '@nestjs/common';
 import { CategoryService } from './services/categories.service';
 import { CategoryController } from './controllers/categories.controller';
+import { TOKENS } from 'src/common/constants/tokens';
 
 @Module({
-  providers: [CategoryService],
+  providers: [
+    {
+      provide: TOKENS.ICategoryService,
+      useClass: CategoryService,
+    },
+  ],
   controllers: [CategoryController],
-  exports: [CategoryService]
+  exports: [TOKENS.ICategoryService],
 })
 export class CategoriesModule {}

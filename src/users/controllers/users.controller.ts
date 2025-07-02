@@ -12,9 +12,9 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
   NotFoundException,
-  UseGuards, // Importa UseGuards
+  UseGuards,
+  Inject, // Importa UseGuards
 } from '@nestjs/common';
-import { UsersService } from '../services/users.service';
 import { plainToInstance } from 'class-transformer';
 import { CreateUserDto } from '../dto/Request/create-user.dto'; // Asegúrate que sea la ruta correcta
 import { UserResponseDto } from '../dto/Response/user-response.dto'; // Asegúrate que sea la ruta correcta
@@ -26,11 +26,15 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'; // Ajusta la ru
 import { RolesGuard } from '../../auth/guards/roles.guard'; // Ajusta la ruta si es necesario
 import { Roles } from '../../auth/decorators/roles.decorator'; // Ajusta la ruta si es necesario
 import { UserRole } from '@prisma/client'; // Importa tu enum de roles de Prisma
+import { TOKENS } from 'src/common/constants/tokens';
+import { IUserService } from '../interfaces/User-service.interface';
 
 @UseInterceptors(ClassSerializerInterceptor) // Aplica el interceptor para transformar las respuestas automáticamente
 @Controller('users') // Prefijo para todas las rutas de este controlador (ej. /users)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    @Inject(TOKENS.IUserService)
+    private readonly usersService: IUserService) {}
 
   // 1. Ruta para crear un usuario (ej. registro): Solo si se usa la clave secreta de administrador
   // Esta es la misma que ya tenías y está correctamente protegida por AdminSecretGuard.

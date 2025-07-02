@@ -1,16 +1,18 @@
 // src/auth/auth.service.ts
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt'; // Para generar JWTs
-import { UsersService } from '../users/services/users.service'; // Para validar usuarios
 import { LoginDto } from './dto/login.dto';
 import { User } from '@prisma/client'; // El tipo User de Prisma
 import * as bcrypt from 'bcryptjs'; // Para comparar contraseñas (asegúrate de tenerlo instalado)
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IUserService } from 'src/users/interfaces/User-service.interface';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService, // Inyecta el servicio de usuarios
+    @Inject(TOKENS.IUserService)
+    private usersService: IUserService, // Inyecta el servicio de usuarios
     private jwtService: JwtService,     // Inyecta el servicio JWT
   ) {}
 

@@ -18,6 +18,8 @@ export interface IBusinessService {
 
   findOne(id: string): Promise<any>;
 
+  findOneProfileById(id: string): Promise<any>;
+
   update(id: string, dto: UpdateBusinessDto): Promise<any>;
 
   remove(id: string): Promise<any>;

@@ -11,9 +11,9 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
   NotFoundException,
-  UseGuards, // Importa UseGuards
+  UseGuards,
+  Inject, // Importa UseGuards
 } from '@nestjs/common';
-import { CategoryService } from '../services/categories.service';
 import { plainToInstance } from 'class-transformer';
 
 // DTOs
@@ -26,11 +26,15 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client'; // Importa tu enum de roles de Prisma
+import { TOKENS } from 'src/common/constants/tokens';
+import { ICategoryService } from '../interfaces/Category.interface';
 
 @UseInterceptors(ClassSerializerInterceptor) // Transforma las respuestas automáticamente usando @Expose
 @Controller('categories') // Prefijo para todas las rutas: /categories
 export class CategoryController {
-  constructor(private readonly categoryService: CategoryService) {}
+  constructor(
+    @Inject(TOKENS.ICategoryService)
+    private readonly categoryService: ICategoryService) {}
 
   // --- Rutas para ADMINISTRADORES (Crear, Actualizar, Desactivar Categorías) ---
 

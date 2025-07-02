@@ -21,6 +21,7 @@ import { RatingModule } from './rating/rating.module';
 import { SpecialScheduleModule } from './special-schedule/special-schedule.module';
 import { SearchModule } from './search/search.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { IsBusinessIdExistsConstraint } from './common/validators/is-business-id-exists.validator';
 
 @Module({
   imports: [
@@ -49,6 +50,6 @@ import { UploadsModule } from './uploads/uploads.module';
     UploadsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, IsBusinessIdExistsConstraint],
 })
 export class AppModule {}
