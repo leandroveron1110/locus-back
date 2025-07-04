@@ -4,6 +4,7 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { StatusController } from './controllers/status.controller';
 import { StatusService } from './services/status.service';
 import { TOKENS } from 'src/common/constants/tokens';
+import { StatusExistenceValidator } from './services/status-existence.validator';
 
 @Module({
   imports: [
@@ -13,7 +14,12 @@ import { TOKENS } from 'src/common/constants/tokens';
   providers: [{
     provide: TOKENS.IStatusService,
     useClass: StatusService
-  }],
-  exports: [TOKENS.IStatusService], // Exporta StatusService para que otros módulos puedan usarlo
+  },
+  {
+    provide: TOKENS.IStatusValidator,
+    useClass: StatusExistenceValidator
+  }
+],
+  exports: [TOKENS.IStatusService, TOKENS.IStatusValidator], // Exporta StatusService para que otros módulos puedan usarlo
 })
 export class StatusModule {}

@@ -1,8 +1,7 @@
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
 
 export interface IBusinessLogoService {
-
-    uploadAndAssignLogo(
+  uploadAndAssignLogo(
     businessId: string,
     file: Express.Multer.File,
   ): Promise<ImageResponseDto>;

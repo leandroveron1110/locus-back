@@ -12,8 +12,8 @@ import { BaseImageManager } from '../../../common/abstracts/base-image-manager.a
 import { UploadsService } from 'src/uploads/services/uploads.service';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IImageService } from 'src/image/interfaces/image-service.interface';
-import { IBusinessService } from 'src/business/interfaces/business.interface';
 import { IBusinessLogoService } from 'src/business/interfaces/business-logo-service.interface';
+import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 
 @Injectable()
 export class BusinessLogoService
@@ -22,8 +22,8 @@ export class BusinessLogoService
 {
   constructor(
     protected readonly prisma: PrismaService,
-    @Inject(TOKENS.IBusinessService)
-    private readonly businessService: IBusinessService,
+    @Inject(TOKENS.IBusinessValidator)
+    private readonly businessValidator: IExistenceValidator,
     @Inject(TOKENS.IImageService)
     protected readonly imageService: IImageService,
     uploadsService: UploadsService,
@@ -38,7 +38,7 @@ export class BusinessLogoService
     this.logger.log(
       `Starting upload and assign logo for business ID: ${businessId}.`,
     );
-    await this.businessService.findOne(businessId);
+    await this.businessValidator.checkOne(businessId);
 
     // Usa el método de la clase base para subir y persistir la imagen en el ImageService
     const newLogoImage = await this.uploadAndPersistImage(

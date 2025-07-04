@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 
 export class CreateStatusDto {
   @IsString()
@@ -17,7 +18,7 @@ export class CreateStatusDto {
   @IsString()
   @IsNotEmpty()
   // Tipo de entidad a la que aplica este estado (ej. "BUSINESS", "ORDER", "USER", "BOOKING")
-  entityType: string;
+  entityType: EntityType;
 
   @IsOptional()
   @IsBoolean()

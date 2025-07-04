@@ -5,6 +5,7 @@ import { StatusResponseDto } from '../dtos/Response/status-response.dto';
 import { UpdateStatusDto } from '../dtos/Request/update-status.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IStatusService } from '../interfaces/status-service.interface';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 
 
 @Controller('statuses') // Prefijo de ruta para este controlador (plural)
@@ -19,12 +20,12 @@ export class StatusController {
     return this.statusService.create(createStatusDto);
   }
 
-  // @Get()
-  // @HttpCode(HttpStatus.OK)
-  // // Permite filtrar estados por tipo de entidad (ej. /statuses?entityType=BUSINESS)
-  // findAll(@Query('entityType') entityType?: string): Promise<StatusResponseDto[]> {
-  //   return this.statusService.findAll(entityType);
-  // }
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  // Permite filtrar estados por tipo de entidad (ej. /statuses?entityType=BUSINESS)
+  findAll(@Query('entityType') entityType?: EntityType): Promise<StatusResponseDto[]> {
+    return this.statusService.findAll(entityType);
+  }
 
   @Get(':id')
   @HttpCode(HttpStatus.OK)

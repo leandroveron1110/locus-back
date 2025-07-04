@@ -1,14 +1,17 @@
 // src/modules/weekly-schedule/weekly-schedule.controller.ts
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query, Inject } from '@nestjs/common';
 import { DayOfWeek } from '@prisma/client'; // Importa el Enum
-import { WeeklyScheduleService } from '../service/weekly-schedule.service';
 import { CreateWeeklyScheduleDto } from '../dtos/Request/create-weekly-schedule.dto';
 import { WeeklyScheduleResponseDto } from '../dtos/Response/weekly-schedule-response.dto';
 import { UpdateWeeklyScheduleDto } from '../dtos/Request/update-weekly-schedule.dto';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IWeeklyScheduleService } from '../interface/weekly-schedule-service.interface';
 
 @Controller('weekly-schedules') // Prefijo de ruta
 export class WeeklyScheduleController {
-  constructor(private readonly weeklyScheduleService: WeeklyScheduleService) {}
+  constructor(
+    @Inject(TOKENS.IWeeklyScheduleService)
+    private readonly weeklyScheduleService: IWeeklyScheduleService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED) // 201 Created

@@ -13,6 +13,8 @@ import { UploadsModule } from 'src/uploads/uploads.module';
 import { BusinessGalleryController } from './controllers/business-gallery.controller';
 import { BusinessLogoController } from './controllers/business-logo.controller';
 import { TOKENS } from 'src/common/constants/tokens';
+import { BusinessCategoryService } from './services/business-category.service';
+import { BusinessValidatorService } from './services/validator/business-validator.service';
 
 @Module({
   controllers: [
@@ -33,6 +35,14 @@ import { TOKENS } from 'src/common/constants/tokens';
       provide: TOKENS.IBusinessLogoService,
       useClass: BusinessLogoService,
     },
+    {
+      provide: TOKENS.IBusinessCategoryService,
+      useClass: BusinessCategoryService,
+    },
+    {
+      provide: TOKENS.IBusinessValidator,
+      useClass: BusinessValidatorService,
+    },
   ],
   imports: [
     CategoriesModule,
@@ -47,6 +57,8 @@ import { TOKENS } from 'src/common/constants/tokens';
     TOKENS.IBusinessService,
     TOKENS.IBusinessGalleryService,
     TOKENS.IBusinessLogoService,
+    TOKENS.IBusinessCategoryService,
+    TOKENS.IBusinessValidator
   ],
 })
 export class BusinessModule {}

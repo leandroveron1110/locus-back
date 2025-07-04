@@ -4,6 +4,7 @@ import { BusinessModule } from '../business/business.module'; // Para validar bu
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { WeeklyScheduleController } from './controllers/weekly-schedule.controller';
 import { WeeklyScheduleService } from './service/weekly-schedule.service';
+import { TOKENS } from 'src/common/constants/tokens';
 
 @Module({
   imports: [
@@ -11,7 +12,12 @@ import { WeeklyScheduleService } from './service/weekly-schedule.service';
     BusinessModule, // Necesario para validar la existencia del negocio
   ],
   controllers: [WeeklyScheduleController],
-  providers: [WeeklyScheduleService],
-  exports: [WeeklyScheduleService], // Exporta el servicio si otros módulos necesitan consultar horarios
+  providers: [
+    {
+      provide: TOKENS.IWeeklyScheduleService,
+      useClass: WeeklyScheduleService,
+    },
+  ],
+  exports: [TOKENS.IWeeklyScheduleService], // Exporta el servicio si otros módulos necesitan consultar horarios
 })
 export class WeeklyScheduleModule {}

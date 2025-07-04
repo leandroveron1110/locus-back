@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client'; // Para tipos de Prisma como JsonValue y WhereInput
+import { Business, Prisma, UserRole } from '@prisma/client'; // Para tipos de Prisma como JsonValue y WhereInput
 import { PrismaService } from 'src/prisma/prisma.service';
 
 // interface service
@@ -13,12 +15,16 @@ import { ICategoryService } from 'src/categories/interfaces/Category.interface';
 import { IUserService } from 'src/users/interfaces/User-service.interface';
 import { IStatusService } from 'src/status/interfaces/status-service.interface';
 
-
 import { CreateBusinessDto } from '../dto/Request/create-business.dto';
 import { UpdateBusinessDto } from '../dto/Request/update-business.dto';
-import { BusinessPreviewDto, BusinessResponseDto } from '../dto/Response/business-response.dto';
+import {
+  BusinessPreviewDto,
+  BusinessResponseDto,
+} from '../dto/Response/business-response.dto';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { TOKENS } from 'src/common/constants/tokens';
+import { IBusinessCategoryService } from '../interfaces/business-category.interface';
+import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 
 @Injectable()
 export class BusinessService implements IBusinessService {
@@ -26,93 +32,137 @@ export class BusinessService implements IBusinessService {
     private prisma: PrismaService,
     @Inject(TOKENS.IUserService)
     private userService: IUserService,
-    @Inject(TOKENS.ICategoryService)
-    private categoryService: ICategoryService,
+    @Inject(TOKENS.IUserValidator) // Nuevo: Validador de existencia de usuario
+    private readonly userValidator: IExistenceValidator,
+    @Inject(TOKENS.ICategoryValidator)
+    private categoryValidator: IExistenceValidator,
     @Inject(TOKENS.IStatusService)
     private statusService: IStatusService,
+    @Inject(TOKENS.IStatusValidator) // Nuevo: Validador de existencia de estado
+    private readonly statusValidator: IExistenceValidator,
+    @Inject(TOKENS.IBusinessCategoryService)
+    private businessCategoryService: IBusinessCategoryService,
+    @Inject(TOKENS.IBusinessValidator)
+    private readonly businessValidator: IExistenceValidator,
   ) {}
-
 
   async findOneProfileById(id: string): Promise<any> {
     const bussines = await this.findOne(id);
 
-    if(!bussines.statusId){
+    if (!bussines.statusId) {
       throw new NotFoundException(`Negocio no tiene status.`);
     }
     const status = await this.statusService.findOne(bussines.statusId);
 
-    bussines.category;
-    
     let response = {
       ...bussines,
-      ...status
-    }
-
-
+      ...status,
+    };
   }
 
   /**
    * Crea un nuevo negocio en la base de datos.
    * El estado inicial, las categorías, tags e imágenes se manejan externamente o en el controlador.
    */
+
   async create(
     createBusinessDto: CreateBusinessDto,
+    // authenticatedOwnerId: string
   ): Promise<BusinessResponseDto> {
-    const { ownerId, categoryId, statusId, modulesConfig, ...data } =
-      createBusinessDto;
+    const {
+      ownerId,
+      categoryIds,
+      statusId,
+      modulesConfig,
+      logoId,
+      latitude,
+      longitude,
+      ...data
+    } = createBusinessDto;
 
-    // 1. Validar existencia del propietario (User)
-    // El método findOne de UserService debería lanzar NotFoundException si no lo encuentra
-    await this.userService.findById(ownerId); // Usar findOne del servicio inyectado
+    // 1. Validar que el `ownerId` de la request sea el mismo que el `authenticatedOwnerId`
+    // if (ownerId !== authenticatedOwnerId) {
+    //   throw new ForbiddenException('No tienes permiso para crear un negocio para otro propietario.');
+    // }
 
-    // 2. Validar existencia de la categoría
-    await this.categoryService.findOne(categoryId); // Usar findOne del servicio inyectado
-
-    // 3. Validar existencia del estado si se proporciona
-    let currentStatus;
-    if (statusId) {
-      currentStatus = await this.statusService.findByNameAndEntityType(
-        statusId,
-        EntityType.BUSINESS,
-      ); // Asumiendo que findByNameAndEntityType existe
+    // 2. Validamos que existe el usuario y que sea OWENER
+    const user = await this.userService.findById(ownerId);
+    if (!user) {
+      throw new ForbiddenException(
+        `El usuario con ID "${ownerId}" no tiene el rol de PROPIETARIO para crear un negocio.`,
+      );
     }
-    // Si no se proporciona statusId, Prisma usará el default del esquema si lo hay, o será null.
+
+    // 3. Validar la existencia de las categorías proporcionadas
+    await this.categoryValidator.checkMany(categoryIds);
+
+    // 4. Obtener o validar el ID del estado inicial
+    let finalStatusId: string | undefined;
+    if (statusId) {
+      // Si el usuario proporciona un statusId, validarlo
+      await this.statusValidator.checkOne(statusId);
+      const providedStatus = await this.statusService.findOne(statusId);
+      if (!providedStatus) {
+        throw new BadRequestException(
+          `El statusId "${statusId}" no es un estado válido para entidades BUSINESS.`,
+        );
+      }
+      finalStatusId = providedStatus.id;
+    } else {
+      // Si no se proporciona, buscar el estado por defecto 'PENDING_REVIEW'
+      const pendingReviewStatus =
+        await this.statusService.findBusinessPendingReviewStatus();
+
+      finalStatusId = pendingReviewStatus.id;
+    }
 
     try {
-      // 4. Crear el negocio, conectando las relaciones por ID
-      const business = await this.prisma.business.create({
-        data: {
-          ...data,
-          owner: { connect: { id: ownerId } },
-          category: { connect: { id: categoryId } },
-          // Conectar status si está presente, de lo contrario, será null o usará el default de Prisma
-          currentStatus: statusId
-            ? { connect: { id: currentStatus.id } }
-            : undefined,
-          modulesConfig: (modulesConfig || {}) as Prisma.InputJsonValue, // Asegura que modulesConfig sea un objeto vacío si es null/undefined
-        },
-      });
+      const business = await this.prisma.$transaction(async (tx) => {
+        // Crear el negocio
+        const newBusiness = await tx.business.create({
+          data: {
+            ...data,
+            owner: { connect: { id: ownerId } },
+            currentStatus: { connect: { id: finalStatusId } },
+            logo: logoId ? { connect: { id: logoId } } : undefined, // Conectar logo si se proporciona
+            modulesConfig: (modulesConfig || {}) as Prisma.InputJsonValue, // Asegura un objeto JSON vacío si es null/undefined
+            // Convertir number (del DTO) a Prisma.Decimal para la base de datos
+            latitude:
+              latitude !== undefined ? new Prisma.Decimal(latitude) : null,
+            longitude:
+              longitude !== undefined ? new Prisma.Decimal(longitude) : null,
+          },
+        });
 
-      // 5. Transformar el resultado de Prisma a tu DTO de respuesta
-      return BusinessResponseDto.fromPrisma(business);
-    } catch (error) {
-      // Manejo específico de errores de Prisma (ej. si la unicidad falla en 'name' y 'address')
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        // P2002: Unique constraint violation (ej. si name y address son @@unique y ya existen)
-        if (error.code === 'P2002') {
-          throw new ConflictException(
-            'A business with the same name and address already exists.',
+        if (categoryIds && categoryIds.length > 0) {
+          // asociamos las categorias al business
+          this.businessCategoryService.associateBusinessWithCategories(
+            newBusiness.id,
+            categoryIds,
           );
         }
-        // P2003: Foreign key constraint failed (menos probable si ya validamos con findOne,
-        // pero es una buena salvaguarda si las validaciones previas fallan silenciosamente o hay condiciones de carrera)
+
+        return newBusiness;
+      });
+
+      // Si necesitas transformar el resultado a un DTO de respuesta específico
+      // Asegúrate de que BusinessResponseDto pueda manejar la carga de relaciones si es necesario
+      return BusinessResponseDto.fromPrisma(business); // O BusinessResponseDto.fromPrisma(business);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new ConflictException(
+            `Ya existe un negocio con el nombre "${createBusinessDto.name}".`,
+          );
+        }
         if (error.code === 'P2003') {
-          throw new NotFoundException(
-            'Invalid owner or category ID. Please ensure they exist.',
+          // Foreign key constraint failed
+          throw new BadRequestException(
+            'ID de propietario, logo o categoría inválido. Verifique que existan.',
           );
         }
       }
-      throw error; // Propagar cualquier otro error
+      throw error;
     }
   }
 
@@ -134,23 +184,13 @@ export class BusinessService implements IBusinessService {
       cursor,
       where,
       orderBy,
-      // Solo incluimos relaciones que son CORE para el Negocio y no son opcionales/modulares
-      // o que son esenciales para un lookup mínimo (como la categoría asociada al ID).
-      // NO INCLUIMOS: owner, tags, images, currentStatus, weeklySchedules, etc.
-      include: {
-        category: true, // La categoría es parte del perfil base del negocio
-      },
     });
   }
 
   async findAllPreview(): Promise<BusinessPreviewDto[]> {
-  const businesses = await this.prisma.business.findMany({
-    include: {
-      category: true,
-    },
-  });
-  return businesses.map(BusinessPreviewDto.fromPrisma);
-}
+    const businesses = await this.prisma.business.findMany();
+    return businesses.map(BusinessPreviewDto.fromPrisma);
+  }
 
   /**
    * Busca un único negocio por su ID.
@@ -159,9 +199,6 @@ export class BusinessService implements IBusinessService {
   async findOne(id: string) {
     const business = await this.prisma.business.findUnique({
       where: { id },
-      include: {
-        category: true, // La categoría es parte del perfil base del negocio
-      },
     });
     if (!business) {
       throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
@@ -186,9 +223,6 @@ export class BusinessService implements IBusinessService {
       const updatedBusiness = await this.prisma.business.update({
         where: { id },
         data: dataToUpdate,
-        include: {
-          category: true, // Se incluye para la respuesta
-        },
       });
       return updatedBusiness;
     } catch (error) {
@@ -207,6 +241,44 @@ export class BusinessService implements IBusinessService {
       }
       throw error;
     }
+  }
+
+  async updateBusiness(id: string, data: UpdateBusinessDto) {
+    const { categoryIds, ownerId, modulesConfig, ...businessData } = data;
+
+    await this.businessValidator.checkOne(id);
+
+    const dataToUpdate: Prisma.BusinessUpdateInput = {
+      ...businessData,
+      ...(modulesConfig !== undefined && {
+        modulesConfig: modulesConfig as Prisma.InputJsonValue,
+      }),
+    };
+
+    return this.prisma.$transaction(async (prismaTransaction) => {
+      const business = await prismaTransaction.business.update({
+        where: { id },
+        data: {
+          ...dataToUpdate,
+        },
+      });
+
+      if (categoryIds !== undefined) {
+        await this.businessCategoryService.associateBusinessWithCategories(
+          business.id,
+          categoryIds,
+        );
+      }
+
+      // Después de la actualización, si necesitas los detalles de las categorías para la respuesta
+      const associatedCategories =
+        await this.businessCategoryService.getCategoriesByBusinessId(id);
+
+      return {
+        ...business,
+        businessCategories: associatedCategories,
+      };
+    });
   }
 
   /**

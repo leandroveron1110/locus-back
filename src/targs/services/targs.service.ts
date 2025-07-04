@@ -3,9 +3,10 @@ import { Tag } from '@prisma/client'; // Importa el tipo Tag de Prisma Client
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTagDto } from '../dto/Request/create-tag.dto';
 import { UpdateTagDto } from '../dto/Request/update-tag.dto';
+import { ITagService } from '../interfaces/tag-service.interface';
 
 @Injectable()
-export class TagService {
+export class TagService implements ITagService {
   constructor(private prisma: PrismaService) {}
 
   async create(createTagDto: CreateTagDto): Promise<Tag> {
@@ -14,7 +15,8 @@ export class TagService {
         data: createTagDto,
       });
     } catch (error) {
-      if (error.code === 'P2002') { // Prisma error code for unique constraint violation
+      if (error.code === 'P2002') {
+        // Prisma error code for unique constraint violation
         throw new Error(`El tag con nombre "${createTagDto.name}" ya existe.`);
       }
       throw error;
@@ -46,11 +48,14 @@ export class TagService {
         data: updateTagDto,
       });
     } catch (error) {
-      if (error.code === 'P2025') { // Prisma error for "record not found"
+      if (error.code === 'P2025') {
+        // Prisma error for "record not found"
         throw new NotFoundException(`Tag con ID "${id}" no encontrado.`);
       }
       if (error.code === 'P2002' && error.meta?.target?.includes('nombre')) {
-        throw new Error(`Ya existe un tag con el nombre "${updateTagDto.name}".`);
+        throw new Error(
+          `Ya existe un tag con el nombre "${updateTagDto.name}".`,
+        );
       }
       throw error;
     }
@@ -73,5 +78,20 @@ export class TagService {
       }
       throw error;
     }
+  }
+
+    // Mantenemos getTagsByIds aquí, ya que TagService es la fuente de datos para los tags.
+  async getTagsByIds(tagIds: string[]): Promise<Tag[]> {
+    if (!tagIds || tagIds.length === 0) {
+      return [];
+    }
+    const uniqueTagIds = [...new Set(tagIds)];
+    const tags = await this.prisma.tag.findMany({
+      where: {
+        id: { in: uniqueTagIds },
+        active: true,
+      },
+    });
+    return tags;
   }
 }

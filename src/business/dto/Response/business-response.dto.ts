@@ -22,7 +22,6 @@ export class BusinessResponseDto {
   id: string;
   ownerId: string; // El ID del propietario
   name: string;
-  categoryId: string; // El ID de la categoría
   shortDescription?: string;
   fullDescription?: string;
   address: string;
@@ -47,7 +46,6 @@ export class BusinessResponseDto {
     dto.id = business.id;
     dto.ownerId = business.ownerId; // Mapea de ownerId en Prisma
     dto.name = business.name;
-    dto.categoryId = business.categoryId; // Mapea de categoryId en Prisma
     dto.shortDescription = business.shortDescription ?? undefined;
     dto.fullDescription = business.fullDescription ?? undefined;
     dto.address = business.address;
@@ -80,7 +78,6 @@ export class BusinessPreviewDto {
   id: string;
   name: string;
   shortDescription?: string;
-  categoryId: string;
   averageRating?: number | null;
   ratingsCount?: number;
   instagramUrl?: string;
@@ -92,7 +89,6 @@ export class BusinessPreviewDto {
     dto.id = business.id;
     dto.name = business.name;
     dto.shortDescription = business.shortDescription ?? undefined;
-    dto.categoryId = business.categoryId;
     dto.averageRating = business.averageRating !== null ? Number(business.averageRating) : null;
     dto.ratingsCount = business.ratingsCount ?? undefined;
     dto.instagramUrl = business.instagramUrl ?? undefined;

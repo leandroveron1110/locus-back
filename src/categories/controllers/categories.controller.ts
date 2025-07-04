@@ -50,8 +50,8 @@ export class CategoryController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  @Roles(UserRole.ADMIN)
+  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
+  // @Roles(UserRole.ADMIN)
   async update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
@@ -64,8 +64,8 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  @Roles(UserRole.ADMIN)
+  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
+  // @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT) // Código 204 para eliminación/desactivación exitosa (sin contenido de respuesta)
   async remove(@Param('id') id: string): Promise<void> {
     // El servicio maneja la lógica de desactivación (soft delete)

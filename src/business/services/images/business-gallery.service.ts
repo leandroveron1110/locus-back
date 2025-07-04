@@ -7,8 +7,6 @@ import {
   Inject,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { BusinessService } from '../business.service';
-import { ImageService } from 'src/image/services/image.service';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
 import { ImageType } from 'src/common/enums/image-type.enum';
 import { BaseImageManager } from '../../../common/abstracts/base-image-manager.abstract';
@@ -18,6 +16,7 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { IImageService } from 'src/image/interfaces/image-service.interface';
 import { ImageDto } from 'src/business/interfaces/image.interface';
 import { IBusinessService } from 'src/business/interfaces/business.interface';
+import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 
 @Injectable()
 export class BusinessGalleryService
@@ -28,8 +27,8 @@ export class BusinessGalleryService
     @Inject(TOKENS.IImageService)
     protected readonly imageService: IImageService,
     protected readonly prisma: PrismaService,
-    @Inject(TOKENS.IBusinessService)
-    private readonly businessService: IBusinessService,
+    @Inject(TOKENS.IBusinessValidator)
+    private readonly businessValidator: IExistenceValidator,
     uploadsService: UploadsService,
   ) {
     super(imageService, uploadsService, prisma);
@@ -44,7 +43,7 @@ export class BusinessGalleryService
     this.logger.log(
       `[BusinessGalleryService] Starting upload and add gallery image for business ID: ${businessId}.`,
     );
-    await this.businessService.findOne(businessId);
+    await this.businessValidator.checkOne(businessId);
 
     const newGalleryImage = await this.uploadAndPersistImage(
       file,
@@ -193,7 +192,7 @@ export class BusinessGalleryService
     this.logger.log(
       `[BusinessGalleryService] Update operation for gallery image ID: ${imageId} of business ${businessId}.`,
     );
-    await this.businessService.findOne(businessId);
+    await this.businessValidator.checkOne(businessId);
 
     const association = await this.prisma.businessImage.findUnique({
       where: { businessId_imageId: { businessId, imageId } },
@@ -284,7 +283,7 @@ export class BusinessGalleryService
     this.logger.log(
       `[BusinessGalleryService] Attempting to remove gallery image ID: ${imageId} from business ID: ${businessId}.`,
     );
-    await this.businessService.findOne(businessId);
+    await this.businessValidator.checkOne(businessId);
 
     const image = await this.imageService.findOne(imageId);
     if (!image) {
@@ -307,7 +306,6 @@ export class BusinessGalleryService
           { productImage: { isNot: null } },
           { productGalleries: { some: {} } },
           { eventImage: { isNot: null } },
-          { categoryIcon: { isNot: null } },
         ],
       },
     });

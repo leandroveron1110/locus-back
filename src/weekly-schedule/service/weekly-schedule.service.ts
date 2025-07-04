@@ -6,15 +6,16 @@ import { WeeklyScheduleResponseDto } from '../dtos/Response/weekly-schedule-resp
 import { DayOfWeek } from '@prisma/client';
 import { UpdateWeeklyScheduleDto } from '../dtos/Request/update-weekly-schedule.dto';
 import { TOKENS } from 'src/common/constants/tokens';
-import { IBusinessService } from 'src/business/interfaces/business.interface';
+import { IWeeklyScheduleService } from '../interface/weekly-schedule-service.interface';
+import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 
 
 @Injectable()
-export class WeeklyScheduleService {
+export class WeeklyScheduleService implements IWeeklyScheduleService{
   constructor(
     private prisma: PrismaService,
-    @Inject(TOKENS.IBusinessService)
-    private businessService: IBusinessService,
+    @Inject(TOKENS.IBusinessValidator)
+    private businessService: IExistenceValidator,
   ) {}
 
   /**
@@ -117,7 +118,7 @@ export class WeeklyScheduleService {
    * @throws NotFoundException Si el negocio no existe.
    */
   async findByBusinessId(businessId: string): Promise<WeeklyScheduleResponseDto[]> {
-    await this.businessService.findOne(businessId); // Valida que el negocio exista
+    await this.businessService.checkOne(businessId); // Valida que el negocio exista
 
     const schedules = await this.prisma.weeklySchedule.findMany({
       where: { businessId },
