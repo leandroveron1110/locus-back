@@ -15,7 +15,7 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
   constructor(
     private prisma: PrismaService,
     @Inject(TOKENS.IBusinessValidator)
-    private businessService: IExistenceValidator,
+    private businessValidator: IExistenceValidator,
   ) {}
 
   /**
@@ -41,6 +41,8 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
   async create(createWeeklyScheduleDto: CreateWeeklyScheduleDto): Promise<WeeklyScheduleResponseDto> {
     const { businessId, dayOfWeek, openingTime, closingTime } = createWeeklyScheduleDto;
 
+    await this.businessValidator.checkOne(businessId);
+
     const parsedOpeningTime = this.parseTimeStringToDate(openingTime);
     const parsedClosingTime = this.parseTimeStringToDate(closingTime);
 
@@ -48,23 +50,17 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
     if (parsedClosingTime <= parsedOpeningTime) {
       throw new BadRequestException('Closing time must be after opening time.');
     }
-
-    // 3. Verificar superposiciones (aunque Prisma te protege con @@unique,
-    // este es un buen lugar para una lógica de negocio más avanzada si permitieras múltiples bloques)
-    // Para el @@unique actual ([businessId, dayOfWeek, openingTime, closingTime]),
-    // esto es principalmente para evitar duplicados exactos.
-    // Si quisieras evitar superposiciones de horas, la lógica sería más compleja aquí.
-    // Por ahora, confiamos en @@unique para duplicados exactos.
-
+    
     try {
       const schedule = await this.prisma.weeklySchedule.create({
         data: {
-          businessId,
+          businessId: businessId,
           dayOfWeek,
           openingTime: parsedOpeningTime,
           closingTime: parsedClosingTime,
         },
       });
+      console.log(businessId)
       return WeeklyScheduleResponseDto.fromPrisma(schedule);
     } catch (error) {
       // Manejo de errores específicos de Prisma
@@ -95,6 +91,12 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
     return schedules.map(WeeklyScheduleResponseDto.fromPrisma);
   }
 
+  async findAllW(): Promise<WeeklyScheduleResponseDto[]> {
+    const shcedules = await this.prisma.weeklySchedule.findMany();
+
+     return shcedules.map(WeeklyScheduleResponseDto.fromPrisma);
+  }
+
   /**
    * Obtiene un horario semanal por su ID.
    * @param id ID del horario.
@@ -118,7 +120,7 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
    * @throws NotFoundException Si el negocio no existe.
    */
   async findByBusinessId(businessId: string): Promise<WeeklyScheduleResponseDto[]> {
-    await this.businessService.checkOne(businessId); // Valida que el negocio exista
+    await this.businessValidator.checkOne(businessId); // Valida que el negocio exista
 
     const schedules = await this.prisma.weeklySchedule.findMany({
       where: { businessId },

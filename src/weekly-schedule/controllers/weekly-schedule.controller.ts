@@ -1,5 +1,17 @@
 // src/modules/weekly-schedule/weekly-schedule.controller.ts
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Query,
+  Inject,
+} from '@nestjs/common';
 import { DayOfWeek } from '@prisma/client'; // Importa el Enum
 import { CreateWeeklyScheduleDto } from '../dtos/Request/create-weekly-schedule.dto';
 import { WeeklyScheduleResponseDto } from '../dtos/Response/weekly-schedule-response.dto';
@@ -11,11 +23,14 @@ import { IWeeklyScheduleService } from '../interface/weekly-schedule-service.int
 export class WeeklyScheduleController {
   constructor(
     @Inject(TOKENS.IWeeklyScheduleService)
-    private readonly weeklyScheduleService: IWeeklyScheduleService) {}
+    private readonly weeklyScheduleService: IWeeklyScheduleService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED) // 201 Created
-  create(@Body() createWeeklyScheduleDto: CreateWeeklyScheduleDto): Promise<WeeklyScheduleResponseDto> {
+  create(
+    @Body() createWeeklyScheduleDto: CreateWeeklyScheduleDto,
+  ): Promise<WeeklyScheduleResponseDto> {
     return this.weeklyScheduleService.create(createWeeklyScheduleDto);
   }
 
@@ -28,6 +43,11 @@ export class WeeklyScheduleController {
   ): Promise<WeeklyScheduleResponseDto[]> {
     return this.weeklyScheduleService.findAll(businessId, dayOfWeek);
   }
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  findAllW(): Promise<WeeklyScheduleResponseDto[]> {
+    return this.weeklyScheduleService.findAllW();
+  }
 
   @Get(':id')
   @HttpCode(HttpStatus.OK)
@@ -37,13 +57,18 @@ export class WeeklyScheduleController {
 
   @Get('by-business/:businessId')
   @HttpCode(HttpStatus.OK)
-  findByBusinessId(@Param('businessId') businessId: string): Promise<WeeklyScheduleResponseDto[]> {
+  findByBusinessId(
+    @Param('businessId') businessId: string,
+  ): Promise<WeeklyScheduleResponseDto[]> {
     return this.weeklyScheduleService.findByBusinessId(businessId);
   }
 
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
-  update(@Param('id') id: string, @Body() updateWeeklyScheduleDto: UpdateWeeklyScheduleDto): Promise<WeeklyScheduleResponseDto> {
+  update(
+    @Param('id') id: string,
+    @Body() updateWeeklyScheduleDto: UpdateWeeklyScheduleDto,
+  ): Promise<WeeklyScheduleResponseDto> {
     return this.weeklyScheduleService.update(id, updateWeeklyScheduleDto);
   }
 

@@ -11,6 +11,8 @@ export interface IWeeklyScheduleService {
     businessId?: string,
     dayOfWeek?: DayOfWeek,
   ): Promise<WeeklyScheduleResponseDto[]>;
+  findAllW(
+  ): Promise<WeeklyScheduleResponseDto[]>;
   findOne(id: string): Promise<WeeklyScheduleResponseDto>;
   findByBusinessId(businessId: string): Promise<WeeklyScheduleResponseDto[]>;
   update(

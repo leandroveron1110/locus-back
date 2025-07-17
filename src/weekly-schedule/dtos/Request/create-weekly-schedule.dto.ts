@@ -1,11 +1,9 @@
-import { IsString, IsNotEmpty, IsEnum, IsUUID, Matches, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsUUID, Matches } from 'class-validator';
 import { DayOfWeek } from '@prisma/client'; // Importa el Enum DayOfWeek de Prisma Client
-import { IsBusinessIdExists } from 'src/common/validators/is-business-id-exists.validator';
 
 export class CreateWeeklyScheduleDto {
   @IsString()
   @IsUUID()
-  @IsBusinessIdExists({ message: 'El negocio especificado no existe.' }) 
   businessId: string; // El ID del negocio al que pertenece este horario
 
   @IsNotEmpty()

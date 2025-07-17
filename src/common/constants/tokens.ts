@@ -3,7 +3,11 @@ export const TOKENS = {
   // Servicios de Dominio
 
   //Moule
+  ISearchService: Symbol('ISearchService'),
+  ISearchableBusinessCrudService: Symbol('ISearchableBusinessCrudService'),
+
   IUserService: Symbol('IUserService'),
+  IAuthService: Symbol('IAuthService'),
   ICategoryService: Symbol('ICategoryService'),
   ITagService: Symbol('ITagService'),
   IStatusService: Symbol('IStatusService'),

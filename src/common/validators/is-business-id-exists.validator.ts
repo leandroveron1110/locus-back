@@ -9,6 +9,7 @@ import {
 import { Injectable, Inject } from '@nestjs/common';
 import { IBusinessService } from 'src/business/interfaces/business.interface';
 import { TOKENS } from 'src/common/constants/tokens';
+import { IExistenceValidator } from '../interfaces/existence-validator.interface';
 
 // Para que NestJS pueda inyectar dependencias en el validador
 @ValidatorConstraint({ async: true })
@@ -17,18 +18,18 @@ export class IsBusinessIdExistsConstraint
   implements ValidatorConstraintInterface
 {
   constructor(
-    @Inject(TOKENS.IBusinessService) // Inyecta tu servicio de negocio
-    private businessService: IBusinessService,
+    @Inject(TOKENS.IBusinessValidator)
+    private businessValidator: IExistenceValidator,
   ) {}
 
   async validate(businessId: string, args: ValidationArguments) {
-    console.log(businessId)
+    console.log(businessId);
     if (!businessId) {
       return true; // Si el campo es opcional y no está presente, considera válido aquí.
       // Si es obligatorio, @IsNotEmpty o @IsUUID lo capturarán antes.
     }
     try {
-      await this.businessService.findOne(businessId);
+      await this.businessValidator.checkOne(businessId);
       return true; // El negocio existe
     } catch (error) {
       // Si findOne lanza NotFoundException, significa que no existe.

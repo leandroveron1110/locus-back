@@ -27,7 +27,7 @@ export class UsersService implements IUserService{
         passwordHash: hashedPassword, // Guarda el hash
         firstName: data.firstName,
         lastName: data.lastName,
-        role: data.role || UserRole.CLIENT,
+        role: UserRole.CLIENT,
       },
     });
   }

@@ -15,12 +15,15 @@ import { BusinessLogoController } from './controllers/business-logo.controller';
 import { TOKENS } from 'src/common/constants/tokens';
 import { BusinessCategoryService } from './services/business-category.service';
 import { BusinessValidatorService } from './services/validator/business-validator.service';
+import { BusinessTagController } from './controllers/business-tag.controller';
+import { BusinessTagService } from './services/business-tag.service';
 
 @Module({
   controllers: [
     BusinessController,
     BusinessGalleryController,
     BusinessLogoController,
+    BusinessTagController
   ],
   providers: [
     {
@@ -43,6 +46,10 @@ import { BusinessValidatorService } from './services/validator/business-validato
       provide: TOKENS.IBusinessValidator,
       useClass: BusinessValidatorService,
     },
+    {
+      provide: TOKENS.IBusinessTagService,
+      useClass: BusinessTagService
+    }
   ],
   imports: [
     CategoriesModule,
@@ -58,7 +65,8 @@ import { BusinessValidatorService } from './services/validator/business-validato
     TOKENS.IBusinessGalleryService,
     TOKENS.IBusinessLogoService,
     TOKENS.IBusinessCategoryService,
-    TOKENS.IBusinessValidator
+    TOKENS.IBusinessValidator,
+    TOKENS.IBusinessTagService
   ],
 })
 export class BusinessModule {}

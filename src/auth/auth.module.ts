@@ -1,7 +1,7 @@
 // src/auth/auth.module.ts
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport'; // Módulo de Passport
-import { JwtModule } from '@nestjs/jwt';           // Módulo para JWT
+import { JwtModule } from '@nestjs/jwt'; // Módulo para JWT
 import { ConfigModule, ConfigService } from '@nestjs/config'; // Para variables de entorno
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -11,6 +11,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { AdminSecretGuard } from './guards/admin-secret.guard';
+import { TOKENS } from 'src/common/constants/tokens';
 
 @Module({
   imports: [
@@ -41,7 +42,10 @@ import { AdminSecretGuard } from './guards/admin-secret.guard';
   ],
   controllers: [AuthController], // Tus controladores de autenticación
   providers: [
-    AuthService,
+    {
+      provide: TOKENS.IAuthService,
+      useClass: AuthService,
+    },
     JwtStrategy, // Tu estrategia de JWT
     // Provee los Guards para que puedan ser usados con @UseGuards()
     JwtAuthGuard,
@@ -49,7 +53,7 @@ import { AdminSecretGuard } from './guards/admin-secret.guard';
     AdminSecretGuard,
   ],
   exports: [
-    AuthService, // Exporta AuthService si otros módulos necesitan sus métodos (ej. para registrarse)
+    TOKENS.IAuthService, // Exporta AuthService si otros módulos necesitan sus métodos (ej. para registrarse)
     // Exporta los Guards para que puedan ser utilizados en otros módulos (ej. UsersModule)
     JwtAuthGuard,
     RolesGuard,

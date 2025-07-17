@@ -21,7 +21,6 @@ import {
   BusinessPreviewDto,
   BusinessResponseDto,
 } from '../dto/Response/business-response.dto';
-import { EntityType } from 'src/common/enums/entity-type.enum';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessCategoryService } from '../interfaces/business-category.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
@@ -44,6 +43,7 @@ export class BusinessService implements IBusinessService {
     private businessCategoryService: IBusinessCategoryService,
     @Inject(TOKENS.IBusinessValidator)
     private readonly businessValidator: IExistenceValidator,
+
   ) {}
 
   async findOneProfileById(id: string): Promise<any> {
@@ -61,7 +61,7 @@ export class BusinessService implements IBusinessService {
   }
 
   /**
-   * Crea un nuevo negocio en la base de datos.
+   * create new bussines in database
    * El estado inicial, las categorías, tags e imágenes se manejan externamente o en el controlador.
    */
 
@@ -131,6 +131,13 @@ export class BusinessService implements IBusinessService {
               latitude !== undefined ? new Prisma.Decimal(latitude) : null,
             longitude:
               longitude !== undefined ? new Prisma.Decimal(longitude) : null,
+          },
+          // Incluir relaciones que necesitarás para SearchableBusiness
+          include: {
+           
+            logo: true, // Para obtener la URL del logo
+            weeklySchedules: true, // Para horarios
+            currentStatus: true, // Para obtener el nombre del estado
           },
         });
 
@@ -207,7 +214,7 @@ export class BusinessService implements IBusinessService {
   }
 
   /**
-   * Actualiza la información core de un negocio existente.
+   * Update core information of an existing business
    * La actualización de tags, imágenes, estado o propietario se maneja en otros servicios.
    */
   async update(id: string, updateBusinessDto: UpdateBusinessDto) {
