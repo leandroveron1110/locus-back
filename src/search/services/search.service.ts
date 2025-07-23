@@ -4,10 +4,13 @@ import { Prisma, SearchableBusiness } from '@prisma/client'; // Importa Prisma p
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SearchBusinessDto } from '../dtos/request/search-business.dto';
 import { CreateSearchableBusinessDto } from '../dtos/request/create-searchable-business.dto';
-import { ISearchService, SearchResultBusiness } from '../interfaces/search-service.interface';
+import {
+  ISearchService,
+  SearchResultBusiness,
+} from '../interfaces/search-service.interface';
+import { WeeklyScheduleStructure } from '../types/WeeklySchedule';
 
 // Define la interfaz de resultados de búsqueda para la consistencia
-
 
 @Injectable()
 export class SearchService implements ISearchService {
@@ -238,50 +241,71 @@ export class SearchService implements ISearchService {
     }
 
     try {
-      const schedules = horariosJson as Record<string, string>; // Asume el formato { "MONDAY": "09:00-18:00", ... }
+      // Ahora, los horarios son un Record<string, string[]>
+      const schedules: WeeklyScheduleStructure = JSON.parse(
+        horariosJson as string,
+      );
       const now = new Date();
       const currentDay = this.getCurrentDayOfWeek(); // Ej: "WEDNESDAY"
       const currentTime = now.getHours() * 60 + now.getMinutes(); // Hora actual en minutos desde medianoche
 
-      const todaySchedule = schedules[currentDay];
+      const todayScheduleRanges = schedules[currentDay];
 
-      if (!todaySchedule || todaySchedule === 'Cerrado') {
+      // Si no hay horarios para hoy o el array está vacío, el negocio no está abierto
+      if (!todayScheduleRanges || todayScheduleRanges.length === 0) {
         return false;
       }
 
-      const [openTimeStr, closeTimeStr] = todaySchedule.split('-');
-      if (!openTimeStr || !closeTimeStr) {
-        this.logger.warn(
-          `Formato de horario inválido para ${currentDay}: ${todaySchedule}`,
-        );
-        return false;
-      }
+      // Itera sobre cada rango de horario para el día actual
+      for (const timeRange of todayScheduleRanges) {
+        if (timeRange === 'Cerrado') {
+          continue; // Si un rango específico es "Cerrado", lo ignoramos y pasamos al siguiente
+        }
 
-      const [openHour, openMinute] = openTimeStr.split(':').map(Number);
-      let totalOpenMinutes = openHour * 60 + openMinute;
+        const [openTimeStr, closeTimeStr] = timeRange.split('-');
+        if (!openTimeStr || !closeTimeStr) {
+          this.logger.warn(
+            `Formato de horario inválido para ${currentDay}: ${timeRange}`,
+          );
+          continue; // Pasa al siguiente rango si el formato es inválido
+        }
 
-      const [closeHour, closeMinute] = closeTimeStr.split(':').map(Number);
-      let totalCloseMinutes = closeHour * 60 + closeMinute;
+        const [openHour, openMinute] = openTimeStr.split(':').map(Number);
+        let totalOpenMinutes = openHour * 60 + openMinute;
 
-      // Manejo de horarios que cruzan la medianoche (ej. 22:00-02:00)
-      if (totalCloseMinutes < totalOpenMinutes) {
-        // Si la hora de cierre es anterior a la de apertura, significa que cruza la medianoche.
-        // Se asume que el cierre es al día siguiente.
-        // Si la hora actual está antes de la apertura, pero después de la medianoche,
-        // la consideramos parte del día de apertura (ej. 01:00 AM para un cierre a las 02:00 AM).
-        if (currentTime < totalOpenMinutes) {
-          totalOpenMinutes -= 24 * 60; // Ajustamos el inicio para que quede antes de medianoche del día anterior
-        } else {
-          totalCloseMinutes += 24 * 60; // Ajustamos el cierre para que quede en el día siguiente
+        const [closeHour, closeMinute] = closeTimeStr.split(':').map(Number);
+        let totalCloseMinutes = closeHour * 60 + closeMinute;
+
+        // Manejo de horarios que cruzan la medianoche (ej. 22:00-02:00)
+        // Si la hora de cierre es menor que la de apertura, significa que el horario cruza la medianoche.
+        if (totalCloseMinutes < totalOpenMinutes) {
+          // Si la hora actual está entre 00:00 y la hora de cierre, se considera parte del horario del día anterior
+          if (currentTime >= 0 && currentTime < totalCloseMinutes) {
+            // Ajustamos la hora de apertura para que la comparación sea correcta (ej. -120 minutos para 22:00-02:00)
+            totalOpenMinutes -= 24 * 60;
+          }
+          // Si la hora actual está entre la hora de apertura y 23:59, se considera parte del horario del día actual
+          else if (currentTime >= totalOpenMinutes && currentTime <= 24 * 60) {
+            // Ajustamos la hora de cierre para que la comparación sea correcta (ej. +1440 minutos para 22:00-02:00)
+            totalCloseMinutes += 24 * 60;
+          } else {
+            // Si no está en ninguno de los rangos ajustados, no está abierto en este turno
+            continue;
+          }
+        }
+
+        // Comprueba si la hora actual está dentro del rango (ajustado si es necesario)
+        if (
+          currentTime >= totalOpenMinutes &&
+          currentTime <= totalCloseMinutes
+        ) {
+          return true; // Si la hora actual cae en cualquier rango, el negocio está abierto
         }
       }
-      // Para simplificar, si la hora actual está entre el rango (ajustado si es necesario)
-      return (
-        currentTime >= totalOpenMinutes && currentTime <= totalCloseMinutes
-      );
+      return false; // Si ningún rango de horario coincide, el negocio está cerrado
     } catch (e) {
       this.logger.error(
-        `Error en checkIfBusinessIsOpenNow: ${e.message}`,
+        `Error en checkIfBusinessIsOpenNow al parsear o procesar horarios: ${e.message}`,
         e.stack,
       );
       return false;

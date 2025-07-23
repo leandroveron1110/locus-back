@@ -2,11 +2,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ISearchableBusinessCrudService } from '../interfaces/serach-crud-service.interface';
 import { Inject } from '@nestjs/common';
 import { TOKENS } from 'src/common/constants/tokens';
-
-// Define el tipo para la estructura del horario semanal
-// Ahora cada día puede tener un array de rangos de tiempo.
-// Por ejemplo: { "MONDAY": ["09:00-13:00", "15:00-19:00"], "TUESDAY": ["00:00-23:59"], ... }
-export type WeeklySchedule = Record<string, string[]>;
+import { WeeklyScheduleStructure } from '../types/WeeklySchedule';
 
 export class WeeklyScheduleSearchCrudService {
   constructor(
@@ -21,7 +17,7 @@ export class WeeklyScheduleSearchCrudService {
    * @param idBusiness El ID del negocio.
    * @param schedule El objeto de horario semanal a establecer.
    */
-  async setWeeklySchedule(idBusiness: string, schedule: WeeklySchedule): Promise<void> {
+  async setWeeklySchedule(idBusiness: string, schedule: WeeklyScheduleStructure): Promise<void> {
     // Asegura que el negocio existe antes de proceder
     await this.searchBusines.checkOne(idBusiness);
 
@@ -48,7 +44,7 @@ export class WeeklyScheduleSearchCrudService {
    * @param idBusiness El ID del negocio.
    * @returns Una promesa que resuelve con el objeto de horario semanal o null si no se encuentra o hay un error de parseo.
    */
-  async getWeeklySchedule(idBusiness: string): Promise<WeeklySchedule | null> {
+  async getWeeklySchedule(idBusiness: string): Promise<WeeklyScheduleStructure | null> {
     // Busca el negocio y selecciona solo el campo 'horarios'
     const business = await this.prisma.searchableBusiness.findUnique({
       where: { id: idBusiness },
@@ -62,7 +58,7 @@ export class WeeklyScheduleSearchCrudService {
 
     try {
       // Parsea la cadena JSON de horarios a un objeto
-      const schedule = JSON.parse(business.horarios as string) as WeeklySchedule;
+      const schedule = JSON.parse(business.horarios as string) as WeeklyScheduleStructure;
       return schedule;
     } catch (error) {
       console.error(`Error al parsear el horario JSON para el negocio ${idBusiness}:`, error);
