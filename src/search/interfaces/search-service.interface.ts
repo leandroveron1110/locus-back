@@ -28,5 +28,6 @@ export interface SearchResultBusiness {
   reviewCount?: number;
   status?: string;
   isOpenNow?: boolean;
+  followersCount: number;
   // Puedes añadir más campos si los necesitas en la UI de búsqueda
 }

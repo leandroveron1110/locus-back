@@ -61,7 +61,7 @@ export class BusinessTagService implements IBusinessTagService {
   }
 
   async getTagsByBusinessId(businessId: string): Promise<BusinessTagDetails[]> {
-    // Opcional: Validar existencia del negocio si esta es la primera llamada
+
     // await this.businessValidator.checkOne(businessId);
 
     const businessTagAssociations = await this.prisma.businessTag.findMany({

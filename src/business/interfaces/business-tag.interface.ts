@@ -24,5 +24,5 @@ export interface IBusinessTagService {
    * Puedes ajustar el tipo de retorno si necesitas un DTO más específico
    * que la entidad cruda de Prisma, especialmente pensando en el microservicio.
    */
-  getTagsByBusinessId(businessId: string): Promise<BusinessTagDetails[]>; // Usamos 'any[]' por ahora, o 'BusinessTag[]' si ya lo tienes definido
+  getTagsByBusinessId(businessId: string): Promise<BusinessTagDetails[]>;
 }

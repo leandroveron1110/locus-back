@@ -33,7 +33,7 @@ export class SearchService implements ISearchService {
       latitude,
       longitude,
       radiusKm,
-      openNow,
+      openNow = true,
       minRating,
       skip = 0, // Valores por defecto
       take = 10, // Valores por defecto
@@ -171,12 +171,16 @@ export class SearchService implements ISearchService {
       `Final ORDER BY clause for SearchableBusiness: ${JSON.stringify(orderByClause)}`,
     );
 
+
     const [searchableBusinesses, total] = await this.prisma.$transaction([
       this.prisma.searchableBusiness.findMany({
         where,
         skip: Number(skip),
         take: Number(take),
-        orderBy: orderByClause,
+        orderBy: [
+          {...orderByClause},
+          {followersCount: "asc"}
+        ],
       }),
       this.prisma.searchableBusiness.count({ where }),
     ]);
@@ -200,6 +204,7 @@ export class SearchService implements ISearchService {
           averageRating: sb.averageRating?.toNumber() ?? undefined,
           reviewCount: sb.reviewCount ?? 0,
           status: sb.status ?? undefined,
+          followersCount: sb.followersCount,
           // Default a false si openNow no se solicitó o si la comprobación falla
           isOpenNow: openNow
             ? this.checkIfBusinessIsOpenNow(sb.horarios)

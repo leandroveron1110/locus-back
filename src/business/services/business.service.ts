@@ -27,6 +27,7 @@ import { IExistenceValidator } from 'src/common/interfaces/existence-validator.i
 import { IBusinessLogoService } from '../interfaces/business-logo-service.interface';
 import { IBusinessGalleryService } from '../interfaces/business-gallery.interface';
 import { IBusinessTagService } from '../interfaces/business-tag.interface';
+import { IWeeklyScheduleService } from 'src/weekly-schedule/interface/weekly-schedule-service.interface';
 
 @Injectable()
 export class BusinessService implements IBusinessService {
@@ -52,7 +53,9 @@ export class BusinessService implements IBusinessService {
     @Inject(TOKENS.IBusinessGalleryService)
     private readonly businessGalleryService: IBusinessGalleryService,
     @Inject(TOKENS.IBusinessTagService)
-    private readonly businessTagService: IBusinessTagService
+    private readonly businessTagService: IBusinessTagService,
+    @Inject(TOKENS.IWeeklyScheduleService)
+    private readonly businessWeekly: IWeeklyScheduleService
 
   ) {}
 
@@ -215,6 +218,7 @@ export class BusinessService implements IBusinessService {
     const categories = await this.businessCategoryService.getCategoriesByBusinessId(id);
     const tags = await this.businessTagService.getTagsByBusinessId(id);
     const gallery = await this.businessGalleryService.getImagesForEntity(id);
+    const weeklySchedule = await this.businessWeekly.findByBusinessId(id);
 
 
     return BusinessProfileResponseDto.fromPrismaWithRelations({
@@ -222,7 +226,8 @@ export class BusinessService implements IBusinessService {
       categories,
       gallery,
       logo,
-      tags
+      tags,
+      weeklySchedule
     })
   }
 

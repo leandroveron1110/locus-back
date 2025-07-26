@@ -73,8 +73,9 @@ model User {
   businesses Business[] // Relación inversa: Un usuario puede ser propietario de muchos negocios.
 
   // ⭐ Campo que referencia a la imagen de avatar del usuario. Relación 1:1 con Image.
-  avatarId String? @unique @map("avatar_id")
-  avatar   Image?  @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
+  avatarId         String?            @unique @map("avatar_id")
+  avatar           Image?             @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
+  businessFollower BusinessFollower[]
 
   @@map("usuarios")
 }
@@ -229,8 +230,22 @@ model Business {
   products         Product[]
   orders           Order[]
   events           Event[]
+  businessFollower BusinessFollower[]
 
   @@map("negocios")
+}
+
+model BusinessFollower {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  business   Business @relation(fields: [businessId], references: [id])
+  businessId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, businessId]) // para evitar que un usuario siga dos veces al mismo negocio
 }
 
 model BusinessTag {
@@ -482,41 +497,42 @@ model Event {
   @@map("eventos")
 }
 
-
 // Este modelo contendrá una copia desnormalizada y optimizada de los datos de negocio
 // específicamente para fines de búsqueda. Su objetivo es desacoplar el servicio de búsqueda
 // del modelo transaccional principal, preparando para una arquitectura de microservicios.
 model SearchableBusiness {
   // `businessId` es la clave primaria y el enlace al Business original
-  id                 String    @id @map("id") // Se mapea al ID del Business original
+  id String @id @map("id") // Se mapea al ID del Business original
 
-  name               String    @map("nombre")
-  shortDescription   String?   @map("descripcion_corta")
-  fullDescription    String?   @map("descripcion_completa")
-  address            String?   @map("direccion")
-  city               String?   @map("ciudad") // Campo para filtrar por ciudad
-  province           String?   @map("provincia") // Campo para filtrar por provincia
+  name             String  @map("nombre")
+  shortDescription String? @map("descripcion_corta")
+  fullDescription  String? @map("descripcion_completa")
+  address          String? @map("direccion")
+  city             String? @map("ciudad") // Campo para filtrar por ciudad
+  province         String? @map("provincia") // Campo para filtrar por provincia
 
   // Categorías y Tags como arrays de strings para búsqueda de texto completo y filtrado rápido
-  categoryNames      String[]  @map("nombres_categorias") // Ej: ["Restaurante", "Comida Rápida"]
-  tagNames           String[]  @map("nombres_tags")       // Ej: ["Vegano", "PetFriendly", "Wifi Gratis"]
+  categoryNames String[] @map("nombres_categorias") // Ej: ["Restaurante", "Comida Rápida"]
+  tagNames      String[] @map("nombres_tags") // Ej: ["Vegano", "PetFriendly", "Wifi Gratis"]
 
-  latitude           Decimal?  @map("latitud") @db.Decimal(10, 7)
-  longitude          Decimal?  @map("longitud") @db.Decimal(10, 7)
+  latitude  Decimal? @map("latitud") @db.Decimal(10, 7)
+  longitude Decimal? @map("longitud") @db.Decimal(10, 7)
 
-  averageRating      Decimal?  @map("promedio_calificacion") @db.Decimal(2,1)
-  reviewCount        Int?      @default(0) @map("cantidad_calificaciones")
-  status             String?   @map("estado") // El nombre del estado (ej. "ACTIVO", "INACTIVO")
+  averageRating Decimal? @map("promedio_calificacion") @db.Decimal(2, 1)
+  reviewCount   Int?     @default(0) @map("cantidad_calificaciones")
+  status        String?  @map("estado") // El nombre del estado (ej. "ACTIVO", "INACTIVO")
 
-  logoUrl            String?   @map("url_logo") // URL directa para mostrar en los resultados de búsqueda
+  logoUrl  String? @map("url_logo") // URL directa para mostrar en los resultados de búsqueda
   // El campo `horarios` es crucial para la lógica `openNow`. Se copiará el JSON tal cual.
-  horarios           Json?     @map("horarios") // Horarios de apertura y cierre (ej. de WeeklySchedule combinado)
+  horarios Json?   @map("horarios") // Horarios de apertura y cierre (ej. de WeeklySchedule combinado)
 
   // Configuración de módulos para filtrar (ej. si tiene eCommerce activo)
-  modulesConfig      Json?     @map("modulos_config")
+  modulesConfig Json? @map("modulos_config")
 
-  createdAt          DateTime  @default(now()) @map("fecha_creacion_original") // Fecha de creación del Business original
-  updatedAt          DateTime  @updatedAt @map("fecha_ultima_sincronizacion") // Fecha de la última vez que este registro de búsqueda fue actualizado
+  followersCount Int @default(0) @map("cantidad_seguidores")
+
+  createdAt DateTime @default(now()) @map("fecha_creacion_original") // Fecha de creación del Business original
+  updatedAt DateTime @updatedAt @map("fecha_ultima_sincronizacion") // Fecha de la última vez que este registro de búsqueda fue actualizado
 
   // Puedes añadir un campo para búsqueda de texto completo con PostGIS si lo necesitas
   // @@fulltext([name, shortDescription, fullDescription, categoryNames, tagNames]) // Ejemplo para bases de datos que lo soportan

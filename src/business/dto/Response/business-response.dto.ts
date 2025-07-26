@@ -103,6 +103,7 @@ export class BusinessProfileResponseDto {
   longitude?: number | null;
   averageRating?: number | null;
   ratingsCount?: number;
+  weeklySchedule: Record<string, string[]>
 
   // Campos nuevos para categorías, tags y galería
   categories?: CategorySimple[];
@@ -116,8 +117,9 @@ export class BusinessProfileResponseDto {
     categories?: { category: { id: string; name: string } }[],
     tags?: { tag: { id: string; name: string } }[],
     gallery?: { id: string; url: string }[],
+    weeklySchedule: Record<string, string[]>
   }): BusinessProfileResponseDto {
-    const { business, logo, categories, tags, gallery } = params;
+    const { business, logo, categories, tags, gallery, weeklySchedule } = params;
 
     const dto = new BusinessProfileResponseDto();
 
@@ -160,6 +162,8 @@ export class BusinessProfileResponseDto {
       id: g.id,
       url: g.url,
     })) || [];
+
+    dto.weeklySchedule = weeklySchedule
 
     return dto;
   }

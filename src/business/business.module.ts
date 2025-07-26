@@ -18,6 +18,7 @@ import { BusinessValidatorService } from './services/validator/business-validato
 import { BusinessTagController } from './controllers/business-tag.controller';
 import { BusinessTagService } from './services/business-tag.service';
 import { BusinessCategoryController } from './controllers/business-category.controller';
+import { WeeklyScheduleModule } from 'src/weekly-schedule/weekly-schedule.module';
 
 @Module({
   controllers: [
@@ -59,6 +60,7 @@ import { BusinessCategoryController } from './controllers/business-category.cont
     PrismaModule,
     UsersModule,
     StatusModule,
+    forwardRef(() =>WeeklyScheduleModule),
     forwardRef(() => ImageModule),
     UploadsModule,
   ],

@@ -22,6 +22,7 @@ import { SpecialScheduleModule } from './special-schedule/special-schedule.modul
 import { SearchModule } from './search/search.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { IsBusinessIdExistsConstraint } from './common/validators/is-business-id-exists.validator';
+import { FollowModule } from './follow/follow.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { IsBusinessIdExistsConstraint } from './common/validators/is-business-id
     SpecialScheduleModule,
     SearchModule,
     UploadsModule,
+    FollowModule,
   ],
   controllers: [AppController],
   providers: [AppService, IsBusinessIdExistsConstraint],

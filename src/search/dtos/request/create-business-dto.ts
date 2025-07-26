@@ -53,6 +53,9 @@ export class CreateBusinessDto {
   @IsString()
   @IsJSON() // Valida que sea un string JSON
   modulesConfig?: string; // Configuración de módulos como un string JSON
+
+  @IsNumber()
+  followersCount: number = 0
 }
 
 export class UperrBusinessDto extends PartialType(CreateBusinessDto){

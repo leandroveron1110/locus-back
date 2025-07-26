@@ -59,7 +59,7 @@ export class WeeklyScheduleController {
   @HttpCode(HttpStatus.OK)
   findByBusinessId(
     @Param('businessId') businessId: string,
-  ): Promise<WeeklyScheduleResponseDto[]> {
+  ): Promise<any> {
     return this.weeklyScheduleService.findByBusinessId(businessId);
   }
 

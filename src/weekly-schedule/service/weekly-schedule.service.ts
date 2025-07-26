@@ -1,5 +1,11 @@
 // src/modules/weekly-schedule/weekly-schedule.service.ts
-import { Injectable, NotFoundException, ConflictException, BadRequestException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  Inject,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateWeeklyScheduleDto } from '../dtos/Request/create-weekly-schedule.dto';
 import { WeeklyScheduleResponseDto } from '../dtos/Response/weekly-schedule-response.dto';
@@ -9,9 +15,8 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { IWeeklyScheduleService } from '../interface/weekly-schedule-service.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 
-
 @Injectable()
-export class WeeklyScheduleService implements IWeeklyScheduleService{
+export class WeeklyScheduleService implements IWeeklyScheduleService {
   constructor(
     private prisma: PrismaService,
     @Inject(TOKENS.IBusinessValidator)
@@ -38,8 +43,11 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
    * @throws ConflictException Si el horario se superpone con uno existente para el mismo negocio/día.
    * @throws BadRequestException Si la hora de cierre es anterior o igual a la de apertura.
    */
-  async create(createWeeklyScheduleDto: CreateWeeklyScheduleDto): Promise<WeeklyScheduleResponseDto> {
-    const { businessId, dayOfWeek, openingTime, closingTime } = createWeeklyScheduleDto;
+  async create(
+    createWeeklyScheduleDto: CreateWeeklyScheduleDto,
+  ): Promise<WeeklyScheduleResponseDto> {
+    const { businessId, dayOfWeek, openingTime, closingTime } =
+      createWeeklyScheduleDto;
 
     await this.businessValidator.checkOne(businessId);
 
@@ -50,7 +58,7 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
     if (parsedClosingTime <= parsedOpeningTime) {
       throw new BadRequestException('Closing time must be after opening time.');
     }
-    
+
     try {
       const schedule = await this.prisma.weeklySchedule.create({
         data: {
@@ -60,12 +68,15 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
           closingTime: parsedClosingTime,
         },
       });
-      console.log(businessId)
+      console.log(businessId);
       return WeeklyScheduleResponseDto.fromPrisma(schedule);
     } catch (error) {
       // Manejo de errores específicos de Prisma
-      if (error.code === 'P2002') { // Unique constraint violation
-        throw new ConflictException(`A schedule for business ${businessId} on ${dayOfWeek} with times ${openingTime}-${closingTime} already exists.`);
+      if (error.code === 'P2002') {
+        // Unique constraint violation
+        throw new ConflictException(
+          `A schedule for business ${businessId} on ${dayOfWeek} with times ${openingTime}-${closingTime} already exists.`,
+        );
       }
       throw error; // Propagar otros errores
     }
@@ -77,7 +88,10 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
    * @param dayOfWeek (Opcional) Día de la semana.
    * @returns Lista de horarios semanales.
    */
-  async findAll(businessId?: string, dayOfWeek?: DayOfWeek): Promise<WeeklyScheduleResponseDto[]> {
+  async findAll(
+    businessId?: string,
+    dayOfWeek?: DayOfWeek,
+  ): Promise<WeeklyScheduleResponseDto[]> {
     const schedules = await this.prisma.weeklySchedule.findMany({
       where: {
         businessId: businessId,
@@ -94,7 +108,7 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
   async findAllW(): Promise<WeeklyScheduleResponseDto[]> {
     const shcedules = await this.prisma.weeklySchedule.findMany();
 
-     return shcedules.map(WeeklyScheduleResponseDto.fromPrisma);
+    return shcedules.map(WeeklyScheduleResponseDto.fromPrisma);
   }
 
   /**
@@ -119,17 +133,38 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
    * @returns Lista de horarios semanales del negocio.
    * @throws NotFoundException Si el negocio no existe.
    */
-  async findByBusinessId(businessId: string): Promise<WeeklyScheduleResponseDto[]> {
-    await this.businessValidator.checkOne(businessId); // Valida que el negocio exista
+  async findByBusinessId(
+    businessId: string,
+    isValidBusiness: boolean = true
+  ): Promise<Record<string, string[]>> {
+    if(isValidBusiness) await this.businessValidator.checkOne(businessId);
 
     const schedules = await this.prisma.weeklySchedule.findMany({
       where: { businessId },
-      orderBy: [
-        { dayOfWeek: 'asc' },
-        { openingTime: 'asc' },
-      ],
+      orderBy: [{ dayOfWeek: 'asc' }, { openingTime: 'asc' }],
+      select: {
+        dayOfWeek: true,
+        openingTime: true,
+        closingTime: true,
+      },
     });
-    return schedules.map(WeeklyScheduleResponseDto.fromPrisma);
+
+    const grouped: Record<string, string[]> = {};
+
+    const formatTime = (date: Date): string => {
+      return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    };
+
+    for (const { dayOfWeek, openingTime, closingTime } of schedules) {
+      const key = dayOfWeek.toUpperCase();
+      const range = `${formatTime(openingTime)}-${formatTime(closingTime)}`;
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(range);
+    }
+
+    return grouped;
   }
 
   /**
@@ -141,8 +176,12 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
    * @throws ConflictException Si la actualización genera un conflicto de unicidad.
    * @throws BadRequestException Si la hora de cierre es anterior o igual a la de apertura.
    */
-  async update(id: string, updateWeeklyScheduleDto: UpdateWeeklyScheduleDto): Promise<WeeklyScheduleResponseDto> {
-    const { businessId, dayOfWeek, openingTime, closingTime } = updateWeeklyScheduleDto;
+  async update(
+    id: string,
+    updateWeeklyScheduleDto: UpdateWeeklyScheduleDto,
+  ): Promise<WeeklyScheduleResponseDto> {
+    const { businessId, dayOfWeek, openingTime, closingTime } =
+      updateWeeklyScheduleDto;
 
     let parsedOpeningTime: Date | undefined;
     let parsedClosingTime: Date | undefined;
@@ -155,24 +194,35 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
     }
 
     // Validar que closingTime sea mayor que openingTime
-    if (parsedOpeningTime && parsedClosingTime && parsedClosingTime <= parsedOpeningTime) {
+    if (
+      parsedOpeningTime &&
+      parsedClosingTime &&
+      parsedClosingTime <= parsedOpeningTime
+    ) {
       throw new BadRequestException('Closing time must be after opening time.');
     } else if (parsedOpeningTime && !parsedClosingTime) {
       // Si solo se actualiza la apertura, verificar con el cierre actual
       const currentSchedule = await this.findOne(id);
-      const currentClosingTime = this.parseTimeStringToDate(currentSchedule.closingTime);
+      const currentClosingTime = this.parseTimeStringToDate(
+        currentSchedule.closingTime,
+      );
       if (parsedOpeningTime >= currentClosingTime) {
-        throw new BadRequestException('New opening time must be before current closing time.');
+        throw new BadRequestException(
+          'New opening time must be before current closing time.',
+        );
       }
     } else if (!parsedOpeningTime && parsedClosingTime) {
       // Si solo se actualiza el cierre, verificar con la apertura actual
       const currentSchedule = await this.findOne(id);
-      const currentOpeningTime = this.parseTimeStringToDate(currentSchedule.openingTime);
+      const currentOpeningTime = this.parseTimeStringToDate(
+        currentSchedule.openingTime,
+      );
       if (parsedClosingTime <= currentOpeningTime) {
-        throw new BadRequestException('New closing time must be after current opening time.');
+        throw new BadRequestException(
+          'New closing time must be after current opening time.',
+        );
       }
     }
-
 
     try {
       const updatedSchedule = await this.prisma.weeklySchedule.update({
@@ -186,15 +236,23 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
       return WeeklyScheduleResponseDto.fromPrisma(updatedSchedule);
     } catch (error) {
       if (error.code === 'P2025') {
-        throw new NotFoundException(`WeeklySchedule with ID "${id}" not found.`);
+        throw new NotFoundException(
+          `WeeklySchedule with ID "${id}" not found.`,
+        );
       }
-      if (error.code === 'P2002') { // Unique constraint violation
+      if (error.code === 'P2002') {
+        // Unique constraint violation
         // Obtener el horario actual para construir un mensaje más específico
         const currentSchedule = await this.findOne(id).catch(() => null); // Si el ID no existe, atrapa el error
-        const day = updateWeeklyScheduleDto.dayOfWeek || currentSchedule?.dayOfWeek;
-        const opTime = updateWeeklyScheduleDto.openingTime || currentSchedule?.openingTime;
-        const clTime = updateWeeklyScheduleDto.closingTime || currentSchedule?.closingTime;
-        throw new ConflictException(`A schedule for business ${businessId || currentSchedule?.businessId} on ${day} with times ${opTime}-${clTime} already exists.`);
+        const day =
+          updateWeeklyScheduleDto.dayOfWeek || currentSchedule?.dayOfWeek;
+        const opTime =
+          updateWeeklyScheduleDto.openingTime || currentSchedule?.openingTime;
+        const clTime =
+          updateWeeklyScheduleDto.closingTime || currentSchedule?.closingTime;
+        throw new ConflictException(
+          `A schedule for business ${businessId} on ${day} with times ${opTime}-${clTime} already exists.`,
+        );
       }
       throw error;
     }
@@ -212,7 +270,9 @@ export class WeeklyScheduleService implements IWeeklyScheduleService{
       });
     } catch (error) {
       if (error.code === 'P2025') {
-        throw new NotFoundException(`WeeklySchedule with ID "${id}" not found.`);
+        throw new NotFoundException(
+          `WeeklySchedule with ID "${id}" not found.`,
+        );
       }
       throw error;
     }
