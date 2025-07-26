@@ -49,6 +49,15 @@ export class CategoryController {
     return plainToInstance(CategoryResponseDto, category);
   }
 
+  @Post('all')
+  @HttpCode(HttpStatus.CREATED) // Código 201 para creación exitosa
+  async createAll(
+    @Body() createCategoryDto: CreateCategoryDto[],
+  ): Promise<CategoryResponseDto[]> {
+    const category = await this.categoryService.createAll(createCategoryDto);
+    return plainToInstance(CategoryResponseDto, category);
+  }
+
   @Patch(':id')
   // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
   // @Roles(UserRole.ADMIN)

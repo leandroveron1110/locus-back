@@ -1,10 +1,14 @@
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ISearchableBusinessCrudService } from '../interfaces/serach-crud-service.interface';
-import { Inject, NotFoundException } from '@nestjs/common';
+import { ISearchableBusinessCrudService } from '../interfaces/searchable-business-crud-service.interface';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { TOKENS } from 'src/common/constants/tokens';
-import { ISearchTagCrudService } from '../interfaces/search-tag-crud-service.interface';
+import { ISearchableTagCrudService } from '../interfaces/searchable-tag-crud-service.interface';
 
-export class SearchTagCrudService implements ISearchTagCrudService {
+/**
+ * this class searchTag
+ */
+@Injectable()
+export class SearchableTagCrudService implements ISearchableTagCrudService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(TOKENS.ISearchableBusinessCrudService)
@@ -31,7 +35,9 @@ export class SearchTagCrudService implements ISearchTagCrudService {
     // combine current tag with new tags
     const combineTagName = [...new Set([...currentTag, ...newTags])];
 
-    this.prisma.searchableBusiness.update({
+    console.log("new Tag", newTags)
+
+    await this.prisma.searchableBusiness.update({
       where: { id: idBusiness },
       data: { tagNames: combineTagName },
     });

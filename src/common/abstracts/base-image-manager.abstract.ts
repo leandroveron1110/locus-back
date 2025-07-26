@@ -24,6 +24,7 @@ export abstract class BaseImageManager {
     protected readonly prisma: PrismaService,
   ) {
     this.logger = new Logger(this.constructor.name);
+    this.prisma = prisma;
   }
 
   protected async uploadAndPersistImage(

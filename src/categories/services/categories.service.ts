@@ -25,6 +25,28 @@ export class CategoryService implements ICategoryService {
     }
   }
 
+  async createAll(createCategoryDto: CreateCategoryDto[]): Promise<Category[]> {
+    try {
+      await this.prisma.category.createMany({
+        data: createCategoryDto,
+        skipDuplicates: true, // evita errores por duplicados
+      });
+
+      // Buscamos las categorías por sus nombres únicos después de crearlas
+      const names = createCategoryDto.map((c) => c.name);
+      const created = await this.prisma.category.findMany({
+        where: { name: { in: names } },
+      });
+
+      return created;
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new Error(`Una o más categorías ya existen.`);
+      }
+      throw error;
+    }
+  }
+
   async findAll(): Promise<Category[]> {
     // Por lo general, se listan solo las categorías activas para el frontend
     return this.prisma.category.findMany({

@@ -16,7 +16,6 @@ import {
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 
-
 // Guards y Decoradores de Roles (asegúrate de que las rutas sean correctas)
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -35,7 +34,7 @@ import { ITagService } from '../interfaces/tag-service.interface';
 export class TagController {
   constructor(
     @Inject(TOKENS.ITagService)
-    private readonly tagService: ITagService
+    private readonly tagService: ITagService,
   ) {}
 
   // --- Rutas para ADMINISTRADORES (Crear, Actualizar, Desactivar Tags) ---
@@ -46,6 +45,17 @@ export class TagController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createTagDto: CreateTagDto): Promise<TagResponseDto> {
     const tag = await this.tagService.create(createTagDto);
+    return plainToInstance(TagResponseDto, tag);
+  }
+
+  @Post('all')
+  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
+  // @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  async createAll(
+    @Body() createTagDto: CreateTagDto[],
+  ): Promise<TagResponseDto[]> {
+    const tag = await this.tagService.createAll(createTagDto);
     return plainToInstance(TagResponseDto, tag);
   }
 

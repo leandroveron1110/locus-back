@@ -43,7 +43,7 @@ export class SearchService implements ISearchService {
 
     const where: Prisma.SearchableBusinessWhereInput = {
       // Por defecto, solo busca negocios activos (si tu modelo SearchableBusiness tiene un campo 'status' mapeado a 'estado')
-      status: { equals: 'ACTIVE' }, // Asegúrate de que 'ACTIVE' es el nombre del estado para negocios activos
+//      status: { equals: 'ACTIVE' }, // Asegúrate de que 'ACTIVE' es el nombre del estado para negocios activos
     };
     const orderByClause: Prisma.SearchableBusinessOrderByWithRelationInput = {};
 

@@ -21,11 +21,11 @@ export class BusinessLogoService
   implements IBusinessLogoService
 {
   constructor(
+    @Inject(TOKENS.IImageService)
+    protected readonly imageService: IImageService,
     protected readonly prisma: PrismaService,
     @Inject(TOKENS.IBusinessValidator)
     private readonly businessValidator: IExistenceValidator,
-    @Inject(TOKENS.IImageService)
-    protected readonly imageService: IImageService,
     uploadsService: UploadsService,
   ) {
     super(imageService, uploadsService, prisma);
@@ -39,7 +39,6 @@ export class BusinessLogoService
       `Starting upload and assign logo for business ID: ${businessId}.`,
     );
     await this.businessValidator.checkOne(businessId);
-
     // Usa el método de la clase base para subir y persistir la imagen en el ImageService
     const newLogoImage = await this.uploadAndPersistImage(
       file,
@@ -184,12 +183,13 @@ export class BusinessLogoService
 
   // Obtiene el logo de un negocio específico
   async getBusinessLogo(businessId: string): Promise<ImageResponseDto | null> {
-    const business = await this.prisma.business.findUnique({
-      where: { id: businessId },
-      select: { logoId: true },
-    });
 
-    if (!business || !business.logoId) {
+    const business = await  this.prisma.business.findUnique({
+      where: {
+        id: businessId
+      }
+    })
+    if (!business || !business.logoId)  {
       return null; // El negocio no tiene logo asignado
     }
 

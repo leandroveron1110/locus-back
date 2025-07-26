@@ -47,28 +47,6 @@ export class BusinessLogoController {
      {}
 
   @Post()
-  @ApiOperation({ summary: 'Upload and assign a new logo to a business' })
-  @ApiParam({ name: 'businessId', description: 'ID of the business', type: String })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-    description: 'Logo image file (e.g., JPG, PNG)',
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Logo successfully uploaded and assigned.',
-    type: ImageResponseDto,
-  })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Business not found.' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid file or upload error.' })
   @UseInterceptors(FileInterceptor('file')) // 'file' es el nombre del campo en el formulario multipart
   @HttpCode(HttpStatus.CREATED)
   async uploadLogo(
@@ -76,6 +54,7 @@ export class BusinessLogoController {
     @UploadedFile() file: Express.Multer.File,
   ): Promise<ImageResponseDto> {
     if (!file) {
+      console.log("not file")
       throw new BadRequestException('No file provided for logo upload.');
     }
     return this.businessLogoService.uploadAndAssignLogo(businessId, file);

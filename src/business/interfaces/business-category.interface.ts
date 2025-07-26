@@ -18,5 +18,5 @@ export interface IBusinessCategoryService {
    * @param businessId El ID del negocio.
    * @returns Una promesa que resuelve con un array de BusinessCategory (o una representación simplificada).
    */
-  getCategoriesByBusinessId(businessId: string): Promise<BusinessCategory[]>; // O tu propia interfaz si no quieres depender de Prisma aquí.
+  getCategoriesByBusinessId(businessId: string): Promise<any[]>; // O tu propia interfaz si no quieres depender de Prisma aquí.
 }

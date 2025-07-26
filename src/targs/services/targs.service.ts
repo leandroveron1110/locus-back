@@ -23,6 +23,31 @@ export class TagService implements ITagService {
     }
   }
 
+async createAll(createTagDto: CreateTagDto[]): Promise<Tag[]> {
+  try {
+
+    if(!createTagDto.length) throw new Error(`Esta vacio los tags`)
+
+    await this.prisma.tag.createMany({
+      data: createTagDto,
+      skipDuplicates: true, // evita errores por duplicados
+    });
+
+    const names = createTagDto.map(tag => tag.name);
+    const createdTags = await this.prisma.tag.findMany({
+      where: { name: { in: names } },
+    });
+
+    return createdTags;
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      throw new Error(`Uno o más tags ya existen.`);
+    }
+    throw error;
+  }
+}
+
+
   async findAll(): Promise<Tag[]> {
     // Listamos solo los tags activos, ya que son los que normalmente se muestran en el frontend
     return this.prisma.tag.findMany({

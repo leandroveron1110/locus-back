@@ -3,7 +3,7 @@ import { Type } from "class-transformer";
 import { IsJSON, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from "class-validator";
 
 export class CreateBusinessDto {
-// @IsUUID()
+  @IsUUID()
   @IsNotEmpty()
   id: string; // Este debe ser el ID del negocio original
 

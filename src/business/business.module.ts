@@ -17,13 +17,15 @@ import { BusinessCategoryService } from './services/business-category.service';
 import { BusinessValidatorService } from './services/validator/business-validator.service';
 import { BusinessTagController } from './controllers/business-tag.controller';
 import { BusinessTagService } from './services/business-tag.service';
+import { BusinessCategoryController } from './controllers/business-category.controller';
 
 @Module({
   controllers: [
     BusinessController,
     BusinessGalleryController,
     BusinessLogoController,
-    BusinessTagController
+    BusinessTagController,
+    BusinessCategoryController
   ],
   providers: [
     {

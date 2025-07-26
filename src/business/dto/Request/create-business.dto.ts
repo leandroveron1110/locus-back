@@ -49,7 +49,6 @@ export class CreateBusinessDto {
   @ApiProperty({ description: 'Lista de IDs de categorías a asociar con el negocio.', type: [String], example: ['uuid-cat-1', 'uuid-cat-2'], required: true })
   @IsArray({ message: 'categoryIds debe ser un array de IDs de categorías.' })
   @IsUUID('4', { each: true, message: 'Cada categoryId debe ser un UUID válido.' })
-  @ArrayMinSize(1, { message: 'Debe seleccionar al menos una categoría.' })
   categoryIds: string[]; // IDs de categorías
 
   @ApiProperty({ description: 'Descripción corta del negocio.', example: 'Sirviendo la mejor comida local desde 2005.', required: false })

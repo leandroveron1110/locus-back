@@ -4,6 +4,7 @@ import { UpdateTagDto } from '../dto/Request/update-tag.dto';
 
 export interface ITagService {
   create(createTagDto: CreateTagDto): Promise<Tag>;
+  createAll(createTagDto: CreateTagDto[]): Promise<Tag[]>;
   findAll(): Promise<Tag[]>;
   findOne(id: string): Promise<Tag>;
   update(id: string, updateTagDto: UpdateTagDto): Promise<Tag>;

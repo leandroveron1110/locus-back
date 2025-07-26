@@ -6,12 +6,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Business, Prisma, UserRole } from '@prisma/client'; // Para tipos de Prisma como JsonValue y WhereInput
+import { Prisma } from '@prisma/client'; // Para tipos de Prisma como JsonValue y WhereInput
 import { PrismaService } from 'src/prisma/prisma.service';
 
 // interface service
 import { IBusinessService } from '../interfaces/business.interface';
-import { ICategoryService } from 'src/categories/interfaces/Category.interface';
 import { IUserService } from 'src/users/interfaces/User-service.interface';
 import { IStatusService } from 'src/status/interfaces/status-service.interface';
 
@@ -19,45 +18,46 @@ import { CreateBusinessDto } from '../dto/Request/create-business.dto';
 import { UpdateBusinessDto } from '../dto/Request/update-business.dto';
 import {
   BusinessPreviewDto,
+  BusinessProfileResponseDto,
   BusinessResponseDto,
 } from '../dto/Response/business-response.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessCategoryService } from '../interfaces/business-category.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
+import { IBusinessLogoService } from '../interfaces/business-logo-service.interface';
+import { IBusinessGalleryService } from '../interfaces/business-gallery.interface';
+import { IBusinessTagService } from '../interfaces/business-tag.interface';
 
 @Injectable()
 export class BusinessService implements IBusinessService {
   constructor(
-    private prisma: PrismaService,
-    @Inject(TOKENS.IUserService)
-    private userService: IUserService,
     @Inject(TOKENS.IUserValidator) // Nuevo: Validador de existencia de usuario
     private readonly userValidator: IExistenceValidator,
     @Inject(TOKENS.ICategoryValidator)
     private categoryValidator: IExistenceValidator,
-    @Inject(TOKENS.IStatusService)
-    private statusService: IStatusService,
     @Inject(TOKENS.IStatusValidator) // Nuevo: Validador de existencia de estado
     private readonly statusValidator: IExistenceValidator,
-    @Inject(TOKENS.IBusinessCategoryService)
-    private businessCategoryService: IBusinessCategoryService,
     @Inject(TOKENS.IBusinessValidator)
     private readonly businessValidator: IExistenceValidator,
+    
+    private prisma: PrismaService,
+    @Inject(TOKENS.IUserService)
+    private userService: IUserService,
+    @Inject(TOKENS.IStatusService)
+    private statusService: IStatusService,
+    @Inject(TOKENS.IBusinessCategoryService)
+    private businessCategoryService: IBusinessCategoryService,
+    @Inject(TOKENS.IBusinessLogoService)
+    private readonly businessLogoService: IBusinessLogoService,
+    @Inject(TOKENS.IBusinessGalleryService)
+    private readonly businessGalleryService: IBusinessGalleryService,
+    @Inject(TOKENS.IBusinessTagService)
+    private readonly businessTagService: IBusinessTagService
 
   ) {}
 
   async findOneProfileById(id: string): Promise<any> {
     const bussines = await this.findOne(id);
-
-    if (!bussines.statusId) {
-      throw new NotFoundException(`Negocio no tiene status.`);
-    }
-    const status = await this.statusService.findOne(bussines.statusId);
-
-    let response = {
-      ...bussines,
-      ...status,
-    };
   }
 
   /**
@@ -210,7 +210,20 @@ export class BusinessService implements IBusinessService {
     if (!business) {
       throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
     }
-    return business;
+
+    const logo = await this.businessLogoService.getBusinessLogo(id);
+    const categories = await this.businessCategoryService.getCategoriesByBusinessId(id);
+    const tags = await this.businessTagService.getTagsByBusinessId(id);
+    const gallery = await this.businessGalleryService.getImagesForEntity(id);
+
+
+    return BusinessProfileResponseDto.fromPrismaWithRelations({
+      business,
+      categories,
+      gallery,
+      logo,
+      tags
+    })
   }
 
   /**

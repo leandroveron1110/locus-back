@@ -2,30 +2,59 @@
 export const TOKENS = {
   // Servicios de Dominio
 
-  //Moule
+  //Moule Search
   ISearchService: Symbol('ISearchService'),
   ISearchableBusinessCrudService: Symbol('ISearchableBusinessCrudService'),
+  ISearchableTagCrudService: Symbol('ISearchableTagCrudService'),
+  ISearchCategoryCrudService: Symbol('ISearchableCategoryCrudService'),
+  ISearchableWeeklyScheduleCrudService: Symbol('ISearchablehWeeklyScheduleCrudService'),
 
+  // Module Users
   IUserService: Symbol('IUserService'),
-  IAuthService: Symbol('IAuthService'),
-  ICategoryService: Symbol('ICategoryService'),
-  ITagService: Symbol('ITagService'),
-  IStatusService: Symbol('IStatusService'),
-  IImageService: Symbol('IImageService'),
-  IBusinessService: Symbol('IBusinessService'),
-  IMenuService: Symbol('IMenuService'),
-  IProductService: Symbol('IProductService'),
-  IBookingService: Symbol('IBookingService'),
-  IOrderService: Symbol('IOrderService'),
-  IEventService: Symbol('IEventService'),
-  IOfferedServiceSerice: Symbol('IOfferedServiceService'),
-  IWeeklyScheduleService: Symbol('WeeklyScheduleService'),
 
+  // Module Auth
+  IAuthService: Symbol('IAuthService'),
+
+  // Module Category
+  ICategoryService: Symbol('ICategoryService'),
+
+  // Module Tag
+  ITagService: Symbol('ITagService'),
+
+  // Module Status
+  IStatusService: Symbol('IStatusService'),
+
+  //Module Image
+  IImageService: Symbol('IImageService'),
+
+  // Module Business
+  IBusinessService: Symbol('IBusinessService'),
   // association to Business
   IBusinessGalleryService: Symbol('IBusinessGalleryService'),
   IBusinessCategoryService: Symbol('IBusinessCategoryService'),
   IBusinessLogoService: Symbol('IBusinessLogoService'),
   IBusinessTagService: Symbol('IBusinessTagService'),
+
+  // Module Menu
+  IMenuService: Symbol('IMenuService'),
+
+  // Module Product
+  IProductService: Symbol('IProductService'),
+
+  // Module Booking
+  IBookingService: Symbol('IBookingService'),
+
+  // Module Order
+  IOrderService: Symbol('IOrderService'),
+
+  // Module Event
+  IEventService: Symbol('IEventService'),
+
+  // Module Offered Service
+  IOfferedServiceSerice: Symbol('IOfferedServiceService'),
+
+  // Module OfferedService
+  IWeeklyScheduleService: Symbol('WeeklyScheduleService'),
 
   // Proveedores de Capacidad Técnica
   IStorageProvider: Symbol('IStorageProvider'),

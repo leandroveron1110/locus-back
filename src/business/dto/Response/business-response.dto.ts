@@ -34,6 +34,7 @@ export class BusinessResponseDto {
   instagramUrl?: string;
   facebookUrl?: string;
   websiteUrl?: string;
+  logoUrl?: string;
   modulesConfig: ModulesConfig | Record<string, never>; // Puede ser ModulesConfig o un objeto vacío {}
   latitude?: number | null; // Decimal se mapea a number, pero puede ser null
   longitude?: number | null; // Decimal se mapea a number, pero puede ser null
@@ -58,6 +59,7 @@ export class BusinessResponseDto {
     dto.instagramUrl = business.instagramUrl ?? undefined;
     dto.facebookUrl = business.facebookUrl ?? undefined;
     dto.websiteUrl = business.websiteUrl ?? undefined;
+    dto.logoUrl = "";
     
     // Asegúrate de que modulesConfig sea un objeto. Si es null en DB, usa un objeto vacío.
     dto.modulesConfig = (business.modulesConfig as ModulesConfig) || {};
@@ -72,6 +74,97 @@ export class BusinessResponseDto {
     return dto;
   }
 }
+
+
+// Define tipos para las relaciones mínimas que quieres exponer
+type CategorySimple = { id: string; name: string };
+type TagSimple = { id: string; name: string };
+type GalleryImageSimple = { id: string; url: string };
+
+export class BusinessProfileResponseDto {
+  id: string;
+  ownerId: string;
+  name: string;
+  shortDescription?: string;
+  fullDescription?: string;
+  address: string;
+  phone: string;
+  whatsapp: string;
+  email?: string;
+  statusId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  websiteUrl?: string;
+  logoUrl?: string;
+  modulesConfig: ModulesConfig | Record<string, never>;
+  latitude?: number | null;
+  longitude?: number | null;
+  averageRating?: number | null;
+  ratingsCount?: number;
+
+  // Campos nuevos para categorías, tags y galería
+  categories?: CategorySimple[];
+  tags?: TagSimple[];
+  gallery?: GalleryImageSimple[];
+
+  // Método para transformar negocio + relaciones a DTO limpio
+  static fromPrismaWithRelations(params: {
+    business: PrismaBusiness,
+    logo?: { id: string; url: string } | null,
+    categories?: { category: { id: string; name: string } }[],
+    tags?: { tag: { id: string; name: string } }[],
+    gallery?: { id: string; url: string }[],
+  }): BusinessProfileResponseDto {
+    const { business, logo, categories, tags, gallery } = params;
+
+    const dto = new BusinessProfileResponseDto();
+
+    dto.id = business.id;
+    dto.ownerId = business.ownerId;
+    dto.name = business.name;
+    dto.shortDescription = business.shortDescription ?? undefined;
+    dto.fullDescription = business.fullDescription ?? undefined;
+    dto.address = business.address;
+    dto.phone = business.phone;
+    dto.whatsapp = business.whatsapp;
+    dto.email = business.email ?? undefined;
+    dto.statusId = business.statusId ?? undefined;
+    dto.createdAt = business.createdAt;
+    dto.updatedAt = business.updatedAt;
+    dto.instagramUrl = business.instagramUrl ?? undefined;
+    dto.facebookUrl = business.facebookUrl ?? undefined;
+    dto.websiteUrl = business.websiteUrl ?? undefined;
+    dto.logoUrl = logo?.url ?? undefined;
+    dto.modulesConfig = (business.modulesConfig as ModulesConfig) || {};
+    dto.latitude = business.latitude !== null ? Number(business.latitude) : null;
+    dto.longitude = business.longitude !== null ? Number(business.longitude) : null;
+    dto.averageRating = business.averageRating !== null ? Number(business.averageRating) : null;
+    dto.ratingsCount = business.ratingsCount ?? undefined;
+
+    // Mapea categorías para devolver solo id y nombre
+    dto.categories = categories?.map(c => ({
+      id: c.category.id,
+      name: c.category.name,
+    })) || [];
+
+    // Mapea tags para devolver solo id y nombre
+    dto.tags = tags?.map(t => ({
+      id: t.tag.id,
+      name: t.tag.name,
+    })) || [];
+
+    // Mapea galería con id y url
+    dto.gallery = gallery?.map(g => ({
+      id: g.id,
+      url: g.url,
+    })) || [];
+
+    return dto;
+  }
+}
+
 
 
 export class BusinessPreviewDto {

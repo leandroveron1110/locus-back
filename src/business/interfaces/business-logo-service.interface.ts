@@ -6,7 +6,7 @@ export interface IBusinessLogoService {
     file: Express.Multer.File,
   ): Promise<ImageResponseDto>;
 
-  getBusinessLogo(businessId: string): Promise<ImageResponseDto | null>;
+  getBusinessLogo(businessId: string | null): Promise<ImageResponseDto | null>;
 
   getImagesForEntity(businessId: string): Promise<ImageResponseDto[]>;
 

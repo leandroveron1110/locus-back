@@ -1,10 +1,14 @@
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ISearchableBusinessCrudService } from '../interfaces/serach-crud-service.interface';
-import { Inject } from '@nestjs/common';
+import { ISearchableBusinessCrudService } from '../interfaces/searchable-business-crud-service.interface';
+import { Inject, Injectable } from '@nestjs/common';
 import { TOKENS } from 'src/common/constants/tokens';
 import { WeeklyScheduleStructure } from '../types/WeeklySchedule';
+import { ISearchableWeeklyScheduleCrudService } from '../interfaces/searchable-weekly-schedule-crud-service.interface';
 
-export class WeeklyScheduleSearchCrudService {
+@Injectable()
+export class SearchableWeeklyScheduleCrudService
+  implements ISearchableWeeklyScheduleCrudService
+{
   constructor(
     private readonly prisma: PrismaService,
     @Inject(TOKENS.ISearchableBusinessCrudService)
@@ -17,7 +21,10 @@ export class WeeklyScheduleSearchCrudService {
    * @param idBusiness El ID del negocio.
    * @param schedule El objeto de horario semanal a establecer.
    */
-  async setWeeklySchedule(idBusiness: string, schedule: WeeklyScheduleStructure): Promise<void> {
+  async setWeeklySchedule(
+    idBusiness: string,
+    schedule: WeeklyScheduleStructure,
+  ): Promise<void> {
     // Asegura que el negocio existe antes de proceder
     await this.searchBusines.checkOne(idBusiness);
 
@@ -34,7 +41,10 @@ export class WeeklyScheduleSearchCrudService {
       });
       console.log(`Horario semanal establecido para el negocio ${idBusiness}.`);
     } catch (error) {
-      console.error(`Error al establecer el horario semanal para el negocio ${idBusiness}:`, error);
+      console.error(
+        `Error al establecer el horario semanal para el negocio ${idBusiness}:`,
+        error,
+      );
       throw new Error(`No se pudo establecer el horario semanal.`);
     }
   }
@@ -44,7 +54,9 @@ export class WeeklyScheduleSearchCrudService {
    * @param idBusiness El ID del negocio.
    * @returns Una promesa que resuelve con el objeto de horario semanal o null si no se encuentra o hay un error de parseo.
    */
-  async getWeeklySchedule(idBusiness: string): Promise<WeeklyScheduleStructure | null> {
+  async getWeeklySchedule(
+    idBusiness: string,
+  ): Promise<WeeklyScheduleStructure | null> {
     // Busca el negocio y selecciona solo el campo 'horarios'
     const business = await this.prisma.searchableBusiness.findUnique({
       where: { id: idBusiness },
@@ -52,16 +64,23 @@ export class WeeklyScheduleSearchCrudService {
     });
 
     if (!business || !business.horarios) {
-      console.log(`No se encontró horario semanal para el negocio ${idBusiness}.`);
+      console.log(
+        `No se encontró horario semanal para el negocio ${idBusiness}.`,
+      );
       return null;
     }
 
     try {
       // Parsea la cadena JSON de horarios a un objeto
-      const schedule = JSON.parse(business.horarios as string) as WeeklyScheduleStructure;
+      const schedule = JSON.parse(
+        business.horarios as string,
+      ) as WeeklyScheduleStructure;
       return schedule;
     } catch (error) {
-      console.error(`Error al parsear el horario JSON para el negocio ${idBusiness}:`, error);
+      console.error(
+        `Error al parsear el horario JSON para el negocio ${idBusiness}:`,
+        error,
+      );
       // Podrías lanzar un error o devolver null/un objeto vacío según tu política de errores
       return null;
     }
@@ -75,7 +94,11 @@ export class WeeklyScheduleSearchCrudService {
    * @param day El día de la semana (ej. "MONDAY", "TUESDAY").
    * @param timeRanges Un array de rangos de tiempo para ese día (ej. ["09:00-13:00", "15:00-19:00"]).
    */
-  async updateDailySchedule(idBusiness: string, day: string, timeRanges: string[]): Promise<void> {
+  async updateDailySchedule(
+    idBusiness: string,
+    day: string,
+    timeRanges: string[],
+  ): Promise<void> {
     // Asegura que el negocio existe antes de proceder
     await this.searchBusines.checkOne(idBusiness);
 
@@ -92,7 +115,9 @@ export class WeeklyScheduleSearchCrudService {
 
     // Guarda el horario modificado (reemplazando el anterior)
     await this.setWeeklySchedule(idBusiness, currentSchedule);
-    console.log(`Horario para ${day} actualizado a [${timeRanges.join(', ')}] para el negocio ${idBusiness}.`);
+    console.log(
+      `Horario para ${day} actualizado a [${timeRanges.join(', ')}] para el negocio ${idBusiness}.`,
+    );
   }
 
   /**
@@ -102,7 +127,11 @@ export class WeeklyScheduleSearchCrudService {
    * @param day El día de la semana (ej. "MONDAY").
    * @param newTimeRange El nuevo rango de tiempo a añadir (ej. "20:00-23:00").
    */
-  async addTimeRangeToDay(idBusiness: string, day: string, newTimeRange: string): Promise<void> {
+  async addTimeRangeToDay(
+    idBusiness: string,
+    day: string,
+    newTimeRange: string,
+  ): Promise<void> {
     await this.searchBusines.checkOne(idBusiness);
 
     let currentSchedule = await this.getWeeklySchedule(idBusiness);
@@ -121,7 +150,9 @@ export class WeeklyScheduleSearchCrudService {
     }
 
     await this.setWeeklySchedule(idBusiness, currentSchedule);
-    console.log(`Rango de tiempo "${newTimeRange}" añadido al día ${day} para el negocio ${idBusiness}.`);
+    console.log(
+      `Rango de tiempo "${newTimeRange}" añadido al día ${day} para el negocio ${idBusiness}.`,
+    );
   }
 
   /**
@@ -130,30 +161,42 @@ export class WeeklyScheduleSearchCrudService {
    * @param day El día de la semana (ej. "MONDAY").
    * @param timeRangeToRemove El rango de tiempo a eliminar (ej. "09:00-13:00").
    */
-  async removeTimeRangeFromDay(idBusiness: string, day: string, timeRangeToRemove: string): Promise<void> {
+  async removeTimeRangeFromDay(
+    idBusiness: string,
+    day: string,
+    timeRangeToRemove: string,
+  ): Promise<void> {
     await this.searchBusines.checkOne(idBusiness);
 
     let currentSchedule = await this.getWeeklySchedule(idBusiness);
     if (!currentSchedule) {
-      console.log(`No hay horario para el negocio ${idBusiness} o el día ${day}.`);
+      console.log(
+        `No hay horario para el negocio ${idBusiness} o el día ${day}.`,
+      );
       return;
     }
 
     const upperDay = day.toUpperCase();
     if (currentSchedule[upperDay]) {
       // Filtra el array para eliminar el rango de tiempo específico
-      currentSchedule[upperDay] = currentSchedule[upperDay].filter(range => range !== timeRangeToRemove);
+      currentSchedule[upperDay] = currentSchedule[upperDay].filter(
+        (range) => range !== timeRangeToRemove,
+      );
       // Si el array queda vacío después de eliminar, podrías considerar eliminar la propiedad del día
       if (currentSchedule[upperDay].length === 0) {
         delete currentSchedule[upperDay];
       }
     } else {
-      console.log(`No se encontró el día ${day} en el horario del negocio ${idBusiness}.`);
+      console.log(
+        `No se encontró el día ${day} en el horario del negocio ${idBusiness}.`,
+      );
       return;
     }
 
     await this.setWeeklySchedule(idBusiness, currentSchedule);
-    console.log(`Rango de tiempo "${timeRangeToRemove}" eliminado del día ${day} para el negocio ${idBusiness}.`);
+    console.log(
+      `Rango de tiempo "${timeRangeToRemove}" eliminado del día ${day} para el negocio ${idBusiness}.`,
+    );
   }
 
   /**
@@ -168,7 +211,9 @@ export class WeeklyScheduleSearchCrudService {
     let currentSchedule = await this.getWeeklySchedule(idBusiness);
 
     if (!currentSchedule) {
-      console.log(`No hay horario para eliminar para el negocio ${idBusiness}.`);
+      console.log(
+        `No hay horario para eliminar para el negocio ${idBusiness}.`,
+      );
       return;
     }
 
