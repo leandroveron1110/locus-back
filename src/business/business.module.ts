@@ -19,6 +19,7 @@ import { BusinessTagController } from './controllers/business-tag.controller';
 import { BusinessTagService } from './services/business-tag.service';
 import { BusinessCategoryController } from './controllers/business-category.controller';
 import { WeeklyScheduleModule } from 'src/weekly-schedule/weekly-schedule.module';
+import { FollowModule } from 'src/follow/follow.module';
 
 @Module({
   controllers: [
@@ -60,6 +61,7 @@ import { WeeklyScheduleModule } from 'src/weekly-schedule/weekly-schedule.module
     PrismaModule,
     UsersModule,
     StatusModule,
+    FollowModule,
     forwardRef(() =>WeeklyScheduleModule),
     forwardRef(() => ImageModule),
     UploadsModule,

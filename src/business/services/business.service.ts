@@ -28,6 +28,7 @@ import { IBusinessLogoService } from '../interfaces/business-logo-service.interf
 import { IBusinessGalleryService } from '../interfaces/business-gallery.interface';
 import { IBusinessTagService } from '../interfaces/business-tag.interface';
 import { IWeeklyScheduleService } from 'src/weekly-schedule/interface/weekly-schedule-service.interface';
+import { IFollowService } from 'src/follow/interfaces/follow-service.interface';
 
 @Injectable()
 export class BusinessService implements IBusinessService {
@@ -40,7 +41,7 @@ export class BusinessService implements IBusinessService {
     private readonly statusValidator: IExistenceValidator,
     @Inject(TOKENS.IBusinessValidator)
     private readonly businessValidator: IExistenceValidator,
-    
+
     private prisma: PrismaService,
     @Inject(TOKENS.IUserService)
     private userService: IUserService,
@@ -55,8 +56,9 @@ export class BusinessService implements IBusinessService {
     @Inject(TOKENS.IBusinessTagService)
     private readonly businessTagService: IBusinessTagService,
     @Inject(TOKENS.IWeeklyScheduleService)
-    private readonly businessWeekly: IWeeklyScheduleService
-
+    private readonly businessWeekly: IWeeklyScheduleService,
+    @Inject(TOKENS.IFollowerService)
+    private readonly followService: IFollowService,
   ) {}
 
   async findOneProfileById(id: string): Promise<any> {
@@ -137,7 +139,6 @@ export class BusinessService implements IBusinessService {
           },
           // Incluir relaciones que necesitarás para SearchableBusiness
           include: {
-           
             logo: true, // Para obtener la URL del logo
             weeklySchedules: true, // Para horarios
             currentStatus: true, // Para obtener el nombre del estado
@@ -206,7 +207,7 @@ export class BusinessService implements IBusinessService {
    * Busca un único negocio por su ID.
    * Similar a findAll, solo devuelve la información core del negocio.
    */
-  async findOne(id: string) {
+  async findOne(id: string, userId?: string) {
     const business = await this.prisma.business.findUnique({
       where: { id },
     });
@@ -214,12 +215,22 @@ export class BusinessService implements IBusinessService {
       throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
     }
 
-    const logo = await this.businessLogoService.getBusinessLogo(id);
-    const categories = await this.businessCategoryService.getCategoriesByBusinessId(id);
-    const tags = await this.businessTagService.getTagsByBusinessId(id);
-    const gallery = await this.businessGalleryService.getImagesForEntity(id);
-    const weeklySchedule = await this.businessWeekly.findByBusinessId(id);
+    const [logo, categories, tags, gallery, weeklySchedule, follow] =
+      await Promise.all([
+        this.businessLogoService.getBusinessLogo(id),
+        this.businessCategoryService.getCategoriesByBusinessId(id),
+        this.businessTagService.getTagsByBusinessId(id),
+        this.businessGalleryService.getImagesForEntity(id),
+        this.businessWeekly.findByBusinessId(id),
+        userId
+          ? this.followService.getFollowingCountByBusinessAndIsFollowingUser(
+              userId,
+              id,
+            )
+          : this.followService.getBusinessFollowerCount(id),
+      ]);
 
+    const followNormalized = this.normalizeFollow(follow);
 
     return BusinessProfileResponseDto.fromPrismaWithRelations({
       business,
@@ -227,8 +238,9 @@ export class BusinessService implements IBusinessService {
       gallery,
       logo,
       tags,
-      weeklySchedule
-    })
+      weeklySchedule,
+      follow: followNormalized,
+    });
   }
 
   /**
@@ -357,5 +369,13 @@ export class BusinessService implements IBusinessService {
       }
       throw error;
     }
+  }
+
+  private normalizeFollow(
+    follow: number | { isFollowing: boolean; count: number },
+  ): { count: number; isFollowing: boolean } {
+    return typeof follow === 'number'
+      ? { count: follow, isFollowing: false }
+      : follow;
   }
 }

@@ -80,6 +80,7 @@ export class BusinessResponseDto {
 type CategorySimple = { id: string; name: string };
 type TagSimple = { id: string; name: string };
 type GalleryImageSimple = { id: string; url: string };
+type FollowSimple = {isFollowing: boolean; count: number;}
 
 export class BusinessProfileResponseDto {
   id: string;
@@ -102,13 +103,17 @@ export class BusinessProfileResponseDto {
   latitude?: number | null;
   longitude?: number | null;
   averageRating?: number | null;
-  ratingsCount?: number;
+  ratingsCount: number = 0;
   weeklySchedule: Record<string, string[]>
 
   // Campos nuevos para categorías, tags y galería
   categories?: CategorySimple[];
   tags?: TagSimple[];
   gallery?: GalleryImageSimple[];
+  follow: FollowSimple = {
+  count: 0,
+  isFollowing: false
+};
 
   // Método para transformar negocio + relaciones a DTO limpio
   static fromPrismaWithRelations(params: {
@@ -118,8 +123,12 @@ export class BusinessProfileResponseDto {
     tags?: { tag: { id: string; name: string } }[],
     gallery?: { id: string; url: string }[],
     weeklySchedule: Record<string, string[]>
+    follow: {
+    isFollowing: boolean;
+    count: number;
+}
   }): BusinessProfileResponseDto {
-    const { business, logo, categories, tags, gallery, weeklySchedule } = params;
+    const { business, logo, categories, tags, gallery, weeklySchedule, follow } = params;
 
     const dto = new BusinessProfileResponseDto();
 
@@ -142,8 +151,9 @@ export class BusinessProfileResponseDto {
     dto.modulesConfig = (business.modulesConfig as ModulesConfig) || {};
     dto.latitude = business.latitude !== null ? Number(business.latitude) : null;
     dto.longitude = business.longitude !== null ? Number(business.longitude) : null;
-    dto.averageRating = business.averageRating !== null ? Number(business.averageRating) : null;
-    dto.ratingsCount = business.ratingsCount ?? undefined;
+    dto.averageRating = business.averageRating !== null ? Number(business.averageRating) : 0;
+    dto.ratingsCount = business.ratingsCount ?? 0;
+    dto.follow = follow;
 
     // Mapea categorías para devolver solo id y nombre
     dto.categories = categories?.map(c => ({

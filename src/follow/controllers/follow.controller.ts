@@ -1,9 +1,14 @@
-import { Controller, Post, Delete, Get, Param, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Param, HttpCode, HttpStatus, ParseUUIDPipe, Inject } from '@nestjs/common';
 import { FollowService } from '../services/follow.service';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IFollowService } from '../interfaces/follow-service.interface';
 
 @Controller('follow')
 export class FollowController {
-  constructor(private readonly followService: FollowService) {}
+  constructor(
+    @Inject(TOKENS.IFollowerService)
+    private readonly followService: IFollowService
+  ) {}
 
   @Post(':userId/:businessId')
   async followBusiness(
@@ -14,7 +19,7 @@ export class FollowController {
     return { message: 'Negocio seguido correctamente', data: result };
   }
 
-  @Delete(':userId/:businessId')
+  @Delete('unfollow/:userId/:businessId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async unfollowBusiness(
     @Param('userId', ParseUUIDPipe) userId: string,

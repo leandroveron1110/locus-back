@@ -101,21 +101,12 @@ export class BusinessController {
     });
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Retrieve a single business by ID' })
-  @ApiParam({ name: 'id', description: 'ID of the business', type: String })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Returns the business.',
-    type: BusinessResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Business not found.',
-  })
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<any> {
+  @Get(':businessId/:userId')
+  async findOne(
+    @Param('businessId', ParseUUIDPipe) businessId: string, 
+    @Param('userId', ParseUUIDPipe) userId?: string): Promise<any> {
     // Usamos ParseUUIDPipe para validar que el ID es un UUID válido
-    return this.businessService.findOne(id);
+    return this.businessService.findOne(businessId, userId);
   }
 
   @Patch(':id')

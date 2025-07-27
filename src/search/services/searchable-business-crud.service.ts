@@ -1,3 +1,4 @@
+import { Prisma, SearchableBusiness } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   CreateBusinessDto,
@@ -14,7 +15,9 @@ export class SearchableBusinessCrudService
 
   async checkOne(id: string): Promise<void> {
     const r = await this.prisma.searchableBusiness.findMany();
-    const count = await this.prisma.searchableBusiness.count({ where: { id: id } });
+    const count = await this.prisma.searchableBusiness.count({
+      where: { id: id },
+    });
     if (count === 0) {
       throw new NotFoundException(`Negocio con ID ${id} no encontrado.`);
     }
@@ -38,7 +41,7 @@ export class SearchableBusinessCrudService
           id: data.id,
           name: data.name,
           shortDescription: data.shortDescription,
-          fullDescription:  data.fullDescription,
+          fullDescription: data.fullDescription,
           address: data.address,
           city: data.city,
           province: data.province,
@@ -46,17 +49,16 @@ export class SearchableBusinessCrudService
           longitude: data.longitude,
           modulesConfig: data.modulesConfig,
           categoryNames: [],
-          tagNames: []
+          tagNames: [],
         },
       });
-      
-      return rest
+
+      return rest;
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
   }
   async update(data: UperrBusinessDto): Promise<any> {
-
     await this.prisma.searchableBusiness.update({
       where: {
         id: data.id,
@@ -68,5 +70,43 @@ export class SearchableBusinessCrudService
   }
   async delete(id: string): Promise<void> {
     this.prisma.$transaction(async (t) => {});
+  }
+
+  async findOne<T extends Prisma.SearchableBusinessSelect>(
+    id: string,
+    select: T,
+  ): Promise<Prisma.SearchableBusinessGetPayload<{ select: T }>> {
+    const business = await this.prisma.searchableBusiness.findUnique({
+      where: { id },
+      select,
+    });
+
+    if (!business) {
+      throw new NotFoundException(`Negocio con ID ${id} no encontrado.`);
+    }
+
+    return business;
+  }
+
+  async incrementFollowersCount(id: string, amount = 1): Promise<void> {
+    await this.prisma.searchableBusiness.update({
+      where: { id },
+      data: {
+        followersCount: {
+          increment: amount,
+        },
+      },
+    });
+  }
+
+  async decrementFollowersCount(id: string, amount = 1): Promise<void> {
+    await this.prisma.searchableBusiness.update({
+      where: { id },
+      data: {
+        followersCount: {
+          decrement: amount,
+        },
+      },
+    });
   }
 }

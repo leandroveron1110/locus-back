@@ -35,6 +35,10 @@ export const TOKENS = {
   IBusinessLogoService: Symbol('IBusinessLogoService'),
   IBusinessTagService: Symbol('IBusinessTagService'),
 
+
+  // Module Follower
+  IFollowerService: Symbol('IFollowerService'),
+
   // Module Menu
   IMenuService: Symbol('IMenuService'),
 
