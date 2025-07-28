@@ -144,6 +144,17 @@ export class BusinessGalleryService
     }
   }
 
+  public async getSimpleGalleryForEntity(
+    businessId: string,
+  ): Promise<{ id: string; url: string }[]> {
+    const images = await this.getImagesForEntity(businessId);
+
+    return images.map((img) => ({
+      id: img.id,
+      url: img.url,
+    }));
+  }
+
   public async getImagesForEntity(
     businessId: string,
   ): Promise<ImageResponseDto[]> {

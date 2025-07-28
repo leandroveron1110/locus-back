@@ -207,7 +207,7 @@ export class BusinessService implements IBusinessService {
    * Busca un único negocio por su ID.
    * Similar a findAll, solo devuelve la información core del negocio.
    */
-  async findOne(id: string, userId?: string) {
+  async findOne(id: string) {
     const business = await this.prisma.business.findUnique({
       where: { id },
     });
@@ -215,31 +215,28 @@ export class BusinessService implements IBusinessService {
       throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
     }
 
-    const [logo, categories, tags, gallery, weeklySchedule, follow] =
+    const [logo, categories, tags, gallery, weeklySchedule] =
       await Promise.all([
         this.businessLogoService.getBusinessLogo(id),
         this.businessCategoryService.getCategoriesByBusinessId(id),
         this.businessTagService.getTagsByBusinessId(id),
         this.businessGalleryService.getImagesForEntity(id),
         this.businessWeekly.findByBusinessId(id),
-        userId
-          ? this.followService.getFollowingCountByBusinessAndIsFollowingUser(
-              userId,
-              id,
-            )
-          : this.followService.getBusinessFollowerCount(id),
       ]);
 
-    const followNormalized = this.normalizeFollow(follow);
+    // const followNormalized = this.normalizeFollow(follow);
 
     return BusinessProfileResponseDto.fromPrismaWithRelations({
       business,
-      categories,
+      categories: undefined,
       gallery,
       logo,
-      tags,
-      weeklySchedule,
-      follow: followNormalized,
+      tags: undefined,
+      weeklySchedule: {},
+      follow: {
+        count: 0,
+        isFollowing: false
+      }
     });
   }
 

@@ -22,4 +22,8 @@ export interface IBusinessGalleryService {
     businessId: string,
     imageId: string,
   ): Promise<void>;
+
+  getSimpleGalleryForEntity(
+    businessId: string,
+  ): Promise<{ id: string; url: string }[]>;
 }

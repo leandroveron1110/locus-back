@@ -9,4 +9,5 @@ export interface ICategoryService {
   findOne(id: string): Promise<Category>;
   update(id: string, updateCategoryDto: UpdateCategoryDto): Promise<Category>;
   remove(id: string): Promise<Category>;
+  getCategoryByIds(tagIds: string[]): Promise<Category[]>
 }

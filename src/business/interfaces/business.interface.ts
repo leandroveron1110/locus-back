@@ -16,7 +16,7 @@ export interface IBusinessService {
     orderBy?: Prisma.BusinessOrderByWithRelationInput;
   }): Promise<any[]>;
   findAllPreview(): Promise<BusinessPreviewDto[]>;
-  findOne(businessId: string, userId?: string): Promise<any>;
+  findOne(businessId: string): Promise<any>;
   findOneProfileById(id: string): Promise<any>;
   update(id: string, dto: UpdateBusinessDto): Promise<any>;
   remove(id: string): Promise<any>;

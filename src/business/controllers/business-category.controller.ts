@@ -15,6 +15,7 @@ import { BusinessCategoryService } from '../services/business-category.service';
 import { UuidParam } from 'src/common/pipes/uuid-param.pipe';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IsArray, IsUUID } from 'class-validator';
+import { IBusinessCategoryService } from '../interfaces/business-category.interface';
 
 // DTO para la actualización de categorías
 // src/business/dto/update-business-categories.dto.ts (o puedes ponerlo en una subcarpeta business/business-category/dto)
@@ -29,7 +30,7 @@ class UpdateBusinessCategoriesDto {
 export class BusinessCategoryController {
   constructor(
     @Inject(TOKENS.IBusinessCategoryService)
-    private readonly businessCategoryService: BusinessCategoryService,
+    private readonly businessCategoryService: IBusinessCategoryService,
   ) {}
 
   @Patch()
@@ -38,8 +39,6 @@ export class BusinessCategoryController {
     @Param('businessId', UuidParam) businessId: string,
     @Body() updateDto: UpdateBusinessCategoriesDto, // updateDto contendrá { categoryIds: string[] }
   ) {
-
-    console.log(updateDto)
     // Delega la lógica al servicio
     await this.businessCategoryService.associateBusinessWithCategories(
       businessId,
@@ -48,8 +47,10 @@ export class BusinessCategoryController {
     return { message: 'Business categories updated successfully.' };
   }
 
-  @Get()
-  async getBusinessCategories(@Param('businessId') businessId: string) {
+  @Get('category')
+  async getBusinessCategories(@Param('businessId', UuidParam) businessId: string) {
     return this.businessCategoryService.getCategoriesByBusinessId(businessId);
   }
+
+
 }

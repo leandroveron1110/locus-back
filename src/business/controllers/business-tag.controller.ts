@@ -17,6 +17,7 @@ import { TOKENS } from 'src/common/constants/tokens'; // Asegúrate de la ruta
 import { BusinessTagDetails } from '../services/business-tag.service'; // Importa la interfaz/tipo de retorno del servicio
 import { UuidParam } from 'src/common/pipes/uuid-param.pipe';
 import { IsArray, IsUUID } from 'class-validator';
+import { BusinessTagResponseDto } from '../dto/Response/business-tag-response.dto';
 
 class UpdateBusinessTagsDto {
   @IsArray()
@@ -48,11 +49,11 @@ export class BusinessTagController {
     return { message: 'Business tags updated successfully.' };
   }
 
-  @Get()
+  @Get('tags')
   @HttpCode(HttpStatus.OK) // 200 OK para una consulta exitosa
   async getBusinessTags(
     @Param('businessId', UuidParam) businessId: string,
-  ): Promise<BusinessTagDetails[]> {
+  ): Promise<BusinessTagResponseDto[]> {
     // El tipo de retorno es BusinessTagDetails[]
     return this.businessTagService.getTagsByBusinessId(businessId);
   }

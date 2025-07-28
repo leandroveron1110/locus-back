@@ -1,5 +1,6 @@
 import { BusinessTag } from '@prisma/client';
 import { BusinessTagDetails } from '../services/business-tag.service';
+import { BusinessTagResponseDto } from '../dto/Response/business-tag-response.dto';
 
 // src/business/interfaces/business-tag.interface.ts
 export interface IBusinessTagService {
@@ -24,5 +25,5 @@ export interface IBusinessTagService {
    * Puedes ajustar el tipo de retorno si necesitas un DTO más específico
    * que la entidad cruda de Prisma, especialmente pensando en el microservicio.
    */
-  getTagsByBusinessId(businessId: string): Promise<BusinessTagDetails[]>;
+  getTagsByBusinessId(businessId: string): Promise<BusinessTagResponseDto[]>;
 }

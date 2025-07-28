@@ -6,6 +6,7 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 import { Tag as PrismaTag } from '@prisma/client'; // Importamos el tipo Tag de Prisma para el DTO de retorno
 import { ITagService } from 'src/targs/interfaces/tag-service.interface';
+import { BusinessTagResponseDto } from '../dto/Response/business-tag-response.dto';
 
 // Definir el DTO de retorno para getTagsByBusinessId
 export interface BusinessTagDetails {
@@ -60,8 +61,9 @@ export class BusinessTagService implements IBusinessTagService {
     });
   }
 
-  async getTagsByBusinessId(businessId: string): Promise<BusinessTagDetails[]> {
-
+  async getTagsByBusinessId(
+    businessId: string,
+  ): Promise<BusinessTagResponseDto[]> {
     // await this.businessValidator.checkOne(businessId);
 
     const businessTagAssociations = await this.prisma.businessTag.findMany({
@@ -83,32 +85,6 @@ export class BusinessTagService implements IBusinessTagService {
     // Usar el tagService para obtener los detalles completos de los tags
     const tagsDetails = await this.tagService.getTagsByIds(uniqueTagIds);
 
-    const tagsMap = new Map<string, PrismaTag>(
-      tagsDetails.map((tag) => [tag.id, tag]),
-    );
-
-    const result: BusinessTagDetails[] = businessTagAssociations
-      .map((assoc) => {
-        const tag = tagsMap.get(assoc.tagId);
-        if (!tag) {
-          console.warn(
-            `Tag con ID ${assoc.tagId} asociado al negocio ${assoc.businessId} no encontrado en TagService.`,
-          );
-          return null;
-        }
-        return {
-          businessId: assoc.businessId,
-          tagId: assoc.tagId,
-          assignedAt: assoc.assignedAt,
-          tag: {
-            id: tag.id,
-            name: tag.name,
-            active: tag.active, // Agregado el estado activo
-          },
-        };
-      })
-      .filter(Boolean) as BusinessTagDetails[];
-
-    return result;
+    return BusinessTagResponseDto.fromPrismaTags(tagsDetails);
   }
 }

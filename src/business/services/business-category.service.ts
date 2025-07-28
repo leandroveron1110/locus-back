@@ -4,6 +4,8 @@ import { PrismaService } from '../../prisma/prisma.service'; // Ajusta la ruta a
 import { IBusinessCategoryService } from '../interfaces/business-category.interface';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
+import { ICategoryService } from 'src/categories/interfaces/Category.interface';
+import { BusinessTagResponseDto } from '../dto/Response/business-tag-response.dto';
 
 @Injectable()
 export class BusinessCategoryService implements IBusinessCategoryService {
@@ -13,6 +15,8 @@ export class BusinessCategoryService implements IBusinessCategoryService {
     private readonly businessValidator: IExistenceValidator,
     @Inject(TOKENS.ICategoryValidator)
     private categoryValidator: IExistenceValidator,
+    @Inject(TOKENS.ICategoryService)
+    private categoryService: ICategoryService
   ) {}
 
   async associateBusinessWithCategories(
@@ -44,15 +48,26 @@ export class BusinessCategoryService implements IBusinessCategoryService {
     }
   }
 
-  async getCategoriesByBusinessId(businessId: string) {
-    // Aquí no necesitamos verificar la existencia del negocio si el controlador o
-    // el BusinessService ya lo hizo antes de llamar a este método.
-    // Si este método fuera llamado directamente, podríamos considerar añadir la verificación.
-    return this.prisma.businessCategory.findMany({
-      where: { businessId: businessId },
-      include: {
-        category: true, // Incluye los detalles completos de la categoría
-      },
-    });
+  async getCategoriesByBusinessId(businessId: string): Promise<BusinessTagResponseDto[]> {
+     const businessCategoryAssociations = await this.prisma.businessCategory.findMany({
+          where: { businessId: businessId },
+          select: {
+            businessId: true,
+            categoryId: true,
+            assignedAt: true,
+          },
+        });
+    
+        if (businessCategoryAssociations.length === 0) {
+          return [];
+        }
+    
+        const categoryIds = businessCategoryAssociations.map((assoc) => assoc.categoryId);
+        const uniqueCategoryIds = [...new Set(categoryIds)];
+    
+        // Usar el tagService para obtener los detalles completos de los tags
+        const tagsDetails = await this.categoryService.getCategoryByIds(uniqueCategoryIds);
+    
+        return BusinessTagResponseDto.fromPrismaTags(tagsDetails);
   }
 }

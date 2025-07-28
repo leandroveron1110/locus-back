@@ -115,8 +115,6 @@ export class FollowService implements IFollowService {
   FROM "BusinessFollower"
   WHERE "businessId" = ${businessId};
 `);
-
-    console.log('result', result);
     if (result && result.length > 0) {
       return {
         count: Number(result[0].count),

@@ -108,4 +108,18 @@ export class CategoryService implements ICategoryService {
       throw error;
     }
   }
+
+  async getCategoryByIds(categoryIds: string[]): Promise<Category[]> {
+    if (!categoryIds || categoryIds.length === 0) {
+      return [];
+    }
+    const uniqueCategoryIds = [...new Set(categoryIds)];
+    const categories = await this.prisma.category.findMany({
+      where: {
+        id: { in: uniqueCategoryIds },
+        active: true,
+      },
+    });
+    return categories;
+  }
 }

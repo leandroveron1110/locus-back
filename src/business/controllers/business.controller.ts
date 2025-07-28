@@ -101,31 +101,14 @@ export class BusinessController {
     });
   }
 
-  @Get(':businessId/:userId')
+  @Get(':businessId')
   async findOne(
-    @Param('businessId', ParseUUIDPipe) businessId: string, 
-    @Param('userId', ParseUUIDPipe) userId?: string): Promise<any> {
+    @Param('businessId', ParseUUIDPipe) businessId: string): Promise<any> {
     // Usamos ParseUUIDPipe para validar que el ID es un UUID válido
-    return this.businessService.findOne(businessId, userId);
+    return this.businessService.findOne(businessId);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update an existing business' })
-  @ApiParam({
-    name: 'id',
-    description: 'ID of the business to update',
-    type: String,
-  })
-  @ApiBody({ type: UpdateBusinessDto })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'The business has been successfully updated.',
-    type: BusinessResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Business not found or invalid related ID for update.',
-  })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateBusinessDto: UpdateBusinessDto,
@@ -134,44 +117,12 @@ export class BusinessController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a business' })
-  @ApiParam({
-    name: 'id',
-    description: 'ID of the business to delete',
-    type: String,
-  })
-  @ApiResponse({
-    status: HttpStatus.NO_CONTENT,
-    description: 'The business has been successfully deleted.',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Business not found.',
-  })
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.businessService.remove(id);
   }
 
   @Patch(':id/modules-config')
-  @ApiOperation({ summary: 'Update the modules configuration for a business' })
-  @ApiParam({ name: 'id', description: 'ID of the business', type: String })
-  @ApiBody({ type: UpdateModulesConfigDto })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'The modules configuration has been successfully updated.',
-    schema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string' },
-        modulesConfig: { type: 'object' },
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Business not found.',
-  })
   async updateModulesConfig(
     @Param('id', ParseUUIDPipe) businessId: string,
     @Body() updateModulesConfigDto: UpdateModulesConfigDto,
