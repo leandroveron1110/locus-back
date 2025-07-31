@@ -365,7 +365,7 @@ model Seccion {
   menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   // ⭐ AJUSTADO: Relación con MenuProducto
-  menuProducts MenuProducto[] // Una sección contiene muchos productos de menú.
+  menuProducts MenuProduct[] // Una sección contiene muchos productos de menú.
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
@@ -374,7 +374,7 @@ model Seccion {
 }
 
 /// Representa un producto que forma parte de un menú de un negocio.
-model MenuProducto {
+model MenuProduct {
   id          String  @id @default(uuid()) @map("id") // Identificador único del producto de menú.
   name        String  @map("nombre") // Nombre del producto (ej. "McCombo Mediano Doble Cuarto de libra").
   description String  @map("descripcion") @db.Text // Descripción detallada del producto.
@@ -443,7 +443,7 @@ model MenuProductFoodCategory {
   menuProductId  String @map("menu_producto_id")
   foodCategoryId String @map("categoria_comida_id")
 
-  menuProduct  MenuProducto @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
+  menuProduct  MenuProduct @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
   foodCategory FoodCategory @relation("FoodCategoryToMenuProducts", fields: [foodCategoryId], references: [id], onDelete: Cascade)
 
   @@id([menuProductId, foodCategoryId])
@@ -456,7 +456,7 @@ model MenuProductImage {
   imageId       String @map("imagen_id")
   order         Int?   @map("orden") // Orden de visualización de la imagen
 
-  menuProduct MenuProducto @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
+  menuProduct MenuProduct @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
   image       Image        @relation("MenuProductImages", fields: [imageId], references: [id], onDelete: Cascade) // ⭐ AJUSTADO: Nombre de la relación.
 
   @@id([menuProductId, imageId])
@@ -473,7 +473,7 @@ model OpcionGrupo {
 
   // Relación con MenuProducto
   menuProductId String       @map("menu_producto_id") // ⭐ AJUSTADO: Nombre del campo.
-  menuProduct   MenuProducto @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
+  menuProduct   MenuProduct @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
 
   // Relación con Opciones
   options Opcion[] // Un grupo de opciones tiene muchas opciones
@@ -624,7 +624,7 @@ model OrderItem {
 
   // Relaciones
   order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuProduct MenuProducto @relation(fields: [menuProductId], references: [id])
+  menuProduct MenuProduct @relation(fields: [menuProductId], references: [id])
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)

@@ -25,16 +25,10 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessCategoryService } from '../interfaces/business-category.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 import { IBusinessLogoService } from '../interfaces/business-logo-service.interface';
-import { IBusinessGalleryService } from '../interfaces/business-gallery.interface';
-import { IBusinessTagService } from '../interfaces/business-tag.interface';
-import { IWeeklyScheduleService } from 'src/weekly-schedule/interface/weekly-schedule-service.interface';
-import { IFollowService } from 'src/follow/interfaces/follow-service.interface';
 
 @Injectable()
 export class BusinessService implements IBusinessService {
   constructor(
-    @Inject(TOKENS.IUserValidator) // Nuevo: Validador de existencia de usuario
-    private readonly userValidator: IExistenceValidator,
     @Inject(TOKENS.ICategoryValidator)
     private categoryValidator: IExistenceValidator,
     @Inject(TOKENS.IStatusValidator) // Nuevo: Validador de existencia de estado
@@ -51,14 +45,6 @@ export class BusinessService implements IBusinessService {
     private businessCategoryService: IBusinessCategoryService,
     @Inject(TOKENS.IBusinessLogoService)
     private readonly businessLogoService: IBusinessLogoService,
-    @Inject(TOKENS.IBusinessGalleryService)
-    private readonly businessGalleryService: IBusinessGalleryService,
-    @Inject(TOKENS.IBusinessTagService)
-    private readonly businessTagService: IBusinessTagService,
-    @Inject(TOKENS.IWeeklyScheduleService)
-    private readonly businessWeekly: IWeeklyScheduleService,
-    @Inject(TOKENS.IFollowerService)
-    private readonly followService: IFollowService,
   ) {}
 
   async findOneProfileById(id: string): Promise<any> {

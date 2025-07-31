@@ -19,6 +19,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { IsBusinessIdExistsConstraint } from './common/validators/is-business-id-exists.validator';
 import { FollowModule } from './follow/follow.module';
 import { MenuModule } from './menu/menu.module';
+import { MenuProductModule } from './menu-product/menu-product.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { MenuModule } from './menu/menu.module';
     UploadsModule,
     FollowModule,
     MenuModule,
+    MenuProductModule,
   ],
   controllers: [AppController],
   providers: [AppService, IsBusinessIdExistsConstraint],

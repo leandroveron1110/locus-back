@@ -41,6 +41,8 @@ export const TOKENS = {
 
   // Module Menu
   IMenuService: Symbol('IMenuService'),
+  ISeccionService: Symbol('ISeccionService'),
+  IMenuProductService: Symbol('IMenuProductService'),
 
   // Module Product
   IProductService: Symbol('IProductService'),
@@ -69,4 +71,6 @@ export const TOKENS = {
   IStatusValidator: Symbol('IStatusValidator'),
   ITagValidator: Symbol('ITagValidator'),
   IUserValidator: Symbol('IUserValidator'),
+  IMenuValidator: Symbol('IMenuValidator'),
+  ISeccionValidator: Symbol('ISeccionValidator'),
 };
