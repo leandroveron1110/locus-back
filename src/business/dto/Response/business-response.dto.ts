@@ -16,8 +16,6 @@ export interface ModulesConfig {
 }
 // --- Fin de Interfaces para modulesConfig ---
 
-
-
 export class BusinessResponseDto {
   id: string;
   ownerId: string; // El ID del propietario
@@ -59,28 +57,30 @@ export class BusinessResponseDto {
     dto.instagramUrl = business.instagramUrl ?? undefined;
     dto.facebookUrl = business.facebookUrl ?? undefined;
     dto.websiteUrl = business.websiteUrl ?? undefined;
-    dto.logoUrl = "";
-    
+    dto.logoUrl = '';
+
     // Asegúrate de que modulesConfig sea un objeto. Si es null en DB, usa un objeto vacío.
     dto.modulesConfig = (business.modulesConfig as ModulesConfig) || {};
 
     // Prisma devuelve Decimal como un objeto Decimal.js o un string dependiendo de la configuración.
     // Para asegurar que sea un number o null, convertimos:
-    dto.latitude = business.latitude !== null ? Number(business.latitude) : null;
-    dto.longitude = business.longitude !== null ? Number(business.longitude) : null;
-    dto.averageRating = business.averageRating !== null ? Number(business.averageRating) : null;
+    dto.latitude =
+      business.latitude !== null ? Number(business.latitude) : null;
+    dto.longitude =
+      business.longitude !== null ? Number(business.longitude) : null;
+    dto.averageRating =
+      business.averageRating !== null ? Number(business.averageRating) : null;
     dto.ratingsCount = business.ratingsCount ?? undefined; // int puede ser null si no tiene default
 
     return dto;
   }
 }
 
-
 // Define tipos para las relaciones mínimas que quieres exponer
 type CategorySimple = { id: string; name: string };
 type TagSimple = { id: string; name: string };
 type GalleryImageSimple = { id: string; url: string };
-type FollowSimple = {isFollowing: boolean; count: number;}
+type FollowSimple = { isFollowing: boolean; count: number };
 
 export class BusinessProfileResponseDto {
   id: string;
@@ -93,8 +93,6 @@ export class BusinessProfileResponseDto {
   whatsapp: string;
   email?: string;
   statusId?: string;
-  createdAt: Date;
-  updatedAt: Date;
   instagramUrl?: string;
   facebookUrl?: string;
   websiteUrl?: string;
@@ -104,31 +102,16 @@ export class BusinessProfileResponseDto {
   longitude?: number | null;
   averageRating?: number | null;
   ratingsCount: number = 0;
-  weeklySchedule: Record<string, string[]>
-
-  // Campos nuevos para categorías, tags y galería
-  categories?: CategorySimple[];
-  tags?: TagSimple[];
-  gallery?: GalleryImageSimple[];
-  follow: FollowSimple = {
-  count: 0,
-  isFollowing: false
-};
 
   // Método para transformar negocio + relaciones a DTO limpio
   static fromPrismaWithRelations(params: {
-    business: PrismaBusiness,
-    logo?: { id: string; url: string } | null,
-    categories?: { category: { id: string; name: string } }[],
-    tags?: { tag: { id: string; name: string } }[],
-    gallery?: { id: string; url: string }[],
-    weeklySchedule: Record<string, string[]>
-    follow: {
-    isFollowing: boolean;
-    count: number;
-}
-  }): BusinessProfileResponseDto {
-    const { business, logo, categories, tags, gallery, weeklySchedule, follow } = params;
+    business: PrismaBusiness;
+    logo?: { id: string; url: string } | null;
+  }) {
+    const {
+      business,
+      logo
+    } = params;
 
     const dto = new BusinessProfileResponseDto();
 
@@ -142,44 +125,23 @@ export class BusinessProfileResponseDto {
     dto.whatsapp = business.whatsapp;
     dto.email = business.email ?? undefined;
     dto.statusId = business.statusId ?? undefined;
-    dto.createdAt = business.createdAt;
-    dto.updatedAt = business.updatedAt;
     dto.instagramUrl = business.instagramUrl ?? undefined;
     dto.facebookUrl = business.facebookUrl ?? undefined;
     dto.websiteUrl = business.websiteUrl ?? undefined;
     dto.logoUrl = logo?.url ?? undefined;
     dto.modulesConfig = (business.modulesConfig as ModulesConfig) || {};
-    dto.latitude = business.latitude !== null ? Number(business.latitude) : null;
-    dto.longitude = business.longitude !== null ? Number(business.longitude) : null;
-    dto.averageRating = business.averageRating !== null ? Number(business.averageRating) : 0;
+    dto.latitude =
+      business.latitude !== null ? Number(business.latitude) : null;
+    dto.longitude =
+      business.longitude !== null ? Number(business.longitude) : null;
+    dto.averageRating =
+      business.averageRating !== null ? Number(business.averageRating) : 0;
     dto.ratingsCount = business.ratingsCount ?? 0;
-    dto.follow = follow;
 
-    // Mapea categorías para devolver solo id y nombre
-    dto.categories = categories?.map(c => ({
-      id: c.category.id,
-      name: c.category.name,
-    })) || [];
-
-    // Mapea tags para devolver solo id y nombre
-    dto.tags = tags?.map(t => ({
-      id: t.tag.id,
-      name: t.tag.name,
-    })) || [];
-
-    // Mapea galería con id y url
-    dto.gallery = gallery?.map(g => ({
-      id: g.id,
-      url: g.url,
-    })) || [];
-
-    dto.weeklySchedule = weeklySchedule
 
     return dto;
   }
 }
-
-
 
 export class BusinessPreviewDto {
   id: string;
@@ -196,7 +158,8 @@ export class BusinessPreviewDto {
     dto.id = business.id;
     dto.name = business.name;
     dto.shortDescription = business.shortDescription ?? undefined;
-    dto.averageRating = business.averageRating !== null ? Number(business.averageRating) : null;
+    dto.averageRating =
+      business.averageRating !== null ? Number(business.averageRating) : null;
     dto.ratingsCount = business.ratingsCount ?? undefined;
     dto.instagramUrl = business.instagramUrl ?? undefined;
     dto.facebookUrl = business.facebookUrl ?? undefined;

@@ -195,13 +195,10 @@ export class OfferedServiceService implements IOfferedServiceService {
   async remove(id: string): Promise<void> {
     // Opcional: Implementar lógica para verificar si el servicio está en uso (ej. en Booking)
     const serviceInUse = await this.prisma.offeredService.findUnique({
-      where: { id },
-      include: {
-        bookings: { take: 1 }, // Asumiendo que Booking tiene una relación con OfferedService
-      },
+      where: { id }
     });
 
-    if (serviceInUse && serviceInUse.bookings.length > 0) {
+    if (serviceInUse) {
       throw new ConflictException(
         `OfferedService with ID "${id}" cannot be deleted because it is currently associated with existing bookings.`,
       );

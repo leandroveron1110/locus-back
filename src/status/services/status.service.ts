@@ -184,18 +184,10 @@ export class StatusService implements IStatusService {
       include: {
         users: { take: 1 },
         businesses: { take: 1 },
-        bookings: { take: 1 },
-        orders: { take: 1 },
       },
     });
 
-    if (
-      statusInUse &&
-      (statusInUse.users.length > 0 ||
-        statusInUse.businesses.length > 0 ||
-        statusInUse.bookings.length > 0 ||
-        statusInUse.orders.length > 0)
-    ) {
+    if (statusInUse) {
       throw new ConflictException(
         `Status with ID "${id}" cannot be deleted because it is currently in use by other entities.`,
       );
@@ -223,10 +215,10 @@ export class StatusService implements IStatusService {
       },
     });
 
-    if(!pendingReviewStatus) {
-      throw new NotFoundException('No existe el status PENDING_REVIEW')
+    if (!pendingReviewStatus) {
+      throw new NotFoundException('No existe el status PENDING_REVIEW');
     }
 
-    return pendingReviewStatus
+    return pendingReviewStatus;
   }
 }

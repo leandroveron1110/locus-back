@@ -49,8 +49,7 @@ model Status {
 
   users      User[]     @relation("UserStatus")
   businesses Business[] @relation("BusinessStatus")
-  bookings   Booking[]  @relation("BookingStatus")
-  orders     Order[]    @relation("OrderStatus")
+  Order      Order[]
 
   @@unique([name, entityType]) // Asegura que no haya estados duplicados para el mismo tipo de entidad.
   @@map("estados")
@@ -76,6 +75,9 @@ model User {
   avatarId         String?            @unique @map("avatar_id")
   avatar           Image?             @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
   businessFollower BusinessFollower[]
+  rating           Rating[]
+  Address          Address[]          @relation("UserAddresses")
+  Order            Order[]
 
   @@map("usuarios")
 }
@@ -91,10 +93,6 @@ model Category {
 
   // ⭐ CAMBIO: Relación inversa a la nueva tabla intermedia BusinessCategory (N:M)
   businessCategories BusinessCategory[]
-
-  // ⭐ CAMBIO: Eliminado iconId y la relación con Image
-  // iconId      String?  @unique @map("icono_id")
-  // icon        Image?   @relation("CategoryIcon", fields: [iconId], references: [id], onDelete: SetNull)
 
   @@map("categorias")
 }
@@ -117,17 +115,13 @@ model Image {
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
   // RELACIONES INVERSAS (desde los modelos que referencian esta imagen):
-  userAvatar        User?           @relation("UserAvatar")
-  businessLogo      Business?       @relation("BusinessLogo")
-  // ⭐ CORREGIDO: Asegurado que el nombre de la relación coincide con la tabla intermedia.
-  businessGalleries BusinessImage[] @relation("businessGalleries")
-  menuItemImage     MenuItem?       @relation("MenuItemImage")
-  productImage      Product?        @relation("ProductImage")
-  // ⭐ CORREGIDO: Asegurado que el nombre de la relación coincide con la tabla intermedia.
-  productGalleries  ProductImage[]  @relation("productGalleries")
-  eventImage        Event?          @relation("EventImage")
-  // ⭐ CAMBIO: Eliminado categoryIcon (ya no hay campo iconId en Category)
-  // categoryIcon        Category?     @relation("CategoryIcon")
+  userAvatar        User?              @relation("UserAvatar")
+  businessLogo      Business?          @relation("BusinessLogo")
+  businessGalleries BusinessImage[]    @relation("businessGalleries")
+  // ⭐ AJUSTADO: Relación inversa para imágenes de MenuProducto
+  menuProductImages MenuProductImage[] @relation("MenuProductImages")
+  // ⭐ NUEVO: Relación inversa para imágenes de opciones (si se gestionan con este modelo Image)
+  optionImages      OptionImage[]      @relation("OptionImages")
 
   @@map("imagenes") // Nombre de la tabla en la base de datos.
 }
@@ -141,27 +135,10 @@ model BusinessImage {
   order      Int?   @map("orden") // Permite definir el orden de visualización en la galería.
 
   business Business @relation("BusinessGalleryImages", fields: [businessId], references: [id], onDelete: Cascade)
-  // ⭐ CORREGIDO: Nombre de la relación en la tabla intermedia debe coincidir con el del modelo Image.
   image    Image    @relation("businessGalleries", fields: [imageId], references: [id], onDelete: Cascade)
 
   @@id([businessId, imageId]) // Clave primaria compuesta para asegurar unicidad (una imagen solo puede estar una vez en la galería de un negocio).
   @@map("negocio_imagenes")
-}
-
-// --- TABLA INTERMEDIA: Para Galería de Productos ---
-// Esta tabla gestiona la relación Mucho a Mucho (M:N) entre Product e Image
-// para las imágenes adicionales de un producto.
-model ProductImage {
-  productId String @map("producto_id")
-  imageId   String @map("imagen_id")
-  order     Int?   @map("orden") // Permite definir el orden de visualización en la galería del producto.
-
-  product Product @relation("ProductGalleryImages", fields: [productId], references: [id], onDelete: Cascade)
-  // ⭐ CORREGIDO: Nombre de la relación en la tabla intermedia debe coincidir con el del modelo Image.
-  image   Image   @relation("productGalleries", fields: [imageId], references: [id], onDelete: Cascade)
-
-  @@id([productId, imageId]) // Clave primaria compuesta para asegurar unicidad (una imagen solo puede estar una vez en la galería de un producto).
-  @@map("producto_imagenes")
 }
 
 // --- TABLA INTERMEDIA: Para Relación N:M entre Business y Category ---
@@ -178,61 +155,19 @@ model BusinessCategory {
   @@map("negocio_categorias")
 }
 
-// --- Modelo de Negocio ---
-model Business {
-  id               String   @id @default(uuid()) @map("id")
-  ownerId          String   @map("propietario_id")
-  name             String
-  // ⭐ CAMBIO: ELIMINADO categoryId y la relación directa 1:N
-  // categoryId        String            @map("categoria_id")
-  // category          Category          @relation(fields: [categoryId], references: [id])
-  shortDescription String?  @map("descripcion_corta") @db.Text
-  fullDescription  String?  @map("descripcion_completa") @db.Text
-  address          String   @map("direccion")
-  phone            String   @map("telefono")
-  whatsapp         String
-  email            String?
-  statusId         String?  @map("estado_id")
-  createdAt        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt        DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  instagramUrl     String?  @map("url_instagram")
-  facebookUrl      String?  @map("url_facebook")
-  websiteUrl       String?  @map("url_web")
-  modulesConfig    Json?    @default("{}") @map("modulos_config") // Configuración JSON para módulos específicos del negocio.
-  latitude         Decimal? @map("latitud") @db.Decimal(10, 7)
-  longitude        Decimal? @map("longitud") @db.Decimal(10, 7)
+model Rating {
+  id        String   @id @default(uuid())
+  value     Int
+  comment   String? // opcional
+  createdAt DateTime @default(now())
 
-  averageRating Decimal? @map("promedio_calificacion") @db.Decimal(2, 1) // Calificación promedio del negocio.
-  ratingsCount  Int?     @default(0) @map("cantidad_calificaciones") // Número de calificaciones recibidas.
+  business   Business @relation(fields: [businessId], references: [id])
+  businessId String
 
-  owner              User               @relation(fields: [ownerId], references: [id])
-  // ⭐ CAMBIO: Nueva relación inversa a la tabla intermedia BusinessCategory (N:M con categorías)
-  businessCategories BusinessCategory[]
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
 
-  businessTags BusinessTag[]
-
-  // ⭐ Campo que referencia al logo del negocio. Relación 1:1 con Image.
-  logoId String? @unique @map("logo_id")
-  logo   Image?  @relation("BusinessLogo", fields: [logoId], references: [id], onDelete: SetNull)
-
-  // ⭐ Relación para la galería de imágenes del negocio (via BusinessImage).
-  galleryImages BusinessImage[] @relation("BusinessGalleryImages")
-
-  currentStatus Status? @relation(fields: [statusId], references: [id], name: "BusinessStatus")
-
-  weeklySchedules  WeeklySchedule[]
-  contentModules   ContentModule[]
-  menuSections     MenuSection[]
-  specialSchedules SpecialSchedule[]
-  ratings          Rating[]
-  offeredServices  OfferedService[]
-  bookings         Booking[]
-  products         Product[]
-  orders           Order[]
-  events           Event[]
-  businessFollower BusinessFollower[]
-
-  @@map("negocios")
+  @@unique([businessId, userId]) // solo una calificación por user-business
 }
 
 model BusinessFollower {
@@ -288,213 +223,71 @@ model WeeklySchedule {
   @@map("horarios_semanales")
 }
 
-// --- Modelos de Módulos (Contenido Dinámico para Negocios) ---
-
-// Modelo ContentModule. Permite a los negocios tener secciones de contenido dinámico (ej. "Acerca de nosotros", "Preguntas Frecuentes").
-model ContentModule {
-  id         String   @id @default(uuid()) @map("id")
-  businessId String   @map("negocio_id")
-  moduleType String   @map("tipo_modulo") // Ej: "ABOUT_US", "FAQ", "TEXT_BLOCK".
-  title      String?
-  data       Json // Contenido del módulo en formato JSON (ej. { "text": "...", "image_ids": [...] }).
-  order      Int      @default(0) @map("orden")
-  createdAt  DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt  DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@unique([businessId, moduleType]) // Un negocio solo puede tener un módulo de un tipo dado.
-  @@map("contenido_modulos")
-}
-
-// Modelo MenuSection. Organiza los items de un menú (ej. "Entradas", "Platos Principales").
-model MenuSection {
-  id         String     @id @default(uuid()) @map("id")
-  businessId String     @map("negocio_id")
-  name       String     @map("nombre")
-  order      Int        @default(0) @map("orden")
-  createdAt  DateTime   @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt  DateTime   @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  menuItems  MenuItem[] // Relación inversa: Una sección tiene muchos items de menú.
-
-  @@unique([businessId, name])
-  @@map("menu_secciones")
-}
-
-// Modelo MenuItem. Representa un item individual en un menú (ej. un plato, una bebida).
-model MenuItem {
-  id          String  @id @default(uuid()) @map("id")
-  sectionId   String  @map("seccion_id")
-  name        String  @map("nombre")
-  description String? @map("descripcion") @db.Text
-  price       Decimal @map("precio") @db.Decimal(10, 2)
-
-  // ⭐ Campo que referencia a la imagen principal del item de menú. Relación 1:1 con Image.
-  imageId String? @unique @map("imagen_id")
-  image   Image?  @relation("MenuItemImage", fields: [imageId], references: [id], onDelete: SetNull)
-
-  order     Int         @default(0) @map("orden")
-  createdAt DateTime    @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt DateTime    @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  section   MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
-  @@map("menu_items")
-}
-
-// Modelo SpecialSchedule. Define horarios excepcionales para un negocio (ej. feriados, eventos especiales).
-model SpecialSchedule {
-  id           String    @id @default(uuid()) @map("id")
-  businessId   String    @map("negocio_id")
-  date         DateTime  @map("fecha") @db.Date
-  openingTime  DateTime? @map("apertura") @db.Time(0)
-  closingTime  DateTime? @map("cierre") @db.Time(0)
-  closedAllDay Boolean   @default(false) @map("cerrado_todo_el_dia")
-  description  String?   @map("descripcion")
-  createdAt    DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt    DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@unique([businessId, date]) // Un negocio solo puede tener un horario especial por día.
-  @@map("horarios_especiales")
-}
-
-// Modelo Rating. Almacena las calificaciones y comentarios que los usuarios dan a los negocios.
-model Rating {
-  id         String   @id @default(uuid()) @map("id")
-  businessId String   @map("negocio_id")
-  clientId   String?  @map("cliente_id") // ID del cliente que hizo la calificación (opcional si es anónimo).
-  rating     Int      @map("calificacion") // Valor de la calificación (ej. 1-5 estrellas).
-  comment    String?  @map("comentario") @db.Text
-  createdAt  DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@map("calificaciones")
-}
-
 // Modelo OfferedService. Define los servicios que un negocio ofrece (ej. "Corte de pelo", "Clase de yoga").
 model OfferedService {
-  id              String    @id @default(uuid()) @map("id")
-  businessId      String    @map("negocio_id")
-  name            String    @map("nombre")
-  description     String?   @map("descripcion") @db.Text
-  price           Decimal?  @map("precio") @db.Decimal(10, 2)
-  durationMinutes Int?      @map("duracion_minutos") // Duración estimada del servicio.
-  active          Boolean   @default(true) @map("activo")
-  createdAt       DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt       DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  bookings        Booking[] // Relación inversa: Un servicio puede tener muchas reservas.
+  id              String   @id @default(uuid()) @map("id")
+  businessId      String   @map("negocio_id")
+  name            String   @map("nombre")
+  description     String?  @map("descripcion") @db.Text
+  price           Decimal? @map("precio") @db.Decimal(10, 2)
+  durationMinutes Int?     @map("duracion_minutos") // Duración estimada del servicio.
+  active          Boolean  @default(true) @map("activo")
+  createdAt       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@map("servicios_ofrecidos")
 }
 
-// Modelo Booking. Representa una reserva o cita en un negocio para un servicio.
-model Booking {
-  id               String          @id @default(uuid()) @map("id")
-  businessId       String          @map("negocio_id")
-  offeredServiceId String?         @map("servicio_ofrecido_id")
-  clientId         String?         @map("cliente_id") // ID del cliente que hizo la reserva (si es un usuario registrado).
-  clientName       String?         @map("nombre_cliente") // Nombre del cliente (si no es un usuario registrado).
-  clientEmail      String?         @map("email_cliente")
-  clientPhone      String?         @map("telefono_cliente")
-  bookingDate      DateTime        @map("fecha_reserva") @db.Date
-  startTime        DateTime        @map("hora_inicio") @db.Time(0)
-  endTime          DateTime        @map("hora_fin") @db.Time(0)
-  statusId         String          @map("estado_id")
-  comments         String?         @map("comentarios") @db.Text
-  createdAt        DateTime        @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt        DateTime        @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business         Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  offeredService   OfferedService? @relation(fields: [offeredServiceId], references: [id], onDelete: SetNull)
-  currentStatus    Status?         @relation(fields: [statusId], references: [id], name: "BookingStatus")
+// --- Modelo de Negocio ---
+model Business {
+  id               String   @id @default(uuid()) @map("id")
+  ownerId          String   @map("propietario_id")
+  name             String
+  shortDescription String?  @map("descripcion_corta") @db.Text
+  fullDescription  String?  @map("descripcion_completa") @db.Text
+  address          String   @map("direccion")
+  phone            String   @map("telefono")
+  whatsapp         String
+  email            String?
+  statusId         String?  @map("estado_id")
+  createdAt        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  instagramUrl     String?  @map("url_instagram")
+  facebookUrl      String?  @map("url_facebook")
+  websiteUrl       String?  @map("url_web")
+  modulesConfig    Json?    @default("{}") @map("modulos_config") // Configuración JSON para módulos específicos del negocio.
+  latitude         Decimal? @map("latitud") @db.Decimal(10, 7)
+  longitude        Decimal? @map("longitud") @db.Decimal(10, 7)
 
-  @@map("reservas")
-}
+  averageRating Decimal? @map("promedio_calificacion") @db.Decimal(2, 1) // Calificación promedio del negocio.
+  ratingsCount  Int?     @default(0) @map("cantidad_calificaciones") // Número de calificaciones recibidas.
 
-// Modelo Product. Representa un producto físico o digital ofrecido por un negocio.
-model Product {
-  id          String  @id @default(uuid()) @map("id")
-  businessId  String  @map("negocio_id")
-  name        String  @map("nombre")
-  description String? @map("descripcion") @db.Text
-  price       Decimal @map("precio") @db.Decimal(10, 2)
-  stock       Int     @default(0) // Cantidad disponible en inventario.
+  owner              User               @relation(fields: [ownerId], references: [id])
+  businessCategories BusinessCategory[]
 
-  // ⭐ Campo que referencia a la imagen principal del producto. Relación 1:1 con Image.
-  imageId String? @unique @map("imagen_id")
-  image   Image?  @relation("ProductImage", fields: [imageId], references: [id], onDelete: SetNull)
+  businessTags BusinessTag[]
 
-  // ⭐ Relación para la galería de imágenes adicionales del producto (via ProductImage).
-  galleryImages ProductImage[] @relation("ProductGalleryImages")
+  // ⭐ Campo que referencia al logo del negocio. Relación 1:1 con Image.
+  logoId String? @unique @map("logo_id")
+  logo   Image?  @relation("BusinessLogo", fields: [logoId], references: [id], onDelete: SetNull)
 
-  category   String?     @map("categoria") // Considerar si este campo 'category' debe ser reemplazado por la nueva Category de Business si se estandariza el producto también.
-  active     Boolean     @default(true) @map("activo")
-  createdAt  DateTime    @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt  DateTime    @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  orderItems OrderItem[] // Relación inversa: Un producto puede estar en muchos items de pedido.
+  // ⭐ Relación para la galería de imágenes del negocio (via BusinessImage).
+  galleryImages BusinessImage[] @relation("BusinessGalleryImages")
 
-  @@map("productos")
-}
+  currentStatus Status? @relation(fields: [statusId], references: [id], name: "BusinessStatus")
 
-// Modelo Order. Representa un pedido realizado por un cliente a un negocio.
-model Order {
-  id              String      @id @default(uuid()) @map("id")
-  businessId      String      @map("negocio_id")
-  clientId        String?     @map("cliente_id")
-  clientName      String?     @map("nombre_cliente")
-  shippingAddress String      @map("direccion_envio")
-  contactPhone    String?     @map("telefono_contacto")
-  total           Decimal     @map("total") @db.Decimal(10, 2)
-  statusId        String?     @map("estado_id")
-  deliveryType    String      @default("delivery") @map("tipo_entrega") // Ej: "delivery", "pickup".
-  clientNotes     String?     @map("notas_cliente") @db.Text
-  orderDate       DateTime    @default(now()) @map("fecha_pedido") @db.Timestamptz(3)
-  updatedAt       DateTime    @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business        Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  items           OrderItem[] // Relación inversa: Un pedido tiene muchos items de pedido.
-  currentStatus   Status?     @relation(fields: [statusId], references: [id], name: "OrderStatus")
+  weeklySchedules  WeeklySchedule[]
+  ratings          Rating[]
+  offeredServices  OfferedService[]
+  businessFollower BusinessFollower[]
 
-  @@map("pedidos")
-}
+  // --- NUEVOS CAMPOS Y RELACIONES PARA MENÚ Y PRODUCTOS ---
+  menu    Menu? // Un negocio puede tener un menú (o varios, ver nota abajo)
+  Address Address[] @relation("BusinessAddresses")
+  Order   Order[]
 
-// Modelo OrderItem. Representa un producto específico dentro de un pedido, con su cantidad y precio en el momento del pedido.
-model OrderItem {
-  id        String  @id @default(uuid()) @map("id")
-  orderId   String  @map("pedido_id")
-  productId String  @map("producto_id")
-  quantity  Int     @map("cantidad")
-  unitPrice Decimal @map("precio_unitario") @db.Decimal(10, 2)
-  subtotal  Decimal @db.Decimal(10, 2) // Cantidad * Precio unitario.
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id]) // Aquí no hay onDelete: Cascade para no borrar el producto si se borra un item de pedido.
-
-  @@map("pedido_items")
-}
-
-// Modelo Event. Representa un evento o actividad programada por un negocio.
-model Event {
-  id               String    @id @default(uuid()) @map("id")
-  businessId       String    @map("negocio_id")
-  name             String    @map("nombre")
-  description      String?   @map("descripcion") @db.Text
-  startDate        DateTime  @map("fecha_inicio") @db.Timestamptz(3)
-  endDate          DateTime? @map("fecha_fin") @db.Timestamptz(3)
-  location         String?   @map("ubicacion")
-  maxCapacity      Int?      @map("capacidad_maxima")
-  ticketsAvailable Int?      @map("entradas_disponibles")
-  ticketPrice      Decimal?  @map("precio_entrada") @db.Decimal(10, 2)
-
-  // ⭐ Campo que referencia a la imagen principal del evento. Relación 1:1 con Image.
-  imageId String? @unique @map("imagen_id")
-  image   Image?  @relation("EventImage", fields: [imageId], references: [id], onDelete: SetNull)
-
-  active    Boolean  @default(true) @map("activo")
-  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  business  Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@map("eventos")
+  @@map("negocios")
 }
 
 // Este modelo contendrá una copia desnormalizada y optimizada de los datos de negocio
@@ -538,4 +331,348 @@ model SearchableBusiness {
   // @@fulltext([name, shortDescription, fullDescription, categoryNames, tagNames]) // Ejemplo para bases de datos que lo soportan
 
   @@map("negocios_busqueda") // El nombre de la tabla en la base de datos para la búsqueda
+}
+
+// --- NUEVOS MODELOS PARA MENÚ Y PRODUCTOS ---
+
+/// Representa el menú completo de un negocio. Asumimos 1:1 con Business por ahora.
+/// Si un negocio puede tener múltiples menús (ej. Desayuno, Almuerzo), esta relación
+/// debería ser de 1:N (Business a Menu), y 'businessId' iría en Menu.
+model Menu {
+  id   String @id @default(uuid()) @map("id") // ID único del menú
+  name String @map("nombre") // Nombre del menú (ej. "Menú de McDonald's Lav")
+
+  businessId String   @unique @map("negocio_id") // Un solo menú por negocio por ahora
+  business   Business @relation(fields: [businessId], references: [id]) // Relación inversa a Business
+
+  sections Seccion[] // Un menú tiene muchas secciones
+
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  @@map("menus")
+}
+
+/// Representa una sección o categoría dentro de un menú (ej. "¡Volvió la salsa Tasty!").
+model Seccion {
+  id        String   @id @default(uuid()) @map("id") // ID único de la sección
+  name      String   @map("nombre") // Nombre de la sección
+  index     Int      @map("orden")
+  imageUrls String[] @map("urls_imagenes")
+
+  // Relación con Menu
+  menuId String @map("menu_id")
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  // ⭐ AJUSTADO: Relación con MenuProducto
+  menuProducts MenuProducto[] // Una sección contiene muchos productos de menú.
+
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  @@map("secciones")
+}
+
+/// Representa un producto que forma parte de un menú de un negocio.
+model MenuProducto {
+  id          String  @id @default(uuid()) @map("id") // Identificador único del producto de menú.
+  name        String  @map("nombre") // Nombre del producto (ej. "McCombo Mediano Doble Cuarto de libra").
+  description String  @map("descripcion") @db.Text // Descripción detallada del producto.
+  enabled     Boolean @default(true) @map("habilitado") // Si el producto está habilitado para la venta.
+
+  // --- Información de precios ---
+  finalPrice    Decimal  @map("precio_final") @db.Decimal(10, 2) // Precio final del producto. Usar Decimal para precisión monetaria.
+  originalPrice Decimal? @map("precio_original") @db.Decimal(10, 2) // Precio original si hay descuento.
+  currency      String   @default("ARS") @map("moneda") // Moneda del precio (ej. ARS, USD).
+  currencyMask  String   @default("$") @map("mascara_moneda") // Símbolo de la moneda (ej. $).
+
+  // Impuestos, opcionales si no siempre aplican o se calculan al vuelo.
+  finalPriceWithoutTaxes Decimal? @map("precio_sin_impuestos") @db.Decimal(10, 2)
+  taxesAmount            Decimal? @map("monto_impuestos") @db.Decimal(10, 2)
+
+  // --- Información de descuento del producto ---
+  discountAmount     Decimal? @map("monto_descuento") @db.Decimal(10, 2)
+  discountPercentage Decimal? @map("porcentaje_descuento") @db.Decimal(5, 2) // Para porcentajes (ej. 21.50).
+  discountType       String[] @map("tipo_descuento") // Array de tipos de descuento (ej. "SUBSIDIZED_PRODUCT", "SEASONAL_SALE").
+
+  // --- Imágenes del producto ---
+  menuProductImages MenuProductImage[] // Relación a la tabla intermedia MenuProductImage para múltiples imágenes.
+  isCustomizedImage Boolean            @default(false) @map("es_imagen_personalizada") // Indica si la imagen principal es de una versión personalizada del producto.
+
+  // --- Calificación del producto ---
+  rating Float @default(0.0) @map("calificacion") // Una calificación numérica simple (0-10).
+
+  // --- Tags y Propiedades del producto ---
+  hasOptions    Boolean @default(false) @map("tiene_opciones") // Si el producto tiene opciones de personalización (ej. acompañamientos, aderezos).
+  isMostOrdered Boolean @default(false) @map("es_mas_pedido") // Si es de los productos más vendidos/pedidos.
+  isRecommended Boolean @default(false) @map("es_recomendado") // Sugerido o destacado por el negocio.
+
+  // ⭐ AJUSTADO: Relación de muchos a muchos con FoodCategory a través de MenuProductFoodCategory.
+  foodCategories MenuProductFoodCategory[] // Categorías culinarias (ej. "Hamburguesas", "Bebidas", "Postres").
+
+  // Cada producto de menú pertenece a una sección del menú.
+  seccionId String  @map("seccion_id")
+  seccion   Seccion @relation(fields: [seccionId], references: [id], onDelete: Cascade)
+
+  // Un producto de menú puede tener varios grupos de opciones de personalización.
+  optionGroups OpcionGrupo[] // Relación 1:N con grupos de opciones.
+
+  createdAt DateTime    @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime    @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  OrderItem OrderItem[]
+
+  @@map("menu_productos") // ⭐ AJUSTADO: Nombre de la tabla en la DB.
+}
+
+// ⭐ NUEVO MODELO: Para categorizar MenuProducto con etiquetas predefinidas.
+model FoodCategory {
+  id           String                    @id @default(uuid()) @map("id")
+  name         String                    @unique @map("nombre")
+  description  String?                   @map("descripcion")
+  // ⭐ AJUSTADO: La relación inversa debe apuntar a la tabla intermedia correcta.
+  menuProducts MenuProductFoodCategory[] @relation("FoodCategoryToMenuProducts")
+
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  @@map("categorias_comida")
+}
+
+// ⭐ NUEVA TABLA INTERMEDIA: Relación M:N entre MenuProducto y FoodCategory.
+model MenuProductFoodCategory {
+  menuProductId  String @map("menu_producto_id")
+  foodCategoryId String @map("categoria_comida_id")
+
+  menuProduct  MenuProducto @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
+  foodCategory FoodCategory @relation("FoodCategoryToMenuProducts", fields: [foodCategoryId], references: [id], onDelete: Cascade)
+
+  @@id([menuProductId, foodCategoryId])
+  @@map("menu_producto_categorias_comida")
+}
+
+/// Tabla intermedia para la relación M:N entre MenuProducto e Image.
+model MenuProductImage {
+  menuProductId String @map("menu_producto_id") // ⭐ AJUSTADO: Nombre del campo.
+  imageId       String @map("imagen_id")
+  order         Int?   @map("orden") // Orden de visualización de la imagen
+
+  menuProduct MenuProducto @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
+  image       Image        @relation("MenuProductImages", fields: [imageId], references: [id], onDelete: Cascade) // ⭐ AJUSTADO: Nombre de la relación.
+
+  @@id([menuProductId, imageId])
+  @@map("menu_producto_imagenes") // ⭐ AJUSTADO: Nombre de la tabla.
+}
+
+/// Representa un grupo de opciones para personalizar un producto de menú (ej. "Acompañamientos", "Bebidas").
+model OpcionGrupo {
+  id           String @id @default(uuid()) @map("id")
+  name         String @map("nombre") // Nombre del grupo de opciones
+  minQuantity  Int    @map("cantidad_minima") // Cantidad mínima de opciones a seleccionar
+  maxQuantity  Int    @map("cantidad_maxima") // Cantidad máxima de opciones a seleccionar
+  quantityType String @map("tipo_cantidad") // Tipo de cantidad ("FIXED", "MIN_MAX")
+
+  // Relación con MenuProducto
+  menuProductId String       @map("menu_producto_id") // ⭐ AJUSTADO: Nombre del campo.
+  menuProduct   MenuProducto @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
+
+  // Relación con Opciones
+  options Opcion[] // Un grupo de opciones tiene muchas opciones
+
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  @@map("opciones_grupos")
+}
+
+/// Representa una opción dentro de un grupo (ej. "Papas Fritas Grandes", "Coca Cola Zero").
+model Opcion {
+  id       String  @id @default(uuid()) @map("id")
+  legacyId Int?    @unique @map("legacy_id") // ID de un sistema heredado, opcional
+  name     String  @map("nombre") // Nombre de la opción
+  hasStock Boolean @map("tiene_stock") // Indica si la opción tiene stock
+  index    Int     @map("orden") // Orden de la opción en la lista
+
+  // Detalles de precio (si la opción modifica el precio base del producto)
+  // ⭐ Considerar Decimal aquí también por consistencia con MenuProducto.
+  priceFinal        Decimal @default(0.0) @map("precio_final") @db.Decimal(10, 2)
+  priceWithoutTaxes Decimal @default(0.0) @map("precio_sin_impuestos") @db.Decimal(10, 2)
+  taxesAmount       Decimal @default(0.0) @map("monto_impuestos") @db.Decimal(10, 2)
+  priceModifierType String  @map("tipo_modificador_precio") // "NOT_CHANGE", "INCREASE" (cómo afecta el precio)
+  maxQuantity       Int?    @map("cantidad_maxima")
+
+  // Imágenes de la opción: Usamos una tabla intermedia si se gestionan con tu modelo `Image`
+  optionImages OptionImage[] // Relación a la tabla intermedia OptionImage
+
+  // Relación con OpcionGrupo
+  optionGroupId String      @map("id_grupo_opcion")
+  optionGroup   OpcionGrupo @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  @@map("opciones")
+}
+
+/// Tabla intermedia para la relación M:N entre Opcion e Image.
+model OptionImage {
+  optionId String @map("opcion_id")
+  imageId  String @map("imagen_id")
+  order    Int?   @map("orden") // Orden de visualización de la imagen
+
+  option Opcion @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  image  Image  @relation("OptionImages", fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@id([optionId, imageId])
+  @@map("opcion_imagenes")
+}
+
+/// Representa una dirección física. Puede ser usada para usuarios, negocios, o direcciones de entrega.
+model Address {
+  id         String   @id @default(uuid()) @map("id")
+  street     String   @map("calle")
+  number     String?  @map("numero") // Número de calle
+  apartment  String?  @map("departamento") // Depto, piso, etc.
+  city       String   @map("ciudad")
+  province   String   @map("provincia")
+  country    String   @default("Argentina") @map("pais")
+  postalCode String?  @map("codigo_postal")
+  latitude   Decimal? @map("latitud") @db.Decimal(10, 7)
+  longitude  Decimal? @map("longitud") @db.Decimal(10, 7)
+  isDefault  Boolean  @default(false) @map("es_predeterminada") // Si es la dirección predeterminada del usuario o negocio
+  notes      String?  @map("notas") // Ej. "Entregar en la portería"
+
+  // Relaciones opcionales a User y Business
+  userId String? @map("usuario_id")
+  user   User?   @relation("UserAddresses", fields: [userId], references: [id], onDelete: Cascade)
+
+  businessId String?   @map("negocio_id")
+  business   Business? @relation("BusinessAddresses", fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Relación inversa para Order (como dirección de entrega)
+  orders Order[] // Una dirección puede estar asociada a muchas órdenes de entrega
+
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  @@map("direcciones")
+}
+
+// ============================================================================
+// ORDER MODELS
+// Estos modelos corresponden a la lógica del microservicio 'Order'.
+// ============================================================================
+
+/// Representa una orden de un cliente.
+model Order {
+  id         String @id @default(uuid()) @map("id")
+  userId     String @map("usuario_id")
+  businessId String @map("negocio_id")
+  statusId   String @map("estado_id") // ID del estado de la orden (ej., PENDING, CONFIRMED)
+
+  // Detalle de costos
+  foodAmount           Decimal @map("monto_comida") @db.Decimal(10, 2) // Suma de items de comida (antes de envios/servicios)
+  foodAmountNoDiscount Decimal @map("monto_comida_sin_descuento") @db.Decimal(10, 2)
+  shippingAmount       Decimal @map("monto_envio") @db.Decimal(10, 2)
+  serviceFeeAmount     Decimal @map("monto_tarifa_servicio") @db.Decimal(10, 2)
+  discountAmount       Decimal @map("monto_descuento") @db.Decimal(10, 2) // Suma de todos los descuentos (incluye OrderDiscount)
+  totalAmount          Decimal @map("monto_total") @db.Decimal(10, 2) // Monto total final pagado por el cliente
+
+  // Información de entrega/retiro
+  deliveryMode       String   @map("modo_entrega") // Ej. "DELIVERY", "PICKUP"
+  deliveryAddressId  String?  @map("id_direccion_entrega") // ID de la dirección de entrega (si deliveryMode es DELIVERY)
+  deliveryByBusiness Boolean? @map("entregado_por_negocio") // True si entrega el negocio, False si es un tercero
+  minDeliveryMinutes Int?     @map("min_minutos_entrega") // Estimación de tiempo
+  maxDeliveryMinutes Int?     @map("max_minutos_entrega") // Estimación de tiempo
+  addressPhone       String?  @map("telefono_direccion") // Teléfono asociado a la dirección de entrega de la orden
+
+  paymentMethod String  @map("metodo_pago")
+  notes         String? @map("notas") // Notas generales del cliente para la orden
+
+  // Relaciones
+  user            User     @relation(fields: [userId], references: [id])
+  business        Business @relation(fields: [businessId], references: [id])
+  status          Status   @relation(fields: [statusId], references: [id])
+  deliveryAddress Address? @relation(fields: [deliveryAddressId], references: [id])
+
+  items            OrderItem[] // Los productos individuales dentro de esta orden
+  discountsApplied OrderDiscount[] // Descuentos aplicados a la orden (ej. por cupones, subsidios)
+
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  @@map("ordenes")
+}
+
+/// Representa un ítem individual dentro de una orden.
+model OrderItem {
+  id            String @id @default(uuid()) @map("id")
+  orderId       String @map("id_orden")
+  menuProductId String @map("id_menu_producto")
+
+  // Duplicar información clave del producto al momento de la compra para consistencia histórica
+  productName        String  @map("nombre_producto")
+  productDescription String? @map("descripcion_producto")
+  productImageUrl    String? @map("url_imagen_producto")
+
+  quantity        Int     @map("cantidad")
+  priceAtPurchase Decimal @map("precio_al_momento_compra") @db.Decimal(10, 2) // Precio unitario del producto al momento de la orden
+
+  // Opciones seleccionadas como JSON para flexibilidad.
+  // Ejemplo: [ { groupId: "uuid", groupName: "Bebidas", options: [ { optionId: "uuid", optionName: "Agua", amount: 0.00 } ] } ]
+  optionGroups OrderOptionGroup[]
+  notes        String?            @map("notas") // Notas específicas para este ítem (ej. "sin cebolla")
+
+  // Relaciones
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuProduct MenuProducto @relation(fields: [menuProductId], references: [id])
+
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  @@map("items_orden")
+}
+
+/// Representa un descuento específico aplicado a una orden. Permite múltiples descuentos por orden.
+model OrderDiscount {
+  id      String  @id @default(uuid()) @map("id")
+  orderId String  @map("id_orden")
+  amount  Decimal @map("monto") @db.Decimal(10, 2) // Cantidad del descuento
+  type    String  @map("tipo") // Ej. "SUBSIDIZED", "PROMO_CODE", "DELIVERY_DISCOUNT", "LOYALTY"
+  notes   String? @map("notas") // Notas descriptivas del descuento (ej. "SUBSIDIZED_PRODUCT SUBTOTAL DISCOUNT")
+  paidBy  String? @map("pagado_por") // Quién asume el descuento (ej. "BUSINESS", "PLATFORM", "CUSTOMER") - del JSON de PY
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+
+  @@map("descuentos_orden")
+}
+
+model OrderOptionGroup {
+  id          String    @id @default(uuid())
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  orderItemId String
+
+  opcionGrupoId String? // Referencia opcional al original
+  groupName     String // Copia del nombre del grupo
+  minQuantity   Int
+  maxQuantity   Int
+  quantityType  String // Copia del tipo ("FIXED", etc.)
+
+  options OrderOption[]
+}
+
+model OrderOption {
+  id                 String           @id @default(uuid())
+  orderOptionGroup   OrderOptionGroup @relation(fields: [orderOptionGroupId], references: [id])
+  orderOptionGroupId String
+
+  opcionId          String? // Referencia opcional al original
+  optionName        String // Copia del nombre
+  priceFinal        Decimal @db.Decimal(10, 2)
+  priceWithoutTaxes Decimal @db.Decimal(10, 2)
+  taxesAmount       Decimal @db.Decimal(10, 2)
+  priceModifierType String
+  quantity          Int
 }

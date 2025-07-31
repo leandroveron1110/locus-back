@@ -215,28 +215,15 @@ export class BusinessService implements IBusinessService {
       throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
     }
 
-    const [logo, categories, tags, gallery, weeklySchedule] =
-      await Promise.all([
-        this.businessLogoService.getBusinessLogo(id),
-        this.businessCategoryService.getCategoriesByBusinessId(id),
-        this.businessTagService.getTagsByBusinessId(id),
-        this.businessGalleryService.getImagesForEntity(id),
-        this.businessWeekly.findByBusinessId(id),
-      ]);
+    const [logo] = await Promise.all([
+      this.businessLogoService.getBusinessLogo(id),
+    ]);
 
     // const followNormalized = this.normalizeFollow(follow);
 
     return BusinessProfileResponseDto.fromPrismaWithRelations({
       business,
-      categories: undefined,
-      gallery,
       logo,
-      tags: undefined,
-      weeklySchedule: {},
-      follow: {
-        count: 0,
-        isFollowing: false
-      }
     });
   }
 
