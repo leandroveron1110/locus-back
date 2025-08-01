@@ -13,7 +13,7 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { ISeccionService } from '../interfaces/seccion-service.interface';
 import { SeccionCreateDto, SeccionUpdateDto } from '../dtos/request/seccion.request.dto';
 
-@Controller('secciones')
+@Controller('menu/secciones')
 export class SeccionController {
   constructor(
     @Inject(TOKENS.ISeccionService)

@@ -1,9 +1,19 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MenuCreateDto, MenuUpdateDto } from '../dtos/request/menu.request.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IUserValidator } from 'src/users/interfaces/User-service.interface';
 import { IMenuService } from '../interfaces/menu-service.interface';
+import { ISeccionService } from '../interfaces/seccion-service.interface';
+import { IMenuProductService } from 'src/menu-product/interfaces/menu-product-service.interface';
+import { MenuWithSectionsDto } from '../dtos/response/menu-res.dto';
+import { MenuProductDto } from 'src/menu-product/dtos/response/menu-product-response.dto';
+import { MenuSectionWithProductsDto } from '../dtos/response/seccion-res.dto';
 
 @Injectable()
 export class MenuService implements IMenuService {
@@ -11,6 +21,8 @@ export class MenuService implements IMenuService {
     private readonly prisma: PrismaService,
     @Inject(TOKENS.IUserValidator)
     private readonly userValidator: IUserValidator,
+    @Inject(TOKENS.IMenuProductService)
+    private readonly menuProductService: IMenuProductService,
   ) {}
 
   // CREATE
@@ -30,14 +42,60 @@ export class MenuService implements IMenuService {
     return newMenu;
   }
 
-  // READ ALL
-  public async findAllByBusinessId(businessId: string) {
-    const menus = await this.prisma.menu.findMany({
-      where: { businessId: businessId },
-    });
-
+  public async findAll() {
+    const menus = await this.prisma.menu.findMany();
     return menus;
   }
+
+  // READ ALL
+public async findAllByBusinessId(businessId: string): Promise<MenuWithSectionsDto[]> {
+  const menus = await this.prisma.menu.findMany({
+    where: { businessId },
+    include: {
+      sections: {
+        select: {
+          id: true,
+          imageUrls: true,
+          index: true,
+          name: true,
+        },
+        orderBy: {
+          index: 'asc',
+        },
+      },
+    },
+  });
+
+  const seccionIds: string[] = menus.flatMap((menu) =>
+    menu.sections.map((section) => section.id),
+  );
+
+  const products = await this.menuProductService.findAllBySeccionIds(seccionIds);
+
+  // Agrupar productos por seccionId
+  const productsBySeccion: Record<string, MenuProductDto[]> = {};
+  for (const product of products) {
+    const id = product.seccionId;
+    if (!productsBySeccion[id]) productsBySeccion[id] = [];
+    productsBySeccion[id].push(product);
+  }
+
+  // Construir DTO completo
+  const result: MenuWithSectionsDto[] = menus.map((menu) => ({
+    id: menu.id,
+    businessId,
+    name: menu.name,
+    sections: menu.sections.map((section): MenuSectionWithProductsDto => ({
+      id: section.id,
+      name: section.name,
+      imageUrls: section.imageUrls,
+      index: section.index,
+      products: productsBySeccion[section.id] ?? [],
+    })),
+  }));
+
+  return result;
+}
 
   // READ ONE
   public async findOne(id: string) {

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MenuController } from './controllers/menu.controller';
 import { MenuService } from './services/menu.service';
 import { TOKENS } from 'src/common/constants/tokens';
@@ -7,6 +7,7 @@ import { SeccionService } from './services/seccionService.service';
 import { SeccionController } from './controllers/seccion.controller';
 import { MenuValidatorService } from './services/validator/menu-validator.service';
 import { SeccionValidatorService } from './services/validator/seccion-validator.service';
+import { MenuProductModule } from 'src/menu-product/menu-product.module';
 
 @Module({
   controllers: [MenuController, SeccionController],
@@ -34,6 +35,9 @@ import { SeccionValidatorService } from './services/validator/seccion-validator.
     TOKENS.IMenuValidator,
     TOKENS.ISeccionValidator,
   ],
-  imports: [UsersModule],
+  imports: [
+    UsersModule, 
+    forwardRef(() => MenuProductModule)
+  ],
 })
 export class MenuModule {}

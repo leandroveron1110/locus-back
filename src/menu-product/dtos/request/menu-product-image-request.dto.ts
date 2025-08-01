@@ -1,12 +1,16 @@
 // dtos/request/create-menu-product-image.dto.ts
-import { IsUUID, IsOptional, IsInt, Min } from 'class-validator';
+import { IsUUID, IsOptional, IsInt, Min, IsString, IsNotEmpty } from 'class-validator';
 
 export class CreateMenuProductImageDto {
   @IsUUID()
   menuProductId: string;
 
-  @IsUUID()
+  @IsString()
   imageId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  url: string
 
   @IsOptional()
   @IsInt()

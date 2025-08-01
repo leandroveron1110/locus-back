@@ -119,9 +119,9 @@ model Image {
   businessLogo      Business?          @relation("BusinessLogo")
   businessGalleries BusinessImage[]    @relation("businessGalleries")
   // ⭐ AJUSTADO: Relación inversa para imágenes de MenuProducto
-  menuProductImages MenuProductImage[] @relation("MenuProductImages")
+  // menuProductImages MenuProductImage[] @relation("MenuProductImages")
   // ⭐ NUEVO: Relación inversa para imágenes de opciones (si se gestionan con este modelo Image)
-  optionImages      OptionImage[]      @relation("OptionImages")
+  // optionImages      OptionImage[]      @relation("OptionImages")
 
   @@map("imagenes") // Nombre de la tabla en la base de datos.
 }
@@ -453,13 +453,14 @@ model MenuProductFoodCategory {
 /// Tabla intermedia para la relación M:N entre MenuProducto e Image.
 model MenuProductImage {
   menuProductId String @map("menu_producto_id") // ⭐ AJUSTADO: Nombre del campo.
-  imageId       String @map("imagen_id")
+  // imageId       String @map("imagen_id")
   order         Int?   @map("orden") // Orden de visualización de la imagen
+  url           String
 
   menuProduct MenuProduct @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
-  image       Image        @relation("MenuProductImages", fields: [imageId], references: [id], onDelete: Cascade) // ⭐ AJUSTADO: Nombre de la relación.
+  // image       Image        @relation("MenuProductImages", fields: [imageId], references: [id], onDelete: Cascade) // ⭐ AJUSTADO: Nombre de la relación.
 
-  @@id([menuProductId, imageId])
+  @@id([menuProductId])
   @@map("menu_producto_imagenes") // ⭐ AJUSTADO: Nombre de la tabla.
 }
 
@@ -518,11 +519,12 @@ model OptionImage {
   optionId String @map("opcion_id")
   imageId  String @map("imagen_id")
   order    Int?   @map("orden") // Orden de visualización de la imagen
+  url           String
 
   option Opcion @relation(fields: [optionId], references: [id], onDelete: Cascade)
-  image  Image  @relation("OptionImages", fields: [imageId], references: [id], onDelete: Cascade)
+  // image  Image  @relation("OptionImages", fields: [imageId], references: [id], onDelete: Cascade)
 
-  @@id([optionId, imageId])
+  @@id([optionId])
   @@map("opcion_imagenes")
 }
 

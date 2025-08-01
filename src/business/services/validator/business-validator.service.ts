@@ -9,6 +9,7 @@ export class BusinessValidatorService implements IExistenceValidator {
   constructor(private readonly prisma: PrismaService) {}
 
   async checkOne(id: string): Promise<void> {
+    console.log("negocio id", id)
     const count = await this.prisma.business.count({ where: { id } });
     if (count === 0) {
       throw new NotFoundException(`Negocio con ID ${id} no encontrado.`);

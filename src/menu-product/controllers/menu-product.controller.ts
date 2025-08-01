@@ -6,6 +6,8 @@ import {
   Param,
   Patch,
   Post,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { CreateMenuProductDto } from '../dtos/request/menu-producto-request.dto';
 import { IMenuProductService } from '../interfaces/menu-product-service.interface';
@@ -13,27 +15,22 @@ import { Inject } from '@nestjs/common';
 import { TOKENS } from 'src/common/constants/tokens';
 
 @Controller('menu-products')
+@UsePipes(
+  new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  }),
+)
 export class MenuProductController {
   constructor(
     @Inject(TOKENS.IMenuProductService)
     private readonly menuProductService: IMenuProductService,
   ) {}
 
-  @Post(':menuId/:businessId/:ownerId/:seccionId')
-  create(
-    @Param('seccionId') seccionId: string,
-    @Param('menuId') menuId: string,
-    @Param('businessId') businessId: string,
-    @Param('ownerId') ownerId: string,
-    @Body() dto: CreateMenuProductDto,
-  ) {
-    return this.menuProductService.create(
-      seccionId,
-      menuId,
-      ownerId,
-      businessId,
-      dto,
-    );
+  @Post()
+  async create(@Body() dto: CreateMenuProductDto) {
+    return await this.menuProductService.create(dto);
   }
 
   @Get()

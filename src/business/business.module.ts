@@ -59,7 +59,7 @@ import { FollowModule } from 'src/follow/follow.module';
     CategoriesModule,
     TargsModule,
     PrismaModule,
-    UsersModule,
+    forwardRef(() => UsersModule),
     StatusModule,
     FollowModule,
     forwardRef(() =>WeeklyScheduleModule),

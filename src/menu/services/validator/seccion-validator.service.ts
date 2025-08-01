@@ -1,9 +1,10 @@
-import { Inject, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { TOKENS } from "src/common/constants/tokens";
 import { IMenuValidator } from "src/menu/interfaces/menu-service.interface";
 import { ISeccionValidator } from "src/menu/interfaces/seccion-service.interface";
 import { PrismaService } from "src/prisma/prisma.service";
 
+@Injectable()
 export class SeccionValidatorService implements ISeccionValidator{
 constructor(
     private readonly prisma: PrismaService,
@@ -17,7 +18,7 @@ constructor(
     ownerId: string,
     businessId: string,
   ): Promise<void> {
-    await this.menuValidator.existMenuAndOwnerAndBusiness(menuId, businessId, ownerId);
+    await this.menuValidator.existMenuAndOwnerAndBusiness(menuId, ownerId, businessId );
     await this.checkOne(seccionId);
   }
   async checkOne(id: string): Promise<void> {

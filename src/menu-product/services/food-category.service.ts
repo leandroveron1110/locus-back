@@ -2,10 +2,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { CreateFoodCategoryDto, UpdateFoodCategoryDto } from '../dtos/request/food-category-request.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class FoodCategoryService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateFoodCategoryDto) {
     return this.prisma.foodCategory.create({ data: dto });

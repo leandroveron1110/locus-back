@@ -9,8 +9,8 @@ export class OptionController {
   constructor(private readonly optionService: OptionService) {}
 
   @Post()
-  create(@Body() dto: CreateOpcionDto) {
-    return this.optionService.create(dto);
+  async create(@Body() dto: CreateOpcionDto) {
+    return await this.optionService.create(dto);
   }
 
   @Get('group/:groupId')

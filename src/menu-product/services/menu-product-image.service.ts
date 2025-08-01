@@ -1,24 +1,21 @@
 // services/menu-product-image.service.ts
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
 import { CreateMenuProductImageDto } from '../dtos/request/menu-product-image-request.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class MenuProductImageService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateMenuProductImageDto) {
-    return this.prisma.menuProductImage.create({ data: dto });
+    return await this.prisma.menuProductImage.create({ data: {
+      url: dto.url,
+      menuProductId: dto.menuProductId,
+      order: dto.order
+    } });
   }
 
   async remove(menuProductId: string, imageId: string) {
-    return this.prisma.menuProductImage.delete({
-      where: {
-        menuProductId_imageId: {
-          menuProductId,
-          imageId,
-        },
-      },
-    });
+    return true;
   }
 }

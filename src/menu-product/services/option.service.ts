@@ -9,9 +9,16 @@ export class OptionService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateOpcionDto) {
-    return this.prisma.opcion.create({
+    const existOptionGroup = await this.prisma.opcionGrupo.count({
+      where: { id: dto.optionGroupId },
+    });
+    if (!existOptionGroup) {
+      throw new NotFoundException(
+        `No existe el option-group con el ID: ${dto.optionGroupId}`,
+      );
+    }
+    return await this.prisma.opcion.create({
       data: {
-        legacyId: dto.legacyId,
         name: dto.name,
         hasStock: dto.hasStock,
         index: dto.index,

@@ -1,13 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient, OpcionGrupo } from '@prisma/client';
 import { CreateOptionGroupDto, UpdateOptionGroupDto } from '../dtos/request/option-group-request.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class OptionGroupService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateOptionGroupDto): Promise<OpcionGrupo> {
-    return this.prisma.opcionGrupo.create({ data: dto });
+    const existProduct = await this.prisma.menuProduct.count({where: {id: dto.menuProductId}});
+    if(!existProduct) {
+      throw new NotFoundException(`No se encontro el menu-producto con el ID: ${dto.menuProductId}`);
+    }
+    return await this.prisma.opcionGrupo.create({ data: dto });
   }
 
   async findAll(): Promise<OpcionGrupo[]> {

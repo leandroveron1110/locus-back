@@ -9,6 +9,7 @@ export class MenuCreateDto {
   @IsUUID('4', { message: 'businessId debe ser un UUID válido.' })
   @IsNotEmpty({ message: 'businessId es requerido.' })
   businessId: string;
+  @IsString()
   name: string;
 }
 

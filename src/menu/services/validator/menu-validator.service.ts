@@ -1,9 +1,10 @@
-import { Inject, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IMenuValidator } from 'src/menu/interfaces/menu-service.interface';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { IUserValidator } from 'src/users/interfaces/User-service.interface';
 
+@Injectable()
 export class MenuValidatorService implements IMenuValidator {
   constructor(
     private readonly prisma: PrismaService,

@@ -81,9 +81,21 @@ export class CreateMenuProductDto {
   @IsOptional()
   isRecommended?: boolean;
 
+  // validaciones
   @IsUUID()
   @IsNotEmpty()
   seccionId: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  businessId: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  menuId: string;
+  @IsUUID()
+  @IsNotEmpty()
+  ownerId: string;
 }
 
 export class UpdateMenuProduct extends PartialType(CreateMenuProductDto) {}

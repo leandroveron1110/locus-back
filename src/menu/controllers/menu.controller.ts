@@ -23,13 +23,18 @@ export class MenuController {
   // Crear menú
   @Post()
   async create(@Body() dto: MenuCreateDto) {
-    return this.menuService.createMenu(dto);
+    return await this.menuService.createMenu(dto);
   }
 
   // Obtener todos los menús de un negocio
+  @Get('business/:businessId')
+  async findAllByBusiness(@Param('businessId') businessId: string) {
+    return await this.menuService.findAllByBusinessId(businessId);
+  }
+
   @Get()
-  async findAllByBusiness(@Query('businessId') businessId: string) {
-    return this.menuService.findAllByBusinessId(businessId);
+  async findAll() {
+    return await this.menuService.findAll();
   }
 
   // Obtener un menú por ID
