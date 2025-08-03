@@ -20,6 +20,7 @@ import { IsBusinessIdExistsConstraint } from './common/validators/is-business-id
 import { FollowModule } from './follow/follow.module';
 import { MenuModule } from './menu/menu.module';
 import { MenuProductModule } from './menu-product/menu-product.module';
+import { OrderModule } from './order/order.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { MenuProductModule } from './menu-product/menu-product.module';
     FollowModule,
     MenuModule,
     MenuProductModule,
+    OrderModule,
   ],
   controllers: [AppController],
   providers: [AppService, IsBusinessIdExistsConstraint],

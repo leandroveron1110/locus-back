@@ -6,6 +6,7 @@ import { ISeccionValidator } from 'src/menu/interfaces/seccion-service.interface
 import { IMenuProductService } from '../interfaces/menu-product-service.interface';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MenuProductDto } from '../dtos/response/menu-product-response.dto';
+import { MenuProductWithOptions } from '../types/menu-product.type';
 
 @Injectable()
 export class MenuProductService implements IMenuProductService {
@@ -149,5 +150,24 @@ export class MenuProductService implements IMenuProductService {
     if (!exists) throw new NotFoundException('Menu product not found');
 
     return await this.prisma.menuProduct.delete({ where: { id } });
+  }
+
+  async getMenuProductById(
+    menuProductId: string,
+  ): Promise<MenuProductWithOptions> {
+    const product = await this.prisma.menuProduct.findUnique({
+      where: { id: menuProductId },
+      include: {
+        optionGroups: {
+          include: { options: true },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto ${menuProductId} no encontrado.`);
+    }
+
+    return product;
   }
 }

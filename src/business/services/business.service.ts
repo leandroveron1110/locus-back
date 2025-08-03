@@ -25,6 +25,7 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessCategoryService } from '../interfaces/business-category.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 import { IBusinessLogoService } from '../interfaces/business-logo-service.interface';
+import { ModulesConfigSchema, ModulesConfig } from '../dto/Request/modules-config.schema.dto';
 
 @Injectable()
 export class BusinessService implements IBusinessService {
@@ -319,15 +320,16 @@ export class BusinessService implements IBusinessService {
     modulesConfig: Prisma.JsonValue,
   ) {
     try {
-      return await this.prisma.business.update({
+      // ✅ Validamos el config con Zod
+      const result = ModulesConfigSchema.safeParse(modulesConfig);
+
+      if (!result.success) {
+        throw new BadRequestException('modulesConfig inválido');
+      }
+
+      return this.prisma.business.update({
         where: { id: businessId },
-        data: {
-          modulesConfig: modulesConfig as Prisma.InputJsonValue,
-        },
-        select: {
-          id: true,
-          modulesConfig: true,
-        },
+        data: { modulesConfig: result.data },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -341,11 +343,27 @@ export class BusinessService implements IBusinessService {
     }
   }
 
-  private normalizeFollow(
-    follow: number | { isFollowing: boolean; count: number },
-  ): { count: number; isFollowing: boolean } {
-    return typeof follow === 'number'
-      ? { count: follow, isFollowing: false }
-      : follow;
+  async getModulesConfigByBusinessId(businessId: string): Promise<ModulesConfig> {
+    const result = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        modulesConfig: true,
+      },
+    });
+    if (!result) {
+      throw new NotFoundException(
+        `Negocio con ID "${businessId}" sin moduleConfig`,
+      );
+    }
+
+    const parsed = ModulesConfigSchema.safeParse(result.modulesConfig);
+
+    if (!parsed.success) {
+      throw new BadRequestException(
+        'La configuración de módulos del negocio es inválida',
+      );
+    }
+
+    return parsed.data;
   }
 }

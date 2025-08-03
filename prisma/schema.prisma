@@ -49,7 +49,7 @@ model Status {
 
   users      User[]     @relation("UserStatus")
   businesses Business[] @relation("BusinessStatus")
-  Order      Order[]
+
 
   @@unique([name, entityType]) // Asegura que no haya estados duplicados para el mismo tipo de entidad.
   @@map("estados")
@@ -76,7 +76,7 @@ model User {
   avatar           Image?             @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
   businessFollower BusinessFollower[]
   rating           Rating[]
-  Address          Address[]          @relation("UserAddresses")
+  address          Address[]          @relation("UserAddresses")
   Order            Order[]
 
   @@map("usuarios")
@@ -115,9 +115,9 @@ model Image {
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
   // RELACIONES INVERSAS (desde los modelos que referencian esta imagen):
-  userAvatar        User?              @relation("UserAvatar")
-  businessLogo      Business?          @relation("BusinessLogo")
-  businessGalleries BusinessImage[]    @relation("businessGalleries")
+  userAvatar        User?           @relation("UserAvatar")
+  businessLogo      Business?       @relation("BusinessLogo")
+  businessGalleries BusinessImage[] @relation("businessGalleries")
   // ⭐ AJUSTADO: Relación inversa para imágenes de MenuProducto
   // menuProductImages MenuProductImage[] @relation("MenuProductImages")
   // ⭐ NUEVO: Relación inversa para imágenes de opciones (si se gestionan con este modelo Image)
@@ -284,6 +284,7 @@ model Business {
 
   // --- NUEVOS CAMPOS Y RELACIONES PARA MENÚ Y PRODUCTOS ---
   menu    Menu? // Un negocio puede tener un menú (o varios, ver nota abajo)
+  // orderAddress OrderAddress[] @relation("BusinessOrderAddresses")
   Address Address[] @relation("BusinessAddresses")
   Order   Order[]
 
@@ -443,7 +444,7 @@ model MenuProductFoodCategory {
   menuProductId  String @map("menu_producto_id")
   foodCategoryId String @map("categoria_comida_id")
 
-  menuProduct  MenuProduct @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
+  menuProduct  MenuProduct  @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
   foodCategory FoodCategory @relation("FoodCategoryToMenuProducts", fields: [foodCategoryId], references: [id], onDelete: Cascade)
 
   @@id([menuProductId, foodCategoryId])
@@ -473,7 +474,7 @@ model OpcionGrupo {
   quantityType String @map("tipo_cantidad") // Tipo de cantidad ("FIXED", "MIN_MAX")
 
   // Relación con MenuProducto
-  menuProductId String       @map("menu_producto_id") // ⭐ AJUSTADO: Nombre del campo.
+  menuProductId String      @map("menu_producto_id") // ⭐ AJUSTADO: Nombre del campo.
   menuProduct   MenuProduct @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
 
   // Relación con Opciones
@@ -519,7 +520,7 @@ model OptionImage {
   optionId String @map("opcion_id")
   imageId  String @map("imagen_id")
   order    Int?   @map("orden") // Orden de visualización de la imagen
-  url           String
+  url      String
 
   option Opcion @relation(fields: [optionId], references: [id], onDelete: Cascade)
   // image  Image  @relation("OptionImages", fields: [imageId], references: [id], onDelete: Cascade)
@@ -527,83 +528,88 @@ model OptionImage {
   @@id([optionId])
   @@map("opcion_imagenes")
 }
+// ============================================================================
+// ORDER MODELS
+// Estos modelos corresponden a la lógica del microservicio 'Order'.
+// ============================================================================
 
-/// Representa una dirección física. Puede ser usada para usuarios, negocios, o direcciones de entrega.
 model Address {
   id         String   @id @default(uuid()) @map("id")
   street     String   @map("calle")
-  number     String?  @map("numero") // Número de calle
-  apartment  String?  @map("departamento") // Depto, piso, etc.
+  number     String?  @map("numero")
+  apartment  String?  @map("departamento")
   city       String   @map("ciudad")
   province   String   @map("provincia")
   country    String   @default("Argentina") @map("pais")
   postalCode String?  @map("codigo_postal")
   latitude   Decimal? @map("latitud") @db.Decimal(10, 7)
   longitude  Decimal? @map("longitud") @db.Decimal(10, 7)
-  isDefault  Boolean  @default(false) @map("es_predeterminada") // Si es la dirección predeterminada del usuario o negocio
-  notes      String?  @map("notas") // Ej. "Entregar en la portería"
+  isDefault  Boolean  @default(false) @map("es_predeterminada")
+  enabled    Boolean  @default(true) @map("habilitada")
+  notes      String?  @map("notas")
 
-  // Relaciones opcionales a User y Business
-  userId String? @map("usuario_id")
-  user   User?   @relation("UserAddresses", fields: [userId], references: [id], onDelete: Cascade)
+  // Relaciones para dueños
+  userId     String?  @map("usuario_id")
+  user       User?    @relation("UserAddresses", fields: [userId], references: [id])
 
   businessId String?   @map("negocio_id")
-  business   Business? @relation("BusinessAddresses", fields: [businessId], references: [id], onDelete: Cascade)
+  business   Business? @relation("BusinessAddresses", fields: [businessId], references: [id])
 
-  // Relación inversa para Order (como dirección de entrega)
-  orders Order[] // Una dirección puede estar asociada a muchas órdenes de entrega
+  // Relaciones con órdenes
+  deliveryOrders Order[] @relation("OrderDeliveryAddress") // dirección de entrega
+  pickupOrders   Order[] @relation("OrderPickupAddress")   // dirección de retiro
 
-  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("creado_en")
+  updatedAt  DateTime @updatedAt @map("actualizado_en")
 
   @@map("direcciones")
+
+  // Índices para consultas rápidas
+  @@index([userId])
+  @@index([businessId])
+  @@index([enabled])
+  @@index([userId, enabled])
 }
 
-// ============================================================================
-// ORDER MODELS
-// Estos modelos corresponden a la lógica del microservicio 'Order'.
-// ============================================================================
+
 
 /// Representa una orden de un cliente.
 model Order {
-  id         String @id @default(uuid()) @map("id")
-  userId     String @map("usuario_id")
-  businessId String @map("negocio_id")
-  statusId   String @map("estado_id") // ID del estado de la orden (ej., PENDING, CONFIRMED)
+  id                String     @id @default(uuid()) @map("id")
+  userId            String     @map("usuario_id")
+  businessId        String     @map("negocio_id")
+  deliveryAddressId String?    @map("direccion_entrega_id") // opcional si es retiro
+  pickupAddressId   String?    @map("direccion_retiro_id")   // opcional si es entrega
 
-  // Detalle de costos
-  foodAmount           Decimal @map("monto_comida") @db.Decimal(10, 2) // Suma de items de comida (antes de envios/servicios)
-  foodAmountNoDiscount Decimal @map("monto_comida_sin_descuento") @db.Decimal(10, 2)
-  shippingAmount       Decimal @map("monto_envio") @db.Decimal(10, 2)
-  serviceFeeAmount     Decimal @map("monto_tarifa_servicio") @db.Decimal(10, 2)
-  discountAmount       Decimal @map("monto_descuento") @db.Decimal(10, 2) // Suma de todos los descuentos (incluye OrderDiscount)
-  totalAmount          Decimal @map("monto_total") @db.Decimal(10, 2) // Monto total final pagado por el cliente
+  status            OrderStatus @default(PENDING) @map("estado")
+  origin            OrderOrigin @default(APP)     @map("origen") // web, app, whatsapp, etc.
+  isTest            Boolean     @default(false)   @map("es_prueba")
+  total             Decimal     @map("total") @db.Decimal(10, 2)
+  notes             String?     @map("notas")
 
-  // Información de entrega/retiro
-  deliveryMode       String   @map("modo_entrega") // Ej. "DELIVERY", "PICKUP"
-  deliveryAddressId  String?  @map("id_direccion_entrega") // ID de la dirección de entrega (si deliveryMode es DELIVERY)
-  deliveryByBusiness Boolean? @map("entregado_por_negocio") // True si entrega el negocio, False si es un tercero
-  minDeliveryMinutes Int?     @map("min_minutos_entrega") // Estimación de tiempo
-  maxDeliveryMinutes Int?     @map("max_minutos_entrega") // Estimación de tiempo
-  addressPhone       String?  @map("telefono_direccion") // Teléfono asociado a la dirección de entrega de la orden
+  createdAt         DateTime    @default(now())    @map("creado_en")
+  updatedAt         DateTime    @updatedAt         @map("actualizado_en")
 
-  paymentMethod String  @map("metodo_pago")
-  notes         String? @map("notas") // Notas generales del cliente para la orden
+  user              User        @relation(fields: [userId], references: [id])
+  business          Business    @relation(fields: [businessId], references: [id])
+  deliveryAddress   Address?    @relation("OrderDeliveryAddress", fields: [deliveryAddressId], references: [id])
+  pickupAddress     Address?    @relation("OrderPickupAddress", fields: [pickupAddressId], references: [id])
+  OrderItem OrderItem[]
+  OrderDiscount OrderDiscount[]
+  DeliveryCompany DeliveryCompany[] @relation("DeliveryCompanyOrders")
 
-  // Relaciones
-  user            User     @relation(fields: [userId], references: [id])
-  business        Business @relation(fields: [businessId], references: [id])
-  status          Status   @relation(fields: [statusId], references: [id])
-  deliveryAddress Address? @relation(fields: [deliveryAddressId], references: [id])
-
-  items            OrderItem[] // Los productos individuales dentro de esta orden
-  discountsApplied OrderDiscount[] // Descuentos aplicados a la orden (ej. por cupones, subsidios)
-
-  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
   @@map("ordenes")
+
+  // Índices para mejorar rendimiento de búsquedas comunes
+  @@index([businessId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([origin])
+  @@index([isTest])
 }
+
 
 /// Representa un ítem individual dentro de una orden.
 model OrderItem {
@@ -616,16 +622,13 @@ model OrderItem {
   productDescription String? @map("descripcion_producto")
   productImageUrl    String? @map("url_imagen_producto")
 
-  quantity        Int     @map("cantidad")
-  priceAtPurchase Decimal @map("precio_al_momento_compra") @db.Decimal(10, 2) // Precio unitario del producto al momento de la orden
-
-  // Opciones seleccionadas como JSON para flexibilidad.
-  // Ejemplo: [ { groupId: "uuid", groupName: "Bebidas", options: [ { optionId: "uuid", optionName: "Agua", amount: 0.00 } ] } ]
-  optionGroups OrderOptionGroup[]
-  notes        String?            @map("notas") // Notas específicas para este ítem (ej. "sin cebolla")
+  quantity        Int                @map("cantidad")
+  priceAtPurchase Decimal            @map("precio_al_momento_compra") @db.Decimal(10, 2) // Precio unitario del producto al momento de la orden
+  optionGroups    OrderOptionGroup[]
+  notes           String?            @map("notas") // Notas específicas para este ítem (ej. "sin cebolla")
 
   // Relaciones
-  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuProduct MenuProduct @relation(fields: [menuProductId], references: [id])
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
@@ -653,8 +656,6 @@ model OrderDiscount {
 
 model OrderOptionGroup {
   id          String    @id @default(uuid())
-  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
-  orderItemId String
 
   opcionGrupoId String? // Referencia opcional al original
   groupName     String // Copia del nombre del grupo
@@ -663,6 +664,8 @@ model OrderOptionGroup {
   quantityType  String // Copia del tipo ("FIXED", etc.)
 
   options OrderOption[]
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
 }
 
 model OrderOption {
@@ -677,4 +680,44 @@ model OrderOption {
   taxesAmount       Decimal @db.Decimal(10, 2)
   priceModifierType String
   quantity          Int
+}
+
+// Enums
+
+enum DeliveryType {
+  PICKUP // El cliente retira en el local
+  IN_HOUSE_DELIVERY // El negocio entrega por su cuenta
+  EXTERNAL_DELIVERY // Se usa una cadetería externa
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  IN_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+// Modelos
+
+model DeliveryCompany {
+  id       String   @id @default(uuid())
+  name     String
+  phone    String
+  zones    String[] // Zonas donde opera (puede ser un enum si querés más control)
+  isActive Boolean  @default(true)
+
+  orders Order[] @relation("DeliveryCompanyOrders")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum OrderOrigin {
+  APP
+  WEB
+  WHATSAPP
+  PHONE
+  IN_PERSON
+  OTHER
 }

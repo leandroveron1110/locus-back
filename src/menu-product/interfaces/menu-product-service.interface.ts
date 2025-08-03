@@ -3,6 +3,7 @@
 import { MenuProduct } from '@prisma/client';
 import { CreateMenuProductDto } from '../dtos/request/menu-producto-request.dto';
 import { MenuProductDto } from '../dtos/response/menu-product-response.dto';
+import { MenuProductWithOptions } from '../types/menu-product.type';
 
 export interface IMenuProductService {
   create(
@@ -20,4 +21,8 @@ export interface IMenuProductService {
   update(id: string, dto: Partial<CreateMenuProductDto>): Promise<MenuProduct>;
 
   remove(id: string): Promise<MenuProduct>;
+
+  getMenuProductById(
+      menuProductId: string,
+    ): Promise<MenuProductWithOptions>
 }
