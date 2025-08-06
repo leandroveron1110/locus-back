@@ -1,5 +1,6 @@
 // src/modules/image/services/image.service.ts
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -11,12 +12,108 @@ import { UpdateImageDto } from '../dtos/Request/update-image.dto';
 import { ImageResponseDto } from '../dtos/Response/image-response.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { IImageService } from '../interfaces/image-service.interface';
+import { UploadsService } from 'src/uploads/services/uploads.service';
+import { UploadResult } from 'src/uploads/interfaces/storage-provider.interface';
+import { Image, ImageType, Prisma } from '@prisma/client';
 
 @Injectable()
 export class ImageService implements IImageService {
   private readonly logger = new Logger(ImageService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    protected readonly uploadsService: UploadsService,
+  ) {}
+
+  protected async uploadAndPersistImage(
+    file: Express.Multer.File,
+    imageType: ImageType,
+    folderPath: string,
+    isCustomizedImage: boolean,
+  ): Promise<ImageResponseDto> {
+    this.logger.log(
+      `[BaseImageManager] Starting upload and persist for image type: ${imageType} in folder: ${folderPath}.`,
+    );
+
+    let uploadResult: UploadResult;
+    try {
+      const contentType = file.mimetype || 'application/octet-stream';
+      uploadResult = await this.uploadsService.uploadFile(
+        file.buffer,
+        file.originalname,
+        folderPath,
+        contentType,
+      );
+      this.logger.debug(
+        `[BaseImageManager] File uploaded via UploadsService. URL: ${uploadResult.url}, PublicId: ${uploadResult.publicId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[BaseImageManager] Failed to upload file via UploadsService. Error: ${error.message}`,
+        error.stack,
+      );
+      throw new BadRequestException(
+        `Could not upload image file: ${error.message}`,
+      );
+    }
+
+    const imageMetadataToCreate = {
+      url: uploadResult.url,
+      publicId: uploadResult.publicId,
+      format: uploadResult.format,
+      resourceType: uploadResult.resourceType,
+      width: uploadResult.width,
+      height: uploadResult.height,
+      bytes: uploadResult.bytes ? Number(uploadResult.bytes) : undefined,
+      folder: uploadResult.folder,
+      isCustomizedImage: isCustomizedImage,
+      type: imageType,
+    };
+
+    let newImage: ImageResponseDto;
+    try {
+      newImage = await this.create(imageMetadataToCreate);
+      this.logger.log(
+        `[BaseImageManager] Image metadata created with ID: ${newImage.id}.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[BaseImageManager] Failed to create image metadata. Error: ${error.message}`,
+        error.stack,
+      );
+      await this.uploadsService
+        .deleteFile(uploadResult.publicId)
+        .catch((e) =>
+          this.logger.error(
+            `Failed to rollback file ${uploadResult.publicId}: ${e.message}`,
+          ),
+        );
+      throw new BadRequestException(
+        `Could not persist image metadata: ${error.message}`,
+      );
+    }
+
+    this.logger.log(
+      `[BaseImageManager] Upload and persist complete for image ID: ${newImage.id}.`,
+    );
+    return newImage;
+  }
+
+  // sube imagen de uso general
+  async uploadAndAssignImage(
+    file: Express.Multer.File,
+    type: ImageType,
+  ): Promise<ImageResponseDto> {
+    // subimos la imagen a cloud
+    const newImage = await this.uploadAndPersistImage(
+      file,
+      type,
+      `default/`,
+      false,
+    );
+
+    return newImage;
+  }
 
   /**
    * Crea una nueva entrada de metadatos de imagen en la base de datos.
@@ -31,7 +128,7 @@ export class ImageService implements IImageService {
         `Intentando de crear una imagen: ${JSON.stringify(createImageDto)}`,
       );
       const image = await this.prisma.image.create({
-        data: createImageDto,
+        data: { ...createImageDto },
       });
       this.logger.log(`Imagen creada ID: ${image.id}`);
       return ImageResponseDto.fromPrisma(image);

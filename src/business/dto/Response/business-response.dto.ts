@@ -106,7 +106,7 @@ export class BusinessProfileResponseDto {
   // Método para transformar negocio + relaciones a DTO limpio
   static fromPrismaWithRelations(params: {
     business: PrismaBusiness;
-    logo?: { id: string; url: string } | null;
+    logo?: { url: string } | null;
   }) {
     const {
       business,

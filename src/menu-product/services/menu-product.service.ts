@@ -31,7 +31,6 @@ export class MenuProductService implements IMenuProductService {
       data: {
         ...dto,
         enabled: dto.enabled ?? true,
-        isCustomizedImage: dto.isCustomizedImage ?? false,
         hasOptions: dto.hasOptions ?? false,
         isMostOrdered: dto.isMostOrdered ?? false,
         isRecommended: dto.isRecommended ?? false,
@@ -52,7 +51,6 @@ export class MenuProductService implements IMenuProductService {
             },
           },
         },
-        menuProductImages: true,
         foodCategories: {
           include: {
             foodCategory: true,
@@ -80,7 +78,6 @@ export class MenuProductService implements IMenuProductService {
             },
           },
         },
-        menuProductImages: true,
         foodCategories: {
           include: {
             foodCategory: true,
@@ -108,7 +105,6 @@ export class MenuProductService implements IMenuProductService {
             },
           },
         },
-        menuProductImages: true,
         foodCategories: {
           include: {
             foodCategory: true,

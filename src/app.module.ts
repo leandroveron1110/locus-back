@@ -21,6 +21,7 @@ import { FollowModule } from './follow/follow.module';
 import { MenuModule } from './menu/menu.module';
 import { MenuProductModule } from './menu-product/menu-product.module';
 import { OrderModule } from './order/order.module';
+import { AddressModule } from './address/address.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { OrderModule } from './order/order.module';
     MenuModule,
     MenuProductModule,
     OrderModule,
+    AddressModule,
   ],
   controllers: [AppController],
   providers: [AppService, IsBusinessIdExistsConstraint],

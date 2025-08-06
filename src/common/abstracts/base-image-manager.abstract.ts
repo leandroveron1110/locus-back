@@ -5,14 +5,13 @@ import {
   BadRequestException,
   Inject,
 } from '@nestjs/common';
-import { ImageService } from 'src/image/services/image.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UploadsService } from 'src/uploads/services/uploads.service';
-import { ImageType } from '../enums/image-type.enum';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
 import { UploadResult } from 'src/uploads/interfaces/storage-provider.interface';
 import { TOKENS } from '../constants/tokens';
 import { IImageService } from 'src/image/interfaces/image-service.interface';
+import { ImageType } from '@prisma/client';
 @Injectable()
 export abstract class BaseImageManager {
   protected readonly logger: Logger;
@@ -31,6 +30,7 @@ export abstract class BaseImageManager {
     file: Express.Multer.File,
     imageType: ImageType,
     folderPath: string,
+    isCustomizedImage: boolean
   ): Promise<ImageResponseDto> {
     this.logger.log(
       `[BaseImageManager] Starting upload and persist for image type: ${imageType} in folder: ${folderPath}.`,
@@ -67,6 +67,8 @@ export abstract class BaseImageManager {
       height: uploadResult.height,
       bytes: uploadResult.bytes ? Number(uploadResult.bytes) : undefined,
       folder: uploadResult.folder,
+      isCustomizedImage: isCustomizedImage,
+      type: imageType
     };
 
     let newImage: ImageResponseDto;
@@ -149,10 +151,6 @@ export abstract class BaseImageManager {
     entityId: string,
     imageId: string,
   ): Promise<void>;
-
-  public abstract getImagesForEntity(
-    entityId: string,
-  ): Promise<ImageResponseDto[]>;
 
   public abstract updateEntityImage(
     entityId: string,

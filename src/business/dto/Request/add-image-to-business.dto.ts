@@ -2,7 +2,7 @@
 
 import { IsString, IsUrl, IsOptional, IsInt, IsEnum, IsNotEmpty, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ImageType } from 'src/common/enums/image-type.enum';
+import { ImageType } from '@prisma/client';
 
 // Reutilizamos el ImageType definido en el módulo Image para consistencia
 

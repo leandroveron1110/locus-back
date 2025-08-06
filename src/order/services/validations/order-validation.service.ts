@@ -3,14 +3,10 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
-import {
-  CreateOrderFullDto,
-  CreateOrderItemDto,
-  CreateOrderOptionGroupDto,
-} from '../../dtos/request/order.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IMenuProductService } from 'src/menu-product/interfaces/menu-product-service.interface';
 import { IBusinessService } from 'src/business/interfaces/business.interface';
+import { CreateOrderFullDTO, CreateOrderItemDTO, CreateOrderOptionGroupDTO } from 'src/order/dtos/request/order.dto';
 
 @Injectable()
 export class OrderValidationService {
@@ -21,7 +17,7 @@ export class OrderValidationService {
     private readonly businessService: IBusinessService,
   ) {}
 
-  async validateCreateFullOrder(dto: CreateOrderFullDto): Promise<void> {
+  async validateCreateFullOrder(dto: CreateOrderFullDTO): Promise<void> {
     const moduleConfig =
       await this.businessService.getModulesConfigByBusinessId(dto.businessId);
 
@@ -58,7 +54,7 @@ export class OrderValidationService {
         options: { id: string; name: string }[];
       }[];
     },
-    item: CreateOrderItemDto,
+    item: CreateOrderItemDTO,
   ) {
     const validGroupIds = new Set(product.optionGroups.map((g) => g.id));
 
@@ -75,7 +71,7 @@ export class OrderValidationService {
   }
 
   private validateGroup(
-    group: CreateOrderOptionGroupDto,
+    group: CreateOrderOptionGroupDTO,
     validGroupIds: Set<string>,
     product: { name: string },
   ) {
@@ -87,7 +83,7 @@ export class OrderValidationService {
   }
 
   private validateOptions(
-    group: CreateOrderOptionGroupDto,
+    group: CreateOrderOptionGroupDTO,
     validOptions: { id: string; name: string }[],
     product: { name: string },
   ) {

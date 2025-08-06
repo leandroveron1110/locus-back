@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
-import { ImageType } from 'src/common/enums/image-type.enum';
 import { BaseImageManager } from '../../../common/abstracts/base-image-manager.abstract';
 import { UploadsService } from 'src/uploads/services/uploads.service';
 import { IBusinessGalleryService } from 'src/business/interfaces/business-gallery.interface';
@@ -17,6 +16,7 @@ import { IImageService } from 'src/image/interfaces/image-service.interface';
 import { ImageDto } from 'src/business/interfaces/image.interface';
 import { IBusinessService } from 'src/business/interfaces/business.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
+import { ImageType } from '@prisma/client';
 
 @Injectable()
 export class BusinessGalleryService
@@ -49,6 +49,7 @@ export class BusinessGalleryService
       file,
       ImageType.GALLERY,
       `businesses/${businessId}/gallery`,
+      true,
     );
 
     try {
@@ -86,6 +87,7 @@ export class BusinessGalleryService
         data: {
           businessId: businessId,
           imageId: image.id,
+          imageUrl: image.url,
           order: optionalData?.order,
         },
       });
@@ -146,26 +148,10 @@ export class BusinessGalleryService
 
   public async getSimpleGalleryForEntity(
     businessId: string,
-  ): Promise<{ id: string; url: string }[]> {
-    const images = await this.getImagesForEntity(businessId);
-
-    return images.map((img) => ({
-      id: img.id,
-      url: img.url,
-    }));
-  }
-
-  public async getImagesForEntity(
-    businessId: string,
-  ): Promise<ImageResponseDto[]> {
-    this.logger.log(
-      `[BusinessGalleryService] Getting gallery image IDs for business ID: ${businessId}.`,
-    );
-
-    // 1. Obtener los IDs de las imágenes de la galería desde la tabla de relación local
+  ): Promise<{ id: string; url: string; order: number }[]> {
     const businessImages = await this.prisma.businessImage.findMany({
       where: { businessId: businessId },
-      select: { imageId: true, order: true }, // También seleccionamos el orden si lo necesitamos
+      select: { imageId: true, order: true, imageUrl: true }, // También seleccionamos el orden si lo necesitamos
       orderBy: { order: 'asc' }, // Si las imágenes de galería tienen un orden
     });
 
@@ -173,25 +159,61 @@ export class BusinessGalleryService
       return [];
     }
 
-    const imageIds = businessImages.map((bi) => bi.imageId);
-
-    this.logger.log(
-      `[BusinessGalleryService] Found ${imageIds.length} image IDs. Requesting metadata from ImageService.`,
-    );
-
-    // 2. Pedir al ImageService los metadatos completos de estas imágenes
-    const imagesMetadata = await this.imageService.findManyByIds(imageIds);
-
-    // Opcional: Reordenar las imágenes según el 'order' guardado en BusinessImage
-    const orderedImages: ImageResponseDto[] = [];
-    businessImages.forEach((bi) => {
-      const img = imagesMetadata.find((im) => im.id === bi.imageId);
-      if (img) {
-        orderedImages.push(img);
+    const imagsUrls: {
+      id: string;
+      url: string;
+      order: number;
+    }[] = [];
+    businessImages.forEach((b) => {
+      if (b.imageUrl && b.order) {
+        imagsUrls.push({
+          id: b.imageId,
+          order: b.order,
+          url: b.imageUrl,
+        });
       }
     });
 
-    return orderedImages;
+    return imagsUrls;
+  }
+
+  public async getImagesForEntity(
+    businessId: string,
+  ): Promise<ImageResponseDto[]> {
+    // this.logger.log(
+    //   `[BusinessGalleryService] Getting gallery image IDs for business ID: ${businessId}.`,
+    // );
+
+    // // 1. Obtener los IDs de las imágenes de la galería desde la tabla de relación local
+    // const businessImages = await this.prisma.businessImage.findMany({
+    //   where: { businessId: businessId },
+    //   select: { imageId: true, order: true, imageUrl: true }, // También seleccionamos el orden si lo necesitamos
+    //   orderBy: { order: 'asc' }, // Si las imágenes de galería tienen un orden
+    // });
+
+    // if (businessImages.length === 0) {
+    //   return [];
+    // }
+
+    // const imageIds = businessImages.map((bi) => bi.imageId);
+
+    // this.logger.log(
+    //   `[BusinessGalleryService] Found ${imageIds.length} image IDs. Requesting metadata from ImageService.`,
+    // );
+
+    // // 2. Pedir al ImageService los metadatos completos de estas imágenes
+    // const imagesMetadata = await this.imageService.findManyByIds(imageIds);
+
+    // // Opcional: Reordenar las imágenes según el 'order' guardado en BusinessImage
+    // const orderedImages: ImageResponseDto[] = [];
+    // businessImages.forEach((bi) => {
+    //   const img = imagesMetadata.find((im) => im.id === bi.imageId);
+    //   if (img) {
+    //     orderedImages.push(img);
+    //   }
+    // });
+
+    return [];
   }
 
   public async updateEntityImage(
@@ -334,5 +356,43 @@ export class BusinessGalleryService
     this.logger.log(
       `[BusinessGalleryService] Successfully removed gallery image ID: ${imageId} from business ID: ${businessId}.`,
     );
+  }
+
+  /**
+   * Asocia una imagen existente a la galería del negocio.
+   * No sube imagen, solo crea una nueva entrada en `BusinessImage`.
+   */
+  async addExistingImageToGallery(
+    businessId: string,
+    imageId: string,
+    order?: number,
+  ): Promise<ImageResponseDto> {
+    this.logger.log(
+      `[BusinessGalleryService] Adding existing image ${imageId} to gallery of business ${businessId}.`,
+    );
+
+    await this.businessValidator.checkOne(businessId);
+
+    const image = await this.imageService.findOne(imageId);
+    if (!image) {
+      throw new NotFoundException(`Image with ID "${imageId}" not found.`);
+    }
+
+    if (!image.isCustomizedImage) {
+      throw new BadRequestException(
+        `No se puede asignar esta imagen con el id ${image.id}`,
+      );
+    }
+
+    try {
+      await this.linkImageToEntity(businessId, image, { order });
+    } catch (error) {
+      this.logger.error(
+        `[BusinessGalleryService] Error linking existing image ${imageId} to business ${businessId}: ${error.message}`,
+      );
+      throw error;
+    }
+
+    return image;
   }
 }

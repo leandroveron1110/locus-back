@@ -14,6 +14,7 @@ import {
   UsePipes,
   ValidationPipe,
   Inject,
+  BadRequestException,
 } from '@nestjs/common';
 import { BusinessService } from '../services/business.service';
 import { CreateBusinessDto } from '../dto/Request/create-business.dto';
@@ -33,6 +34,8 @@ import {
 import { Prisma } from '@prisma/client'; // Importa Prisma para los tipos de where/orderBy
 import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessService } from '../interfaces/business.interface';
+import z from 'zod';
+import { ModulesConfigSchema } from '../dto/Request/modules-config.schema.dto';
 
 @ApiTags('Businesses')
 @Controller('businesses')
@@ -51,21 +54,6 @@ export class BusinessController {
   ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new business' })
-  @ApiBody({ type: CreateBusinessDto })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'The business has been successfully created.',
-    type: BusinessResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.CONFLICT,
-    description: 'A business with the same name and address already exists.',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Invalid owner, category, or status ID provided.',
-  })
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createBusinessDto: CreateBusinessDto,
@@ -103,7 +91,8 @@ export class BusinessController {
 
   @Get(':businessId')
   async findOne(
-    @Param('businessId', ParseUUIDPipe) businessId: string): Promise<any> {
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+  ): Promise<any> {
     // Usamos ParseUUIDPipe para validar que el ID es un UUID válido
     return this.businessService.findOne(businessId);
   }
@@ -122,14 +111,22 @@ export class BusinessController {
     await this.businessService.remove(id);
   }
 
-  @Patch(':id/modules-config')
+  @Get('modules-config/:id')
+  async getModulesConfig(@Param('id', new ParseUUIDPipe()) businessId: string) {
+    return this.businessService.getModulesConfigByBusinessId(businessId);
+  }
+
+  @Patch('modules-config/:id')
   async updateModulesConfig(
-    @Param('id', ParseUUIDPipe) businessId: string,
-    @Body() updateModulesConfigDto: UpdateModulesConfigDto,
-  ): Promise<{ id: string; modulesConfig: Prisma.JsonValue }> {
-    return this.businessService.updateModulesConfig(
-      businessId,
-      updateModulesConfigDto.modulesConfig,
-    );
+    @Param('id', new ParseUUIDPipe()) businessId: string,
+    @Body() body: unknown,
+  ) {
+    // Validamos manualmente con Zod
+    const parsed = ModulesConfigSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException('modulesConfig inválido');
+    }
+
+    return this.businessService.updateModulesConfig(businessId, parsed.data);
   }
 }

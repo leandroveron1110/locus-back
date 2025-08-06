@@ -71,16 +71,20 @@ export class BusinessGalleryController {
   }
 
   @Get()
-  async getGalleryImages(
-    @Param('businessId') businessId: string,
-  ): Promise<ImageResponseDto[]> {
-    return this.businessGalleryService.getImagesForEntity(businessId);
+  async getGalleryImages(@Param('businessId') businessId: string): Promise<
+    {
+      id: string;
+      url: string;
+      order: number;
+    }[]
+  > {
+    return this.businessGalleryService.getSimpleGalleryForEntity(businessId);
   }
 
-    @Get()
+  @Get()
   async getSimpleGalleryForEntity(
     @Param('simple/businessId') businessId: string,
-  ): Promise<{ id: string; url: string }[]> {
+  ): Promise<{ id: string; url: string; order: number }[]> {
     return this.businessGalleryService.getSimpleGalleryForEntity(businessId);
   }
 

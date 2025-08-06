@@ -50,7 +50,7 @@ export class MenuProductDto {
     dto.isRecommended = product.isRecommended;
     dto.seccionId = product.seccionId;
     dto.optionGroups = OptionGroupDto.fromPrismaMany(product.optionGroups);
-    dto.images = product.menuProductImages.map((img) => img.url);
+    
     return dto;
   }
 

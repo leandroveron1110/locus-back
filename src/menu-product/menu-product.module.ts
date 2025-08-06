@@ -10,6 +10,9 @@ import { OptionService } from './services/option.service';
 import { OptionGroupController } from './controllers/option-group.controller';
 import { OptionController } from './controllers/option.controller';
 import { MenuProductImageController } from './controllers/menu-product-image.controller';
+import { UploadsModule } from 'src/uploads/uploads.module';
+import { ImageModule } from 'src/image/image.module';
+import { MenuProductValidation } from './validations/menu-product-validator.service';
 
 @Module({
   controllers: [
@@ -26,11 +29,14 @@ import { MenuProductImageController } from './controllers/menu-product-image.con
     FoodCategoryService,
     MenuProductImageService,
     OptionGroupService,
-    OptionService
+    OptionService,
+    MenuProductValidation
   ],
-  exports: [TOKENS.IMenuProductService],
+  exports: [TOKENS.IMenuProductService, MenuProductValidation],
   imports: [
-    forwardRef(() =>MenuModule)
+    forwardRef(() =>MenuModule),
+    UploadsModule,
+    ImageModule
   ]
 })
 export class MenuProductModule {}

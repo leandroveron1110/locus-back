@@ -1,6 +1,7 @@
 // src/modules/image/dtos/Request/create-image.dto.ts
-import { IsString, IsUrl, IsOptional, IsInt, IsNumber } from 'class-validator';
+import { IsString, IsUrl, IsOptional, IsInt, IsNumber, IsBoolean, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ImageType } from '@prisma/client';
 
 export class CreateImageDto {
   @IsString()
@@ -36,4 +37,10 @@ export class CreateImageDto {
   @IsOptional()
   @IsString()
   folder?: string;
+
+  @IsBoolean()
+  isCustomizedImage: boolean
+
+  @IsEnum(ImageType)
+  type: ImageType;
 }

@@ -1,156 +1,96 @@
-// create-order.dto.ts
-import { IsString, IsOptional, IsEnum, IsBoolean, IsNumber, IsDecimal, IsInt, ValidateNested, IsArray } from 'class-validator';
+// zod/create-order.schema.ts
+import { z } from 'zod';
 import { OrderStatus, OrderOrigin } from '@prisma/client';
-import { PartialType } from '@nestjs/mapped-types';
-import { Type } from 'class-transformer';
 
-export class CreateOrderOptionDto {
-  @IsString()
-  optionName: string;
+export const CreateOrderOptionSchema = z.object({
+  optionName: z.string(),
+  priceModifierType: z.string(),
+  quantity: z.number().int(),
+  priceFinal: z.string().refine((val) => !isNaN(parseFloat(val)), {
+    message: 'Debe ser un número decimal',
+  }),
+  priceWithoutTaxes: z.string().refine((val) => !isNaN(parseFloat(val)), {
+    message: 'Debe ser un número decimal',
+  }),
+  taxesAmount: z.string().refine((val) => !isNaN(parseFloat(val)), {
+    message: 'Debe ser un número decimal',
+  }),
+  opcionId: z.string().optional(),
+});
 
-  @IsString()
-  priceModifierType: string;
+export const CreateOrderOptionGroupSchema = z.object({
+  groupName: z.string(),
+  minQuantity: z.number().int(),
+  maxQuantity: z.number().int(),
+  quantityType: z.string(),
+  opcionGrupoId: z.string().optional(),
+  options: z.array(CreateOrderOptionSchema),
+});
 
-  @IsInt()
-  quantity: number;
+export const CreateOrderItemSchema = z.object({
+  menuProductId: z.string(),
+  productName: z.string(),
+  productDescription: z.string().optional(),
+  productImageUrl: z.string().optional(),
+  quantity: z.number().int(),
+  priceAtPurchase: z.string().refine((val) => !isNaN(parseFloat(val)), {
+    message: 'Debe ser un número decimal',
+  }),
+  notes: z.string().optional(),
+  optionGroups: z.array(CreateOrderOptionGroupSchema),
+});
 
-  @IsDecimal()
-  priceFinal: string;
+const AddressIdSchema = z.object({
+  id: z.string(),
+});
 
-  @IsDecimal()
-  priceWithoutTaxes: string;
+const AddressCreateSchema = z.object({
+  street: z.string(),
+  city: z.string(),
+  province: z.string(),
+});
 
-  @IsDecimal()
-  taxesAmount: string;
+const AddressUnionSchema = z.union([AddressIdSchema, AddressCreateSchema]);
 
-  @IsOptional()
-  @IsString()
-  opcionId?: string;
-}
+export const CreateOrderFullSchema = z.object({
+  userId: z.uuid(),
+  businessId: z.uuid(),
+  deliveryAddress: AddressUnionSchema.optional(),
+  pickupAddress: AddressUnionSchema.optional(),
+  status: z.enum(OrderStatus).optional(),
+  isTest: z.boolean().optional(),
+  total: z.number().refine((n) => /^\d+(\.\d{1,2})?$/.test(n.toFixed(2)), {
+    message: 'El total debe tener hasta 2 decimales',
+  }),
+  notes: z.string().optional(),
+  items: z.array(CreateOrderItemSchema),
+});
 
-export class CreateOrderOptionGroupDto {
-  @IsString()
-  groupName: string;
+export const CreateOrderSchema = z.object({
+  userId: z.string(),
+  businessId: z.string(),
+  deliveryAddressId: z.string().optional(),
+  pickupAddressId: z.string().optional(),
+  status: z.enum(OrderStatus).optional(),
+  origin: z.enum(OrderOrigin).optional(),
+  isTest: z.boolean().optional(),
+  total: z.number().refine((n) => /^\d+(\.\d{1,2})?$/.test(n.toFixed(2)), {
+    message: 'El total debe tener hasta 2 decimales',
+  }),
+  notes: z.string().optional(),
+});
 
-  @IsInt()
-  minQuantity: number;
+export const UpdateOrderSchema = CreateOrderSchema.partial();
+export type UpdateOrderDTO = z.infer<typeof UpdateOrderSchema>;
 
-  @IsInt()
-  maxQuantity: number;
+export type CreateOrderFullDTO = z.infer<typeof CreateOrderFullSchema>;
+export type CreateOrderDto = z.infer<typeof CreateOrderSchema>;
+export type CreateOrderItemDTO = z.infer<typeof CreateOrderItemSchema>;
+export type CreateOrderOptionGroupDTO = z.infer<
+  typeof CreateOrderOptionGroupSchema
+>;
+export type CreateOrderOptionDTO = z.infer<typeof CreateOrderOptionSchema>;
 
-  @IsString()
-  quantityType: string;
-
-  @IsOptional()
-  @IsString()
-  opcionGrupoId?: string;
-
-  @ValidateNested({ each: true })
-  @Type(() => CreateOrderOptionDto)
-  options: CreateOrderOptionDto[];
-}
-
-export class CreateOrderItemDto {
-  @IsString()
-  menuProductId: string;
-
-  @IsString()
-  productName: string;
-
-  @IsOptional()
-  @IsString()
-  productDescription?: string;
-
-  @IsOptional()
-  @IsString()
-  productImageUrl?: string;
-
-  @IsInt()
-  quantity: number;
-
-  @IsDecimal()
-  priceAtPurchase: string;
-
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ValidateNested({ each: true })
-  @Type(() => CreateOrderOptionGroupDto)
-  optionGroups: CreateOrderOptionGroupDto[];
-}
-
-export class CreateOrderFullDto {
-  @IsString()
-  userId: string;
-
-  @IsString()
-  businessId: string;
-
-  @IsOptional()
-  @IsString()
-  deliveryAddressId?: string;
-
-  @IsOptional()
-  @IsString()
-  pickupAddressId?: string;
-
-  @IsOptional()
-  @IsEnum(OrderStatus)
-  status?: OrderStatus;
-
-  @IsOptional()
-  @IsBoolean()
-  isTest?: boolean;
-
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El total debe tener hasta 2 decimales' })
-  total: number;
-
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @IsArray ()
-  @ValidateNested({ each: true })
-  @Type(() => CreateOrderItemDto)
-  items: CreateOrderItemDto[];
-}
+export type AddressDTO = z.infer<typeof AddressUnionSchema>;
 
 
-
-export class CreateOrderDto {
-  @IsString()
-  userId: string;
-
-  @IsString()
-  businessId: string;
-
-  @IsOptional()
-  @IsString()
-  deliveryAddressId?: string;
-
-  @IsOptional()
-  @IsString()
-  pickupAddressId?: string;
-
-  @IsOptional()
-  @IsEnum(OrderStatus)
-  status?: OrderStatus;
-
-  @IsOptional()
-  @IsEnum(OrderOrigin)
-  origin?: OrderOrigin;
-
-  @IsOptional()
-  @IsBoolean()
-  isTest?: boolean;
-
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El total debe tener hasta 2 decimales' })
-  total: number;
-
-  @IsOptional()
-  @IsString()
-  notes?: string;
-}
-
-export class UpdateOrderDto extends PartialType(CreateOrderDto) {}

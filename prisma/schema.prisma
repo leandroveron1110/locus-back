@@ -32,6 +32,14 @@ enum UserRole {
   ADMIN
 }
 
+enum ImageType {
+  MENU_PRODUCT
+  AVATAR
+  GENERAL
+  GALLERY
+  // etc...
+}
+
 // --- Modelos Fundamentales ---
 
 // Modelo para definir los diferentes estados de una entidad (Negocio, Usuario, Reserva, Pedido).
@@ -111,6 +119,9 @@ model Image {
   bytes        BigInt? @map("bytes") // Tamaño del archivo en bytes.
   folder       String? @map("carpeta") // Carpeta lógica usada en el proveedor de almacenamiento (ej. 'logos', 'productos').
 
+  isCustomizedImage Boolean  @default(false) @map("es_imagen_personalizada")
+  type             ImageType @default(GENERAL)
+
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
@@ -124,6 +135,7 @@ model Image {
   // optionImages      OptionImage[]      @relation("OptionImages")
 
   @@map("imagenes") // Nombre de la tabla en la base de datos.
+  MenuProduct MenuProduct[] @relation("MenuProductImage")
 }
 
 // --- TABLA INTERMEDIA: Para Galería de Negocios ---
@@ -133,6 +145,7 @@ model BusinessImage {
   businessId String @map("negocio_id")
   imageId    String @map("imagen_id")
   order      Int?   @map("orden") // Permite definir el orden de visualización en la galería.
+  imageUrl   String? @map("url") // Redundancia para consulta rápida (copiada desde Image)
 
   business Business @relation("BusinessGalleryImages", fields: [businessId], references: [id], onDelete: Cascade)
   image    Image    @relation("businessGalleries", fields: [imageId], references: [id], onDelete: Cascade)
@@ -271,6 +284,7 @@ model Business {
   // ⭐ Campo que referencia al logo del negocio. Relación 1:1 con Image.
   logoId String? @unique @map("logo_id")
   logo   Image?  @relation("BusinessLogo", fields: [logoId], references: [id], onDelete: SetNull)
+  logoUrl String?  @map("logo_url") // Redundancia optimizada para acceso rápido
 
   // ⭐ Relación para la galería de imágenes del negocio (via BusinessImage).
   galleryImages BusinessImage[] @relation("BusinessGalleryImages")
@@ -397,9 +411,11 @@ model MenuProduct {
   discountType       String[] @map("tipo_descuento") // Array de tipos de descuento (ej. "SUBSIDIZED_PRODUCT", "SEASONAL_SALE").
 
   // --- Imágenes del producto ---
-  menuProductImages MenuProductImage[] // Relación a la tabla intermedia MenuProductImage para múltiples imágenes.
-  isCustomizedImage Boolean            @default(false) @map("es_imagen_personalizada") // Indica si la imagen principal es de una versión personalizada del producto.
-
+    // Relación con la imagen principal del producto
+  imageId String? @unique @map("imagen_id")
+  image   Image?  @relation("MenuProductImage", fields: [imageId], references: [id], onDelete: SetNull)
+  imageUrl String? @map("imagen_url") // Redundancia optimizada
+  
   // --- Calificación del producto ---
   rating Float @default(0.0) @map("calificacion") // Una calificación numérica simple (0-10).
 
@@ -449,20 +465,6 @@ model MenuProductFoodCategory {
 
   @@id([menuProductId, foodCategoryId])
   @@map("menu_producto_categorias_comida")
-}
-
-/// Tabla intermedia para la relación M:N entre MenuProducto e Image.
-model MenuProductImage {
-  menuProductId String @map("menu_producto_id") // ⭐ AJUSTADO: Nombre del campo.
-  // imageId       String @map("imagen_id")
-  order         Int?   @map("orden") // Orden de visualización de la imagen
-  url           String
-
-  menuProduct MenuProduct @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
-  // image       Image        @relation("MenuProductImages", fields: [imageId], references: [id], onDelete: Cascade) // ⭐ AJUSTADO: Nombre de la relación.
-
-  @@id([menuProductId])
-  @@map("menu_producto_imagenes") // ⭐ AJUSTADO: Nombre de la tabla.
 }
 
 /// Representa un grupo de opciones para personalizar un producto de menú (ej. "Acompañamientos", "Bebidas").

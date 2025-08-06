@@ -25,7 +25,10 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessCategoryService } from '../interfaces/business-category.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 import { IBusinessLogoService } from '../interfaces/business-logo-service.interface';
-import { ModulesConfigSchema, ModulesConfig } from '../dto/Request/modules-config.schema.dto';
+import {
+  ModulesConfigSchema,
+  ModulesConfig,
+} from '../dto/Request/modules-config.schema.dto';
 
 @Injectable()
 export class BusinessService implements IBusinessService {
@@ -202,15 +205,13 @@ export class BusinessService implements IBusinessService {
       throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
     }
 
-    const [logo] = await Promise.all([
-      this.businessLogoService.getBusinessLogo(id),
-    ]);
-
     // const followNormalized = this.normalizeFollow(follow);
 
     return BusinessProfileResponseDto.fromPrismaWithRelations({
       business,
-      logo,
+      logo: {
+        url: business.logoUrl || '',
+      },
     });
   }
 
@@ -343,7 +344,9 @@ export class BusinessService implements IBusinessService {
     }
   }
 
-  async getModulesConfigByBusinessId(businessId: string): Promise<ModulesConfig> {
+  async getModulesConfigByBusinessId(
+    businessId: string,
+  ): Promise<ModulesConfig> {
     const result = await this.prisma.business.findUnique({
       where: { id: businessId },
       select: {

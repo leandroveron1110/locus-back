@@ -13,6 +13,7 @@ export class ImageResponseDto {
   folder?: string;
   createdAt: Date;
   updatedAt: Date;
+  isCustomizedImage: boolean;
 
   static fromPrisma(image: Image): ImageResponseDto {
     const dto = new ImageResponseDto();
@@ -27,6 +28,7 @@ export class ImageResponseDto {
     dto.folder = image.folder ?? undefined;
     dto.createdAt = image.createdAt;
     dto.updatedAt = image.updatedAt;
+    dto.isCustomizedImage = image.isCustomizedImage;
     return dto;
   }
 }
