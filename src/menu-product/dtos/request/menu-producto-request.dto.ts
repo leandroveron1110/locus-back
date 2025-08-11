@@ -20,6 +20,18 @@ export class CreateMenuProductDto {
   @IsNotEmpty()
   description: string;
 
+  @IsNumber()
+  @IsOptional()
+  preparationTime?: number;
+
+  @IsNumber()
+  @IsOptional()
+  stock?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  available: boolean;
+
   @IsBoolean()
   @IsOptional()
   enabled?: boolean;
@@ -60,10 +72,6 @@ export class CreateMenuProductDto {
   @IsString({ each: true })
   @IsOptional()
   discountType?: string[];
-
-  @IsBoolean()
-  @IsOptional()
-  isCustomizedImage?: boolean;
 
   @IsNumber()
   @IsOptional()

@@ -58,7 +58,6 @@ model Status {
   users      User[]     @relation("UserStatus")
   businesses Business[] @relation("BusinessStatus")
 
-
   @@unique([name, entityType]) // Asegura que no haya estados duplicados para el mismo tipo de entidad.
   @@map("estados")
 }
@@ -86,6 +85,7 @@ model User {
   rating           Rating[]
   address          Address[]          @relation("UserAddresses")
   Order            Order[]
+  DeliveryCompany  DeliveryCompany[]
 
   @@map("usuarios")
 }
@@ -119,8 +119,8 @@ model Image {
   bytes        BigInt? @map("bytes") // Tamaño del archivo en bytes.
   folder       String? @map("carpeta") // Carpeta lógica usada en el proveedor de almacenamiento (ej. 'logos', 'productos').
 
-  isCustomizedImage Boolean  @default(false) @map("es_imagen_personalizada")
-  type             ImageType @default(GENERAL)
+  isCustomizedImage Boolean   @default(false) @map("es_imagen_personalizada")
+  type              ImageType @default(GENERAL)
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
@@ -133,18 +133,18 @@ model Image {
   // menuProductImages MenuProductImage[] @relation("MenuProductImages")
   // ⭐ NUEVO: Relación inversa para imágenes de opciones (si se gestionan con este modelo Image)
   // optionImages      OptionImage[]      @relation("OptionImages")
+  MenuProduct       MenuProduct[]   @relation("MenuProductImage")
 
   @@map("imagenes") // Nombre de la tabla en la base de datos.
-  MenuProduct MenuProduct[] @relation("MenuProductImage")
 }
 
 // --- TABLA INTERMEDIA: Para Galería de Negocios ---
 // Esta tabla gestiona la relación Mucho a Mucho (M:N) entre Business e Image
 // para las imágenes de galería de un negocio.
 model BusinessImage {
-  businessId String @map("negocio_id")
-  imageId    String @map("imagen_id")
-  order      Int?   @map("orden") // Permite definir el orden de visualización en la galería.
+  businessId String  @map("negocio_id")
+  imageId    String  @map("imagen_id")
+  order      Int?    @map("orden") // Permite definir el orden de visualización en la galería.
   imageUrl   String? @map("url") // Redundancia para consulta rápida (copiada desde Image)
 
   business Business @relation("BusinessGalleryImages", fields: [businessId], references: [id], onDelete: Cascade)
@@ -282,9 +282,9 @@ model Business {
   businessTags BusinessTag[]
 
   // ⭐ Campo que referencia al logo del negocio. Relación 1:1 con Image.
-  logoId String? @unique @map("logo_id")
-  logo   Image?  @relation("BusinessLogo", fields: [logoId], references: [id], onDelete: SetNull)
-  logoUrl String?  @map("logo_url") // Redundancia optimizada para acceso rápido
+  logoId  String? @unique @map("logo_id")
+  logo    Image?  @relation("BusinessLogo", fields: [logoId], references: [id], onDelete: SetNull)
+  logoUrl String? @map("logo_url") // Redundancia optimizada para acceso rápido
 
   // ⭐ Relación para la galería de imágenes del negocio (via BusinessImage).
   galleryImages BusinessImage[] @relation("BusinessGalleryImages")
@@ -394,6 +394,7 @@ model MenuProduct {
   name        String  @map("nombre") // Nombre del producto (ej. "McCombo Mediano Doble Cuarto de libra").
   description String  @map("descripcion") @db.Text // Descripción detallada del producto.
   enabled     Boolean @default(true) @map("habilitado") // Si el producto está habilitado para la venta.
+  available   Boolean @default(true) @map("disponible") // por si el producto esta habilitado pero sin stock.
 
   // --- Información de precios ---
   finalPrice    Decimal  @map("precio_final") @db.Decimal(10, 2) // Precio final del producto. Usar Decimal para precisión monetaria.
@@ -411,13 +412,17 @@ model MenuProduct {
   discountType       String[] @map("tipo_descuento") // Array de tipos de descuento (ej. "SUBSIDIZED_PRODUCT", "SEASONAL_SALE").
 
   // --- Imágenes del producto ---
-    // Relación con la imagen principal del producto
-  imageId String? @unique @map("imagen_id")
-  image   Image?  @relation("MenuProductImage", fields: [imageId], references: [id], onDelete: SetNull)
+  // Relación con la imagen principal del producto
+  imageId  String? @map("imagen_id")
+  image    Image?  @relation("MenuProductImage", fields: [imageId], references: [id], onDelete: SetNull)
   imageUrl String? @map("imagen_url") // Redundancia optimizada
-  
+
   // --- Calificación del producto ---
   rating Float @default(0.0) @map("calificacion") // Una calificación numérica simple (0-10).
+
+  preparationTime Int? @map("tiempo_preparacion") // en minutos
+
+  stock Int @default(0) @map("stock") // cantidad de producto
 
   // --- Tags y Propiedades del producto ---
   hasOptions    Boolean @default(false) @map("tiene_opciones") // Si el producto tiene opciones de personalización (ej. acompañamientos, aderezos).
@@ -530,6 +535,7 @@ model OptionImage {
   @@id([optionId])
   @@map("opcion_imagenes")
 }
+
 // ============================================================================
 // ORDER MODELS
 // Estos modelos corresponden a la lógica del microservicio 'Order'.
@@ -551,57 +557,52 @@ model Address {
   notes      String?  @map("notas")
 
   // Relaciones para dueños
-  userId     String?  @map("usuario_id")
-  user       User?    @relation("UserAddresses", fields: [userId], references: [id])
+  userId String? @map("usuario_id")
+  user   User?   @relation("UserAddresses", fields: [userId], references: [id])
 
   businessId String?   @map("negocio_id")
   business   Business? @relation("BusinessAddresses", fields: [businessId], references: [id])
 
   // Relaciones con órdenes
   deliveryOrders Order[] @relation("OrderDeliveryAddress") // dirección de entrega
-  pickupOrders   Order[] @relation("OrderPickupAddress")   // dirección de retiro
+  pickupOrders   Order[] @relation("OrderPickupAddress") // dirección de retiro
 
-  createdAt  DateTime @default(now()) @map("creado_en")
-  updatedAt  DateTime @updatedAt @map("actualizado_en")
-
-  @@map("direcciones")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
 
   // Índices para consultas rápidas
   @@index([userId])
   @@index([businessId])
   @@index([enabled])
   @@index([userId, enabled])
+  @@map("direcciones")
 }
-
-
 
 /// Representa una orden de un cliente.
 model Order {
-  id                String     @id @default(uuid()) @map("id")
-  userId            String     @map("usuario_id")
-  businessId        String     @map("negocio_id")
-  deliveryAddressId String?    @map("direccion_entrega_id") // opcional si es retiro
-  pickupAddressId   String?    @map("direccion_retiro_id")   // opcional si es entrega
+  id                String  @id @default(uuid()) @map("id")
+  userId            String  @map("usuario_id")
+  businessId        String  @map("negocio_id")
+  deliveryAddressId String? @map("direccion_entrega_id") // opcional si es retiro
+  pickupAddressId   String? @map("direccion_retiro_id") // opcional si es entrega
+  deliveryCompanyId String?
 
-  status            OrderStatus @default(PENDING) @map("estado")
-  origin            OrderOrigin @default(APP)     @map("origen") // web, app, whatsapp, etc.
-  isTest            Boolean     @default(false)   @map("es_prueba")
-  total             Decimal     @map("total") @db.Decimal(10, 2)
-  notes             String?     @map("notas")
+  status OrderStatus @default(PENDING) @map("estado")
+  origin OrderOrigin @default(APP) @map("origen") // web, app, whatsapp, etc.
+  isTest Boolean     @default(false) @map("es_prueba")
+  total  Decimal     @map("total") @db.Decimal(10, 2)
+  notes  String?     @map("notas")
 
-  createdAt         DateTime    @default(now())    @map("creado_en")
-  updatedAt         DateTime    @updatedAt         @map("actualizado_en")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
 
-  user              User        @relation(fields: [userId], references: [id])
-  business          Business    @relation(fields: [businessId], references: [id])
-  deliveryAddress   Address?    @relation("OrderDeliveryAddress", fields: [deliveryAddressId], references: [id])
-  pickupAddress     Address?    @relation("OrderPickupAddress", fields: [pickupAddressId], references: [id])
-  OrderItem OrderItem[]
-  OrderDiscount OrderDiscount[]
-  DeliveryCompany DeliveryCompany[] @relation("DeliveryCompanyOrders")
-
-
-  @@map("ordenes")
+  user            User             @relation(fields: [userId], references: [id])
+  business        Business         @relation(fields: [businessId], references: [id])
+  deliveryAddress Address?         @relation("OrderDeliveryAddress", fields: [deliveryAddressId], references: [id])
+  pickupAddress   Address?         @relation("OrderPickupAddress", fields: [pickupAddressId], references: [id])
+  OrderItem       OrderItem[]
+  OrderDiscount   OrderDiscount[]
+  deliveryCompany DeliveryCompany? @relation("DeliveryCompanyOrders", fields: [deliveryCompanyId], references: [id])
 
   // Índices para mejorar rendimiento de búsquedas comunes
   @@index([businessId])
@@ -610,8 +611,8 @@ model Order {
   @@index([createdAt])
   @@index([origin])
   @@index([isTest])
+  @@map("ordenes")
 }
-
 
 /// Representa un ítem individual dentro de una orden.
 model OrderItem {
@@ -657,7 +658,7 @@ model OrderDiscount {
 }
 
 model OrderOptionGroup {
-  id          String    @id @default(uuid())
+  id String @id @default(uuid())
 
   opcionGrupoId String? // Referencia opcional al original
   groupName     String // Copia del nombre del grupo
@@ -665,9 +666,9 @@ model OrderOptionGroup {
   maxQuantity   Int
   quantityType  String // Copia del tipo ("FIXED", etc.)
 
-  options OrderOption[]
+  options     OrderOption[]
   orderItemId String
-  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  orderItem   OrderItem     @relation(fields: [orderItemId], references: [id])
 }
 
 model OrderOption {
@@ -693,11 +694,12 @@ enum DeliveryType {
 }
 
 enum OrderStatus {
-  PENDING
-  CONFIRMED
-  IN_DELIVERY
-  DELIVERED
-  CANCELLED
+  PENDING              // Orden creada, pendiente de confirmación
+  CONFIRMED          // Orden confirmada por negocio
+  READY_FOR_DELIVERY // Orden lista para que el delivery la tome
+  IN_DELIVERY       // Orden en camino (delivery)
+  DELIVERED           // Orden entregada
+  CANCELLED           // Orden cancelada
 }
 
 // Modelos
@@ -709,7 +711,9 @@ model DeliveryCompany {
   zones    String[] // Zonas donde opera (puede ser un enum si querés más control)
   isActive Boolean  @default(true)
 
-  orders Order[] @relation("DeliveryCompanyOrders")
+  ownerId String
+  orders  Order[] @relation("DeliveryCompanyOrders")
+  owner   User    @relation(fields: [ownerId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -25,10 +25,13 @@ export class MenuProductDto {
   isRecommended: boolean;
   seccionId: string;
   optionGroups: OptionGroupDto[];
-  images: string[];
+  imageUrl: string | null;
+  available: boolean;
+  stock: number;
+  preparationTime: number | null;
 
   static fromPrisma(
-    product: MenuProduct & { optionGroups: any[]; menuProductImages: any[] },
+    product: MenuProduct & { optionGroups: any[]},
   ): MenuProductDto {
     const dto = new MenuProductDto();
     dto.id = product.id;
@@ -49,7 +52,11 @@ export class MenuProductDto {
     dto.isMostOrdered = product.isMostOrdered;
     dto.isRecommended = product.isRecommended;
     dto.seccionId = product.seccionId;
+    dto.imageUrl = product.imageUrl;
     dto.optionGroups = OptionGroupDto.fromPrismaMany(product.optionGroups);
+    dto.available = product.available;
+    dto.stock = product.stock;
+    dto.preparationTime = product.preparationTime;
     
     return dto;
   }

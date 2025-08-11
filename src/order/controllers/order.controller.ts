@@ -9,7 +9,13 @@ import {
 } from '@nestjs/common';
 import { OrderService } from '../services/order.service';
 import { validateWithZod } from 'src/common/validators/validate-with-zod';
-import { CreateOrderFullDTO, CreateOrderSchema, UpdateOrderDTO, UpdateOrderSchema } from '../dtos/request/order.dto';
+import {
+  CreateOrderFullDTO,
+  CreateOrderSchema,
+  UpdateOrderDTO,
+  UpdateOrderSchema,
+} from '../dtos/request/order.dto';
+import { Order, OrderStatus } from '@prisma/client';
 
 @Controller('orders')
 export class OrderController {
@@ -39,6 +45,22 @@ export class OrderController {
   @Get('business/:businessId')
   async getOrdersByBusiness(@Param('businessId') businessId: string) {
     return this.ordersService.findOrdersByBusiness(businessId);
+  }
+
+  @Get('user/:userId')
+  async getOrdersByUserId(@Param('userId') userId: string) {
+    return this.ordersService.findOrdersByUserId(userId);
+  }
+  @Get('delivery/:deliveryId')
+  async findOrdersByDeliveyId(@Param('deliveryId') deliveryId: string) {
+    return this.ordersService.findOrdersByDeliveyId(deliveryId);
+  }
+  @Patch('/order/stauts/:id')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: OrderStatus,
+  ): Promise<Order> {
+    return this.ordersService.updateStatus(id, status);
   }
 
   @Patch(':id')

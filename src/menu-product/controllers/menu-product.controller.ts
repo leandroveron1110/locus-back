@@ -43,6 +43,11 @@ export class MenuProductController {
     return this.menuProductService.findAllBySeccion(seccionId);
   }
 
+  @Get('product/:productId')
+  findProducDetaillById(@Param('productId') productId: string) {
+    return this.menuProductService.findProducDetaillById(productId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.menuProductService.findOne(id);

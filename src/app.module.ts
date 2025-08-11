@@ -22,6 +22,8 @@ import { MenuModule } from './menu/menu.module';
 import { MenuProductModule } from './menu-product/menu-product.module';
 import { OrderModule } from './order/order.module';
 import { AddressModule } from './address/address.module';
+import { SocketModule } from './socket/socket.module';
+import { DeliveryModule } from './delivery/delivery.module';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { AddressModule } from './address/address.module';
     MenuProductModule,
     OrderModule,
     AddressModule,
+    SocketModule,
+    DeliveryModule,
   ],
   controllers: [AppController],
   providers: [AppService, IsBusinessIdExistsConstraint],

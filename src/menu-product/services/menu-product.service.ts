@@ -1,4 +1,4 @@
-import { PrismaClient, MenuProduct } from '@prisma/client';
+import { MenuProduct } from '@prisma/client';
 import { CreateMenuProductDto } from '../dtos/request/menu-producto-request.dto';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { TOKENS } from 'src/common/constants/tokens';
@@ -117,6 +117,36 @@ export class MenuProductService implements IMenuProductService {
     });
 
     return MenuProductDto.fromPrismaMany(products);
+  }
+
+  async findProducDetaillById(productId: string): Promise<MenuProductDto> {
+    const product = await this.prisma.menuProduct.findUnique({
+      where: {
+        id: productId
+      }
+      ,
+      include: {
+        optionGroups: {
+          include: {
+            options: {
+              include: {
+                optionImages: true,
+              },
+            },
+          },
+        },
+        foodCategories: {
+          include: {
+            foodCategory: true,
+          },
+        },
+      }
+    });
+
+    if(!product) {
+      throw new NotFoundException(`Menu Product con el id ${productId} no encontrado`)
+    }
+    return MenuProductDto.fromPrisma(product);
   }
 
   async findOne(id: string): Promise<MenuProduct> {

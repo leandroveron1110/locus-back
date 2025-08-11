@@ -10,6 +10,7 @@ import { IUserService } from 'src/users/interfaces/User-service.interface';
 import { LoginResponseDto } from './dto/response/login.dto';
 import { IAuthService } from './interfaces/Auth-service.interface';
 import { CreateUserDto } from 'src/users/dto/Request/create-user.dto';
+import { DeliveryService } from 'src/delivery/services/delivery.service';
 
 @Injectable()
 export class AuthService implements IAuthService {
@@ -17,6 +18,7 @@ export class AuthService implements IAuthService {
     @Inject(TOKENS.IUserService)
     private usersService: IUserService, // Inyecta el servicio de usuarios
     private jwtService: JwtService, // Inyecta el servicio JWT
+    private deliveyService: DeliveryService
   ) {}
 
   /**
@@ -63,6 +65,40 @@ export class AuthService implements IAuthService {
    * @throws UnauthorizedException Si las credenciales son inválidas.
    */
   async login(
+    loginDto: LoginDto,
+  ): Promise<{ user: LoginResponseDto; accessToken: string }> {
+    const user = await this.validateUser(loginDto.email, loginDto.password);
+
+    if (!user) {
+      throw new UnauthorizedException(
+        'Credenciales inválidas (email o contraseña incorrectos).',
+      );
+    }
+
+    const deliveryRes = await this.deliveyService.findCompaniesByOwner(user.id);
+
+    if(!deliveryRes.length) {
+      throw new UnauthorizedException(
+        'Credenciales inválidas (email o contraseña incorrectos).',
+      );
+    }
+
+    // Define el payload del token JWT (debe coincidir con JwtPayload)
+    const payload: JwtPayload = {
+      sub: user.id,
+      rol: user.role,
+      email: user.email,
+    };
+
+    const userDto = LoginResponseDto.fromPrisma(user);
+
+    return {
+      user: userDto,
+      accessToken: this.jwtService.sign(payload), // Firma el token
+    };
+  }
+
+    async loginDelivery(
     loginDto: LoginDto,
   ): Promise<{ user: LoginResponseDto; accessToken: string }> {
     const user = await this.validateUser(loginDto.email, loginDto.password);

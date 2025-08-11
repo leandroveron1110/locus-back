@@ -12,6 +12,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { AdminSecretGuard } from './guards/admin-secret.guard';
 import { TOKENS } from 'src/common/constants/tokens';
+import { DeliveryModule } from 'src/delivery/delivery.module';
 
 @Module({
   imports: [
@@ -20,6 +21,8 @@ import { TOKENS } from 'src/common/constants/tokens';
     // NO lo repitas aquí. Simplemente importa ConfigModule.
     // Si no es global, lo pondrías aquí: ConfigModule.forRoot().
     ConfigModule,
+
+    DeliveryModule,
 
     // 2. Importar UsersModule:
     // Permite que AuthService y JwtStrategy accedan a UsersService

@@ -9,12 +9,15 @@ import {
   UpdateOrderDTO,
 } from '../dtos/request/order.dto';
 import { OrderPreviewDto } from '../dtos/response/order-preview.dto';
+import { OrderGateway } from './socket/order-gateway';
+import { OrderResponseDtoMapper } from '../dtos/response/order-response.dto';
 
 @Injectable()
 export class OrderService {
   constructor(
     private prisma: PrismaService,
     private orderValidation: OrderValidationService,
+    private readonly orderGateway: OrderGateway, // 👈 nuevo
   ) {}
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -31,7 +34,7 @@ export class OrderService {
   async createFullOrder(dto: CreateOrderFullDTO): Promise<Order> {
     await this.orderValidation.validateCreateFullOrder(dto);
 
-    return this.prisma.$transaction(async (tx) => {
+    const order = await this.prisma.$transaction(async (tx) => {
       const { items, pickupAddress, deliveryAddress, ...baseOrderData } = dto;
 
       // Procesar pickupAddress
@@ -49,33 +52,27 @@ export class OrderService {
             );
           }
           pickupAddressId = pickupAddress.id;
-        } else {
-          // Crear nueva dirección
-          const created = await tx.address.create({
-            data: {
-              ...pickupAddress,
-              userId: dto.userId,
-            },
-          });
-          pickupAddressId = created.id;
         }
       }
 
       // Procesar deliveryAddress
       let deliveryAddressId: string | undefined;
-      if (deliveryAddress) {
-        if ('id' in deliveryAddress) {
-          const found = await tx.address.findUnique({
-            where: { id: deliveryAddress.id },
-          });
-          if (!found || found.businessId !== dto.businessId) {
-            throw new Error(
-              'Delivery address inválida o no pertenece al business',
-            );
-          }
-          deliveryAddressId = deliveryAddress.id;
-        }
-      }
+      // if (deliveryAddress) {
+      //   if ('id' in deliveryAddress) {
+      //     const found = await tx.address.findMany({
+      //       where: { businessId: dto.businessId },
+      //     });
+      //     if (
+      //       !found ||
+      //       (found.length > 0 && found[0].businessId !== dto.businessId)
+      //     ) {
+      //       throw new Error(
+      //         'Delivery address inválida o no pertenece al business',
+      //       );
+      //     }
+      //     deliveryAddressId = deliveryAddress.id;
+      //   }
+      // }
 
       const order = await tx.order.create({
         data: {
@@ -119,6 +116,13 @@ export class OrderService {
 
       return order;
     });
+
+    const orders = await this.findOne(order.id);
+
+    // Usar el nuevo método del gateway
+    this.orderGateway.emitNewOrder(orders);
+
+    return order;
   }
 
   async findAll(): Promise<Order[]> {
@@ -149,8 +153,7 @@ export class OrderService {
     if (!order) {
       throw new NotFoundException(`Order with id ${id} not found`);
     }
-    console.log(order.OrderItem[0].optionGroups[0].options)
-    return OrderPreviewDto.fromPrisma(order);
+    return OrderResponseDtoMapper.fromPrisma(order);
   }
 
   // order.service.ts
@@ -177,14 +180,98 @@ export class OrderService {
       },
     });
 
-    return orders.map((order) => OrderPreviewDto.fromPrisma(order));
+    return orders.map((order) => OrderResponseDtoMapper.fromPrisma(order));
+  }
+  async findOrdersByUserId(userId: string) {
+    const orders = await this.prisma.order.findMany({
+      where: { userId },
+      include: {
+        user: true,
+        deliveryAddress: true,
+        pickupAddress: true,
+        OrderItem: {
+          include: {
+            optionGroups: {
+              include: {
+                options: true,
+              },
+            },
+          },
+        },
+        OrderDiscount: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return orders.map((order) => OrderResponseDtoMapper.fromPrisma(order));
+  }
+
+  async findOrdersByDeliveyId(deliveryId: string) {
+    const orders = await this.prisma.order.findMany({
+      where: { deliveryCompanyId: deliveryId },
+      include: {
+        user: true,
+        deliveryAddress: true,
+        pickupAddress: true,
+        OrderItem: {
+          include: {
+            optionGroups: {
+              include: {
+                options: true,
+              },
+            },
+          },
+        },
+        OrderDiscount: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return orders.map((order) => OrderResponseDtoMapper.fromPrisma(order));
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDTO): Promise<Order> {
-    return this.prisma.order.update({
+    const updatedOrder = await this.prisma.order.update({
       where: { id },
       data: updateOrderDto,
     });
+
+    // this.orderGateway.server
+    //   .to(`order-${id}`)
+    //   .emit('order_updated', updatedOrder);
+
+    // // Si pasa a estado 'DELIVERY', notificar a todos los repartidores
+    // if (updateOrderDto.status === OrderStatus.DELIVERED) {
+    //   this.orderGateway.server.to('delivery').emit('order_ready', updatedOrder);
+    // }
+
+    return updatedOrder;
+  }
+
+  async updateStatus(
+    id: string,
+    updateOrderStatus: OrderStatus,
+  ): Promise<Order> {
+    // Actualizamos y recuperamos datos necesarios
+    const updatedOrder = await this.prisma.order.update({
+      where: { id },
+      data: { status: updateOrderStatus },
+    });
+
+    // Emitimos a las salas correctas
+    this.orderGateway.emitOrderStatusUpdated(
+      updatedOrder.id,
+      updatedOrder.status,
+      updatedOrder.userId,
+      updatedOrder.businessId,
+      updatedOrder.deliveryCompanyId, // <- importante
+    );
+
+    return updatedOrder;
   }
 
   async remove(id: string): Promise<Order> {

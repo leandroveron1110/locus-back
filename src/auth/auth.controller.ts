@@ -32,6 +32,14 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post('login/delivery') // Ruta para el login: /auth/login
+  @HttpCode(HttpStatus.OK) // Devuelve 200 OK para un login exitoso
+  async loginDelivery(
+    @Body() loginDto: LoginDto,
+  ): Promise<{ user: LoginResponseDto; accessToken: string }> {
+    return this.authService.login(loginDto);
+  }
+
   @Post('register') // Ruta para el login: /auth/login
   @HttpCode(HttpStatus.OK) // Devuelve 200 OK para un login exitoso
   async register(

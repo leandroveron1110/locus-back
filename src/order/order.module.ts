@@ -5,14 +5,16 @@ import { OrderValidationService } from './services/validations/order-validation.
 import { BusinessModule } from 'src/business/business.module';
 import { MenuModule } from 'src/menu/menu.module';
 import { MenuProductModule } from 'src/menu-product/menu-product.module';
+import { OrderGateway } from './services/socket/order-gateway';
 
 @Module({
   controllers: [OrderController],
-  providers: [OrderService, OrderValidationService],
+  providers: [OrderService, OrderValidationService, OrderGateway],
   imports: [
     BusinessModule,
     MenuModule,
     MenuProductModule
-  ]
+  ],
+  exports: [OrderGateway, OrderService]
 })
 export class OrderModule {}

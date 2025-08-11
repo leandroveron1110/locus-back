@@ -30,11 +30,18 @@ export class ImageController {
     return this.imageService.create(createImageDto);
   }
 
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  findAll(): Promise<ImageResponseDto[]> {
+    return this.imageService.findAll();
+  }
+
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   findOne(@Param('id') id: string): Promise<ImageResponseDto> {
     return this.imageService.findOne(id);
   }
+
 
   @Patch(':id')
   @HttpCode(HttpStatus.OK)

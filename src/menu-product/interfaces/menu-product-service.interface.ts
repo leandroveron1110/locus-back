@@ -6,15 +6,15 @@ import { MenuProductDto } from '../dtos/response/menu-product-response.dto';
 import { MenuProductWithOptions } from '../types/menu-product.type';
 
 export interface IMenuProductService {
-  create(
-    dto: CreateMenuProductDto,
-  ): Promise<MenuProduct>;
+  create(dto: CreateMenuProductDto): Promise<MenuProduct>;
 
   findAll(): Promise<MenuProduct[]>;
 
+  findProducDetaillById(productId: string): Promise<MenuProductDto>;
+
   findAllBySeccion(seccionId: string): Promise<MenuProduct[]>;
 
-  findAllBySeccionIds(seccionIds: string[]): Promise<MenuProductDto[]>
+  findAllBySeccionIds(seccionIds: string[]): Promise<MenuProductDto[]>;
 
   findOne(id: string): Promise<MenuProduct>;
 
@@ -22,7 +22,5 @@ export interface IMenuProductService {
 
   remove(id: string): Promise<MenuProduct>;
 
-  getMenuProductById(
-      menuProductId: string,
-    ): Promise<MenuProductWithOptions>
+  getMenuProductById(menuProductId: string): Promise<MenuProductWithOptions>;
 }
