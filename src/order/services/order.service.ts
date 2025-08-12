@@ -1,23 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Order, OrderOrigin, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
-import { OrderValidationService } from './validations/order-validation.service';
 import {
   CreateOrderDto,
   CreateOrderFullDTO,
   UpdateOrderDTO,
 } from '../dtos/request/order.dto';
-import { OrderPreviewDto } from '../dtos/response/order-preview.dto';
 import { OrderGateway } from './socket/order-gateway';
 import { OrderResponseDtoMapper } from '../dtos/response/order-response.dto';
+import { IOrderService, IOrderValidationService } from '../interfaces/order-service.interface';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IOrderGateway } from '../interfaces/order-gateway.interface';
 
 @Injectable()
-export class OrderService {
+export class OrderService implements IOrderService {
   constructor(
     private prisma: PrismaService,
-    private orderValidation: OrderValidationService,
-    private readonly orderGateway: OrderGateway, // 👈 nuevo
+    @Inject(TOKENS.IOrderValidationService)
+    private orderValidation: IOrderValidationService,
+    @Inject(TOKENS.IOrderGateway)
+    private readonly orderGateway: IOrderGateway,
   ) {}
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -37,92 +40,54 @@ export class OrderService {
     const order = await this.prisma.$transaction(async (tx) => {
       const { items, pickupAddress, deliveryAddress, ...baseOrderData } = dto;
 
-      // Procesar pickupAddress
-      let pickupAddressId: string | undefined;
-      if (pickupAddress) {
-        if ('id' in pickupAddress) {
-          // Verificar que la dirección existe y es del usuario
-          console.log(pickupAddress.id);
-          const found = await tx.address.findUnique({
-            where: { id: pickupAddress.id },
-          });
-          if (!found || found.userId !== dto.userId) {
-            throw new Error(
-              'Pickup address inválida o no pertenece al usuario',
-            );
-          }
-          pickupAddressId = pickupAddress.id;
-        }
-      }
+      let pickupAddressId = await this.validateAndGetPickupAddressId(tx, pickupAddress, dto.userId);
 
-      // Procesar deliveryAddress
-      let deliveryAddressId: string | undefined;
-      // if (deliveryAddress) {
-      //   if ('id' in deliveryAddress) {
-      //     const found = await tx.address.findMany({
-      //       where: { businessId: dto.businessId },
-      //     });
-      //     if (
-      //       !found ||
-      //       (found.length > 0 && found[0].businessId !== dto.businessId)
-      //     ) {
-      //       throw new Error(
-      //         'Delivery address inválida o no pertenece al business',
-      //       );
-      //     }
-      //     deliveryAddressId = deliveryAddress.id;
-      //   }
-      // }
+      // Para deliveryAddress queda comentado, si se activa, crear función similar para validación
 
-      const order = await tx.order.create({
+      const createdOrder = await tx.order.create({
         data: {
           ...baseOrderData,
           pickupAddressId,
-          deliveryAddressId,
+          deliveryAddressId: undefined,
           origin: OrderOrigin.WEB,
         },
       });
 
       for (const item of items) {
-        const { optionGroups, ...itemData } = item;
-
         const createdItem = await tx.orderItem.create({
-          data: {
-            ...itemData,
-            orderId: order.id,
-          },
+          data: { ...item, orderId: createdOrder.id, optionGroups: undefined },
         });
 
-        for (const group of optionGroups) {
-          const { options, ...groupData } = group;
-
+        for (const group of item.optionGroups) {
           const createdGroup = await tx.orderOptionGroup.create({
-            data: {
-              ...groupData,
-              orderItemId: createdItem.id,
-            },
+            data: { ...group, orderItemId: createdItem.id, options: undefined },
           });
 
-          for (const option of options) {
+          for (const option of group.options) {
             await tx.orderOption.create({
-              data: {
-                ...option,
-                orderOptionGroupId: createdGroup.id,
-              },
+              data: { ...option, orderOptionGroupId: createdGroup.id },
             });
           }
         }
       }
 
-      return order;
+      return createdOrder;
     });
 
-    const orders = await this.findOne(order.id);
-
-    // Usar el nuevo método del gateway
-    this.orderGateway.emitNewOrder(orders);
+    const fullOrder = await this.findOne(order.id);
+    this.orderGateway.emitNewOrder(fullOrder);
 
     return order;
+  }
+
+  private async validateAndGetPickupAddressId(tx: any, pickupAddress: any, userId: string): Promise<string | undefined> {
+    if (!pickupAddress || !('id' in pickupAddress)) return undefined;
+
+    const found = await tx.address.findUnique({ where: { id: pickupAddress.id } });
+    if (!found || found.userId !== userId) {
+      throw new Error('Pickup address inválida o no pertenece al usuario');
+    }
+    return pickupAddress.id;
   }
 
   async findAll(): Promise<Order[]> {
@@ -132,151 +97,79 @@ export class OrderService {
   }
 
   async findOne(id: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id },
-      include: {
-        user: true,
-        deliveryAddress: true,
-        pickupAddress: true,
-        OrderItem: {
-          include: {
-            optionGroups: {
-              include: {
-                options: true,
-              },
-            },
-          },
-        },
-        OrderDiscount: true,
-      },
-    });
-    if (!order) {
-      throw new NotFoundException(`Order with id ${id} not found`);
-    }
+    const order = await this.findOrderWithIncludes(id);
+    if (!order) throw new NotFoundException(`Order with id ${id} not found`);
     return OrderResponseDtoMapper.fromPrisma(order);
   }
 
-  // order.service.ts
   async findOrdersByBusiness(businessId: string) {
-    const orders = await this.prisma.order.findMany({
-      where: { businessId },
-      include: {
-        user: true,
-        deliveryAddress: true,
-        pickupAddress: true,
-        OrderItem: {
-          include: {
-            optionGroups: {
-              include: {
-                options: true,
-              },
-            },
-          },
-        },
-        OrderDiscount: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    return orders.map((order) => OrderResponseDtoMapper.fromPrisma(order));
+    return this.findOrdersWithIncludes({ businessId });
   }
-  async findOrdersByUserId(userId: string) {
-    const orders = await this.prisma.order.findMany({
-      where: { userId },
-      include: {
-        user: true,
-        deliveryAddress: true,
-        pickupAddress: true,
-        OrderItem: {
-          include: {
-            optionGroups: {
-              include: {
-                options: true,
-              },
-            },
-          },
-        },
-        OrderDiscount: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
 
-    return orders.map((order) => OrderResponseDtoMapper.fromPrisma(order));
+  async findOrdersByUserId(userId: string) {
+    return this.findOrdersWithIncludes({ userId });
   }
 
   async findOrdersByDeliveyId(deliveryId: string) {
+    return this.findOrdersWithIncludes({ deliveryCompanyId: deliveryId });
+  }
+
+  private async findOrderWithIncludes(id: string) {
+    return this.prisma.order.findUnique({
+      where: { id },
+      include: this.commonIncludes,
+    });
+  }
+
+  private async findOrdersWithIncludes(where: object) {
     const orders = await this.prisma.order.findMany({
-      where: { deliveryCompanyId: deliveryId },
-      include: {
-        user: true,
-        deliveryAddress: true,
-        pickupAddress: true,
-        OrderItem: {
-          include: {
-            optionGroups: {
-              include: {
-                options: true,
-              },
-            },
-          },
-        },
-        OrderDiscount: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      where,
+      include: this.commonIncludes,
+      orderBy: { createdAt: 'desc' },
     });
 
-    return orders.map((order) => OrderResponseDtoMapper.fromPrisma(order));
+    return orders.map(OrderResponseDtoMapper.fromPrisma);
+  }
+
+  private get commonIncludes() {
+    return {
+      user: true,
+      deliveryAddress: true,
+      pickupAddress: true,
+      OrderItem: {
+        include: {
+          optionGroups: { include: { options: true } },
+        },
+      },
+      OrderDiscount: true,
+    };
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDTO): Promise<Order> {
-    const updatedOrder = await this.prisma.order.update({
+    return this.prisma.order.update({
       where: { id },
       data: updateOrderDto,
     });
-
-    // this.orderGateway.server
-    //   .to(`order-${id}`)
-    //   .emit('order_updated', updatedOrder);
-
-    // // Si pasa a estado 'DELIVERY', notificar a todos los repartidores
-    // if (updateOrderDto.status === OrderStatus.DELIVERED) {
-    //   this.orderGateway.server.to('delivery').emit('order_ready', updatedOrder);
-    // }
-
-    return updatedOrder;
   }
 
-  async updateStatus(
-    id: string,
-    updateOrderStatus: OrderStatus,
-  ): Promise<Order> {
-    // Actualizamos y recuperamos datos necesarios
+  async updateStatus(id: string, status: OrderStatus): Promise<Order> {
     const updatedOrder = await this.prisma.order.update({
       where: { id },
-      data: { status: updateOrderStatus },
+      data: { status },
     });
 
-    // Emitimos a las salas correctas
     this.orderGateway.emitOrderStatusUpdated(
       updatedOrder.id,
       updatedOrder.status,
       updatedOrder.userId,
       updatedOrder.businessId,
-      updatedOrder.deliveryCompanyId, // <- importante
+      updatedOrder.deliveryCompanyId,
     );
 
     return updatedOrder;
   }
 
   async remove(id: string): Promise<Order> {
-    return this.prisma.order.delete({
-      where: { id },
-    });
+    return this.prisma.order.delete({ where: { id } });
   }
 }

@@ -6,15 +6,28 @@ import { BusinessModule } from 'src/business/business.module';
 import { MenuModule } from 'src/menu/menu.module';
 import { MenuProductModule } from 'src/menu-product/menu-product.module';
 import { OrderGateway } from './services/socket/order-gateway';
+import { TOKENS } from 'src/common/constants/tokens';
 
 @Module({
   controllers: [OrderController],
-  providers: [OrderService, OrderValidationService, OrderGateway],
+  providers: [
+    {
+      provide: TOKENS.IOrderService,
+      useClass: OrderService
+    },
+    {
+      provide: TOKENS.IOrderGateway,
+      useClass: OrderGateway
+    },
+    {
+      provide: TOKENS.IOrderValidationService,
+      useClass: OrderValidationService
+    }],
   imports: [
     BusinessModule,
     MenuModule,
     MenuProductModule
   ],
-  exports: [OrderGateway, OrderService]
+  exports: [TOKENS.IOrderService, TOKENS.IOrderGateway]
 })
 export class OrderModule {}

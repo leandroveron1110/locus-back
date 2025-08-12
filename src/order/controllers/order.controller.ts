@@ -6,8 +6,8 @@ import {
   Param,
   Patch,
   Delete,
+  Inject,
 } from '@nestjs/common';
-import { OrderService } from '../services/order.service';
 import { validateWithZod } from 'src/common/validators/validate-with-zod';
 import {
   CreateOrderFullDTO,
@@ -16,10 +16,15 @@ import {
   UpdateOrderSchema,
 } from '../dtos/request/order.dto';
 import { Order, OrderStatus } from '@prisma/client';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IOrderService } from '../interfaces/order-service.interface';
 
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly ordersService: OrderService) {}
+  constructor(
+    @Inject(TOKENS.IOrderService)
+    private readonly ordersService: IOrderService
+  ) {}
 
   @Post()
   create(@Body() createOrderDto: any) {

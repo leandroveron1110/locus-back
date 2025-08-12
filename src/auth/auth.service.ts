@@ -2,7 +2,7 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt'; // Para generar JWTs
 import { LoginDto } from './dto/login.dto';
-import { User, UserRole } from '@prisma/client'; // El tipo User de Prisma
+import { User } from '@prisma/client'; // El tipo User de Prisma
 import * as bcrypt from 'bcryptjs'; // Para comparar contraseñas (asegúrate de tenerlo instalado)
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { TOKENS } from 'src/common/constants/tokens';
@@ -10,7 +10,7 @@ import { IUserService } from 'src/users/interfaces/User-service.interface';
 import { LoginResponseDto } from './dto/response/login.dto';
 import { IAuthService } from './interfaces/Auth-service.interface';
 import { CreateUserDto } from 'src/users/dto/Request/create-user.dto';
-import { DeliveryService } from 'src/delivery/services/delivery.service';
+import { IDeliveryService } from 'src/delivery/interfaces/delivery-service.interface';
 
 @Injectable()
 export class AuthService implements IAuthService {
@@ -18,7 +18,8 @@ export class AuthService implements IAuthService {
     @Inject(TOKENS.IUserService)
     private usersService: IUserService, // Inyecta el servicio de usuarios
     private jwtService: JwtService, // Inyecta el servicio JWT
-    private deliveyService: DeliveryService
+    @Inject(TOKENS.IDeliveryService)
+    private deliveyService: IDeliveryService
   ) {}
 
   /**

@@ -2,7 +2,7 @@
 export const TOKENS = {
   // Servicios de Dominio
 
-  //Moule Search
+  // Module Search
   ISearchService: Symbol('ISearchService'),
   ISearchableBusinessCrudService: Symbol('ISearchableBusinessCrudService'),
   ISearchableTagCrudService: Symbol('ISearchableTagCrudService'),
@@ -24,17 +24,16 @@ export const TOKENS = {
   // Module Status
   IStatusService: Symbol('IStatusService'),
 
-  //Module Image
+  // Module Image
   IImageService: Symbol('IImageService'),
 
   // Module Business
   IBusinessService: Symbol('IBusinessService'),
-  // association to Business
+  // Asociaciones a Business
   IBusinessGalleryService: Symbol('IBusinessGalleryService'),
   IBusinessCategoryService: Symbol('IBusinessCategoryService'),
   IBusinessLogoService: Symbol('IBusinessLogoService'),
   IBusinessTagService: Symbol('IBusinessTagService'),
-
 
   // Module Follower
   IFollowerService: Symbol('IFollowerService'),
@@ -52,6 +51,10 @@ export const TOKENS = {
 
   // Module Order
   IOrderService: Symbol('IOrderService'),
+  IOrderGateway: Symbol('IOrderGateway'),
+
+  // Module Delivery
+  IDeliveryService: Symbol('IDeliveryService'),
 
   // Module Event
   IEventService: Symbol('IEventService'),
@@ -59,13 +62,14 @@ export const TOKENS = {
   // Module Offered Service
   IOfferedServiceSerice: Symbol('IOfferedServiceService'),
 
-  // Module OfferedService
+  // Module Weekly Schedule
   IWeeklyScheduleService: Symbol('WeeklyScheduleService'),
+
 
   // Proveedores de Capacidad Técnica
   IStorageProvider: Symbol('IStorageProvider'),
 
-  // Validator
+  // Validadores
   IBusinessValidator: Symbol('IBusinessValidator'),
   ICategoryValidator: Symbol('ICategoryValidator'),
   IStatusValidator: Symbol('IStatusValidator'),
@@ -73,4 +77,5 @@ export const TOKENS = {
   IUserValidator: Symbol('IUserValidator'),
   IMenuValidator: Symbol('IMenuValidator'),
   ISeccionValidator: Symbol('ISeccionValidator'),
+  IOrderValidationService: Symbol('IOrderValidationService'),
 };

@@ -9,11 +9,9 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
-import { Order, OrderStatus } from '@prisma/client';
-import {
-  OrderResponseDto,
-  OrderResponseDtoMapper,
-} from 'src/order/dtos/response/order-response.dto';
+import { OrderStatus } from '@prisma/client';
+import { OrderResponseDto } from 'src/order/dtos/response/order-response.dto';
+import { IOrderGateway } from 'src/order/interfaces/order-gateway.interface';
 
 @WebSocketGateway({
   cors: {
@@ -22,7 +20,11 @@ import {
   transports: ['websocket'],
 })
 export class OrderGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements
+    OnGatewayInit,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    IOrderGateway
 {
   private logger: Logger = new Logger('OrderGateway');
   server: Server;
@@ -127,7 +129,7 @@ export class OrderGateway
       .emit('order_status_updated', { orderId, status });
 
     // Si el estado es listo_para_delivery, notificar a delivery
-    if (status === OrderStatus.READY_FOR_DELIVERY && deliveryCompanyId) {
+    if (status === OrderStatus.READY_FOR_DELIVERY_PICKUP && deliveryCompanyId) {
       this.server
         .to(`delivery-${deliveryCompanyId}`)
         .emit('order_ready_for_delivery', { orderId, businessId });

@@ -7,9 +7,10 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { IMenuProductService } from 'src/menu-product/interfaces/menu-product-service.interface';
 import { IBusinessService } from 'src/business/interfaces/business.interface';
 import { CreateOrderFullDTO, CreateOrderItemDTO, CreateOrderOptionGroupDTO } from 'src/order/dtos/request/order.dto';
+import { IOrderValidationService } from 'src/order/interfaces/order-service.interface';
 
 @Injectable()
-export class OrderValidationService {
+export class OrderValidationService implements IOrderValidationService {
   constructor(
     @Inject(TOKENS.IMenuProductService)
     private readonly menuProductService: IMenuProductService,

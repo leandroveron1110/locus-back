@@ -7,18 +7,22 @@ import {
   Body,
   Patch,
   Delete,
+  Inject,
 } from '@nestjs/common';
-import { DeliveryService } from '../services/delivery.service';
 import {
   CreateDeliveryCompanyDto,
   UpdateDeliveryCompanyDto,
 } from '../dtos/request/delivery-company.dto';
-import { AssignCompanyDto } from '../dtos/request/assign-company.dto';
 import { UpdateOrderStatusDto } from '../dtos/request/update-order-status.dto';
+import { IDeliveryService } from '../interfaces/delivery-service.interface';
+import { TOKENS } from 'src/common/constants/tokens';
 
 @Controller('delivery')
 export class DeliveryController {
-  constructor(private readonly deliveryService: DeliveryService) {}
+  constructor(
+    @Inject(TOKENS.IDeliveryService)
+    private readonly deliveryService: IDeliveryService
+  ) {}
 
   // --- CRUD compañías ---
   @Post('companies')

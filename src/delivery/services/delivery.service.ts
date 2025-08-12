@@ -1,20 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { OrderGateway } from 'src/order/services/socket/order-gateway';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateDeliveryCompanyDto,
   UpdateDeliveryCompanyDto,
 } from '../dtos/request/delivery-company.dto';
-import { OrderStatus } from '../enums/order-status.enum';
-import { resolve } from 'node:path/win32';
-import { OrderService } from 'src/order/services/order.service';
+import { IDeliveryService } from '../interfaces/delivery-service.interface';
+import { OrderStatus } from '@prisma/client';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IOrderGateway } from 'src/order/interfaces/order-gateway.interface';
+import { IOrderService } from 'src/order/interfaces/order-service.interface';
 
 @Injectable()
-export class DeliveryService {
+export class DeliveryService implements IDeliveryService{
   constructor(
     private prisma: PrismaService,
-    private orderGateway: OrderGateway,
-    private orderService: OrderService,
+    @Inject(TOKENS.IOrderGateway)
+    private orderGateway: IOrderGateway,
+    @Inject(TOKENS.IOrderService)
+    private orderService: IOrderService,
   ) {}
 
   // ----------- Compañías -----------
