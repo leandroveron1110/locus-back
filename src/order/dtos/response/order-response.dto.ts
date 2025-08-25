@@ -1,3 +1,5 @@
+import { DeliveryType, OrderStatus, PaymentMethodType, PaymentStatus } from "@prisma/client";
+
 // DTO para la dirección
 export interface AddressDto {
   id: string;
@@ -10,8 +12,8 @@ export interface AddressDto {
   postalCode?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  isDefault: boolean;
-  enabled: boolean;
+  isDefault?: boolean;
+  enabled?: boolean;
   notes?: string | null;
 }
 
@@ -73,72 +75,72 @@ export interface OrderResponseDto {
   id: string;
   businessId: string;
   userId: string;
-  deliveryCompanyId: string;
-  status: string;
+  deliveryCompanyId?: string | null;
+  status: OrderStatus;
   origin: string;
   isTest: boolean;
   total: number;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
-  user: UserDto;
-  pickupAddress?: AddressDto | null;
-  deliveryAddress?: AddressDto | null;
+  deliveryType: DeliveryType;
+  paymentType: PaymentMethodType;
+  paymentStatus: PaymentStatus;
+  paymentReceiptUrl?: string | null;
+  paymentInstructions?: string | null;
+  paymentHolderName?: string | null;
+  customerObservations?: string | null;
+  businessObservations?: string | null;
+
+  user: {
+    id: string;
+    fullName: string;
+    phone: string;
+    address?: string | null;
+  };
+  bussiness: {
+    name: string;
+    address: string;
+    phone: string;
+  };
   items: OrderItemDto[];
   discounts: OrderDiscountDto[];
 }
 
+// Mapper actualizado
 export class OrderResponseDtoMapper {
   static fromPrisma(order: any): OrderResponseDto {
     return {
       id: order.id,
       businessId: order.businessId,
+      userId: order.userId,
+      deliveryCompanyId: order.deliveryCompanyId ?? null,
       status: order.status,
-      deliveryCompanyId:  order.deliveryCompanyId,
       origin: order.origin,
       isTest: order.isTest,
-      userId: order.userId,
       total: Number(order.total),
       notes: order.notes ?? null,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
+      deliveryType: order.deliveryType,
+      paymentType: order.paymentType,
+      paymentStatus: order.paymentStatus,
+      paymentReceiptUrl: order.paymentReceiptUrl ?? null,
+      paymentInstructions: order.paymentInstructions ?? null,
+      paymentHolderName: order.paymentHolderName ?? null,
+      customerObservations: order.customerObservations ?? null,
+      businessObservations: order.businessObservations ?? null,
       user: {
-        id: order.user.id,
-        firstName: order.user.firstName,
-        lastName: order.user.lastName,
-        email: order.user.email,
-        avatarId: order.user.avatarId ?? null,
+        id: order.userId,
+        fullName: order.customerName,
+        phone: order.customerPhone,
+        address: order.customerAddress ?? null,
       },
-      pickupAddress: order.pickupAddress ? {
-        id: order.pickupAddress.id,
-        street: order.pickupAddress.street,
-        number: order.pickupAddress.number ?? null,
-        apartment: order.pickupAddress.apartment ?? null,
-        city: order.pickupAddress.city,
-        province: order.pickupAddress.province,
-        country: order.pickupAddress.country,
-        postalCode: order.pickupAddress.postalCode ?? null,
-        latitude: order.pickupAddress.latitude ? Number(order.pickupAddress.latitude) : null,
-        longitude: order.pickupAddress.longitude ? Number(order.pickupAddress.longitude) : null,
-        isDefault: order.pickupAddress.isDefault,
-        enabled: order.pickupAddress.enabled,
-        notes: order.pickupAddress.notes ?? null,
-      } : null,
-      deliveryAddress: order.deliveryAddress ? {
-        id: order.deliveryAddress.id,
-        street: order.deliveryAddress.street,
-        number: order.deliveryAddress.number ?? null,
-        apartment: order.deliveryAddress.apartment ?? null,
-        city: order.deliveryAddress.city,
-        province: order.deliveryAddress.province,
-        country: order.deliveryAddress.country,
-        postalCode: order.deliveryAddress.postalCode ?? null,
-        latitude: order.deliveryAddress.latitude ? Number(order.deliveryAddress.latitude) : null,
-        longitude: order.deliveryAddress.longitude ? Number(order.deliveryAddress.longitude) : null,
-        isDefault: order.deliveryAddress.isDefault,
-        enabled: order.deliveryAddress.enabled,
-        notes: order.deliveryAddress.notes ?? null,
-      } : null,
+      bussiness: {
+        name: order.businessName,
+        address: order.businessAddress,
+        phone: order.businessPhone,
+      },
       items: order.OrderItem.map((item: any) => ({
         id: item.id,
         productName: item.productName,

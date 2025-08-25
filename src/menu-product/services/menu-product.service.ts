@@ -119,12 +119,11 @@ export class MenuProductService implements IMenuProductService {
     return MenuProductDto.fromPrismaMany(products);
   }
 
-  async findProducDetaillById(productId: string): Promise<MenuProductDto> {
-    const product = await this.prisma.menuProduct.findUnique({
+  async getMenuProductsByIds(ids: string[]): Promise<MenuProductDto[]> {
+    const products = await this.prisma.menuProduct.findMany({
       where: {
-        id: productId
-      }
-      ,
+        id: { in: ids },
+      },
       include: {
         optionGroups: {
           include: {
@@ -140,11 +139,42 @@ export class MenuProductService implements IMenuProductService {
             foodCategory: true,
           },
         },
-      }
+      },
+      orderBy: {
+        name: 'asc',
+      },
     });
 
-    if(!product) {
-      throw new NotFoundException(`Menu Product con el id ${productId} no encontrado`)
+    return MenuProductDto.fromPrismaMany(products);
+  }
+
+  async findProducDetaillById(productId: string): Promise<MenuProductDto> {
+    const product = await this.prisma.menuProduct.findUnique({
+      where: {
+        id: productId,
+      },
+      include: {
+        optionGroups: {
+          include: {
+            options: {
+              include: {
+                optionImages: true,
+              },
+            },
+          },
+        },
+        foodCategories: {
+          include: {
+            foodCategory: true,
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException(
+        `Menu Product con el id ${productId} no encontrado`,
+      );
     }
     return MenuProductDto.fromPrisma(product);
   }

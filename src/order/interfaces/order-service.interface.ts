@@ -1,4 +1,9 @@
-import { Order, OrderStatus } from '@prisma/client';
+import {
+  Order,
+  OrderStatus,
+  PaymentMethodType,
+  PaymentStatus,
+} from '@prisma/client';
 import {
   CreateOrderDto,
   CreateOrderFullDTO,
@@ -24,9 +29,24 @@ export interface IOrderService {
 
   updateStatus(id: string, updateOrderStatus: OrderStatus): Promise<Order>;
 
+  updatePayment(
+    orderId: string,
+    data: {
+      paymentType?: PaymentMethodType;
+      paymentStatus?: PaymentStatus;
+      paymentReceiptUrl?: string;
+      paymentInstructions?: string;
+      paymentHolderName?: string;
+    },
+  ): Promise<Order>;
+
+  updatePaymentStatus(
+      orderId: string,
+      paymentStatus: PaymentStatus,
+    ): Promise<Order>
+
   remove(id: string): Promise<Order>;
 }
-
 
 export interface IOrderValidationService {
   validateCreateFullOrder(dto: CreateOrderFullDTO): Promise<void>;

@@ -24,6 +24,7 @@ import { OrderModule } from './order/order.module';
 import { AddressModule } from './address/address.module';
 import { SocketModule } from './socket/socket.module';
 import { DeliveryModule } from './delivery/delivery.module';
+import { BusinessPaymentMethodsModule } from './business-payment-methods/business-payment-methods.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { DeliveryModule } from './delivery/delivery.module';
     AddressModule,
     SocketModule,
     DeliveryModule,
+    BusinessPaymentMethodsModule,
   ],
   controllers: [AppController],
   providers: [AppService, IsBusinessIdExistsConstraint],

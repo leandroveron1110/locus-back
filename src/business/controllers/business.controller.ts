@@ -97,6 +97,14 @@ export class BusinessController {
     return this.businessService.findOne(businessId);
   }
 
+  @Get('business/porfile/:businessId')
+  async findForOrder(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+  ): Promise<any> {
+    // Usamos ParseUUIDPipe para validar que el ID es un UUID válido
+    return this.businessService.findForOrder(businessId);
+  }
+
   @Patch(':id')
   async update(
     @Param('id', ParseUUIDPipe) id: string,

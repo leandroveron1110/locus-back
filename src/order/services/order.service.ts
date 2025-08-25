@@ -1,5 +1,18 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Order, OrderOrigin, OrderStatus, Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  Order,
+  OrderOrigin,
+  OrderStatus,
+  PaymentMethodType,
+  PaymentStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 import {
@@ -9,7 +22,10 @@ import {
 } from '../dtos/request/order.dto';
 import { OrderGateway } from './socket/order-gateway';
 import { OrderResponseDtoMapper } from '../dtos/response/order-response.dto';
-import { IOrderService, IOrderValidationService } from '../interfaces/order-service.interface';
+import {
+  IOrderService,
+  IOrderValidationService,
+} from '../interfaces/order-service.interface';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IOrderGateway } from '../interfaces/order-gateway.interface';
 
@@ -40,15 +56,11 @@ export class OrderService implements IOrderService {
     const order = await this.prisma.$transaction(async (tx) => {
       const { items, pickupAddress, deliveryAddress, ...baseOrderData } = dto;
 
-      let pickupAddressId = await this.validateAndGetPickupAddressId(tx, pickupAddress, dto.userId);
-
-      // Para deliveryAddress queda comentado, si se activa, crear función similar para validación
-
       const createdOrder = await tx.order.create({
         data: {
           ...baseOrderData,
-          pickupAddressId,
-          deliveryAddressId: undefined,
+          pickupAddressId: pickupAddress?.id,
+          deliveryAddressId: deliveryAddress?.id,
           origin: OrderOrigin.WEB,
         },
       });
@@ -78,16 +90,6 @@ export class OrderService implements IOrderService {
     this.orderGateway.emitNewOrder(fullOrder);
 
     return order;
-  }
-
-  private async validateAndGetPickupAddressId(tx: any, pickupAddress: any, userId: string): Promise<string | undefined> {
-    if (!pickupAddress || !('id' in pickupAddress)) return undefined;
-
-    const found = await tx.address.findUnique({ where: { id: pickupAddress.id } });
-    if (!found || found.userId !== userId) {
-      throw new Error('Pickup address inválida o no pertenece al usuario');
-    }
-    return pickupAddress.id;
   }
 
   async findAll(): Promise<Order[]> {
@@ -133,9 +135,9 @@ export class OrderService implements IOrderService {
 
   private get commonIncludes() {
     return {
-      user: true,
-      deliveryAddress: true,
-      pickupAddress: true,
+      // user: true,
+      // deliveryAddress: true,
+      // pickupAddress: true,
       OrderItem: {
         include: {
           optionGroups: { include: { options: true } },
@@ -164,6 +166,137 @@ export class OrderService implements IOrderService {
       updatedOrder.userId,
       updatedOrder.businessId,
       updatedOrder.deliveryCompanyId,
+    );
+
+    return updatedOrder;
+  }
+
+  async updatePaymentStatus(
+    orderId: string,
+    paymentStatus: PaymentStatus,
+  ): Promise<Order> {
+    try {
+      // 1. Validar la existencia y estado actual de la orden
+      const currentOrder = await this.prisma.order.findUnique({
+        where: { id: orderId },
+      });
+
+      if (!currentOrder) {
+        throw new NotFoundException(`Order with ID ${orderId} not found.`);
+      }
+
+      const validInitialStates: PaymentStatus[] = [
+        PaymentStatus.PENDING,
+        PaymentStatus.IN_PROGRESS,
+      ];
+      if (!validInitialStates.includes(currentOrder.paymentStatus)) {
+        throw new BadRequestException(
+          `Cannot change payment status of an order that is already ${currentOrder.paymentStatus}.`,
+        );
+      }
+
+      // 2. Determinar el nuevo estado de la orden en base al estado de pago
+      let newOrderStatus: OrderStatus;
+      switch (paymentStatus) {
+        case PaymentStatus.CONFIRMED:
+          newOrderStatus = OrderStatus.CONFIRMED;
+          break;
+        case PaymentStatus.REJECTED:
+          newOrderStatus = OrderStatus.REJECTED_BY_BUSINESS;
+          break;
+        default:
+          // Si el estado de pago es IN_PROGRESS o PENDING, el estado de la orden no cambia
+          newOrderStatus = currentOrder.status;
+          break;
+      }
+
+      // 3. Actualizar la orden de forma atómica
+      const updatedOrder = await this.prisma.order.update({
+        where: { id: orderId },
+        data: {
+          paymentStatus: paymentStatus,
+          status: newOrderStatus,
+        },
+      });
+
+      // 4. Emitir el evento de Socket con los nuevos estados
+      this.orderGateway.emitOrderStatusUpdated(
+        updatedOrder.id,
+        updatedOrder.status,
+        updatedOrder.userId,
+        updatedOrder.businessId,
+        updatedOrder.deliveryCompanyId,
+      );
+
+      this.orderGateway.emitPaymentUpdated(
+        updatedOrder.id,
+        updatedOrder.paymentStatus,
+        updatedOrder.paymentReceiptUrl || '',
+        updatedOrder.userId,
+        updatedOrder.businessId,
+      );
+
+      return updatedOrder;
+    } catch (error) {
+      // Relanzar el error o devolver un mensaje amigable
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Error processing payment status update.',
+      );
+    }
+  }
+
+  async updatePayment(
+    orderId: string,
+    data: {
+      paymentType?: PaymentMethodType;
+      paymentStatus?: PaymentStatus;
+      paymentReceiptUrl?: string;
+      paymentInstructions?: string;
+      paymentHolderName?: string;
+    },
+  ): Promise<Order> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+
+    // Validaciones básicas
+    if (
+      data.paymentType === PaymentMethodType.TRANSFER &&
+      !data.paymentHolderName &&
+      !data.paymentReceiptUrl
+    ) {
+      throw new BadRequestException(
+        'El nombre del titular es obligatorio para transferencias',
+      );
+    }
+
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        paymentType: data.paymentType ?? order.paymentType,
+        paymentStatus: data.paymentStatus ?? order.paymentStatus,
+        paymentReceiptUrl: data.paymentReceiptUrl ?? order.paymentReceiptUrl,
+        paymentInstructions:
+          data.paymentInstructions ?? order.paymentInstructions,
+        paymentHolderName: data.paymentHolderName ?? order.paymentHolderName,
+      },
+    });
+
+    // Emitir evento a sockets si quieres notificar al negocio en tiempo real
+    // 🚨 CAMBIO IMPORTANTE: Ahora emite el evento específico de pago 🚨
+    this.orderGateway.emitPaymentUpdated(
+      updatedOrder.id,
+      updatedOrder.paymentStatus,
+      data.paymentReceiptUrl || '',
+      updatedOrder.userId,
+      updatedOrder.businessId,
     );
 
     return updatedOrder;

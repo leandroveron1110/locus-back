@@ -93,7 +93,7 @@ export class OrderGateway
   emitOrderAssignedToDelivery(order: OrderResponseDto) {
     if (order.deliveryCompanyId) {
       this.server
-        .to(`delivery-${order.deliveryCompanyId}`) // <-- guion medio aquí
+        .to(`delivery-${order.deliveryCompanyId}`)
         .emit('newOrderAssigned', order);
     }
   }
@@ -134,5 +134,23 @@ export class OrderGateway
         .to(`delivery-${deliveryCompanyId}`)
         .emit('order_ready_for_delivery', { orderId, businessId });
     }
+  }
+
+  public emitPaymentUpdated(
+    orderId: string,
+    paymentStatus: string,
+    paymentReceiptUrl: string,
+    userId: string,
+    businessId: string,
+  ) {
+    const payload = {
+      orderId,
+      paymentStatus,
+      paymentReceiptUrl,
+    };
+
+    // Notificar al cliente y al negocio
+    this.server.to(`user-${userId}`).emit('payment_updated', payload);
+    this.server.to(`business-${businessId}`).emit('payment_updated', payload);
   }
 }

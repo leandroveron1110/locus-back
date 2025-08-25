@@ -1,6 +1,5 @@
-// zod/create-order.schema.ts
 import { z } from 'zod';
-import { OrderStatus, OrderOrigin } from '@prisma/client';
+import { OrderStatus, OrderOrigin, PaymentMethodType, PaymentStatus, DeliveryType } from '@prisma/client';
 
 export const CreateOrderOptionSchema = z.object({
   optionName: z.string(),
@@ -44,19 +43,24 @@ const AddressIdSchema = z.object({
   id: z.string(),
 });
 
-const AddressCreateSchema = z.object({
-  street: z.string(),
-  city: z.string(),
-  province: z.string(),
-});
-
-const AddressUnionSchema = z.union([AddressIdSchema, AddressCreateSchema]);
-
 export const CreateOrderFullSchema = z.object({
   userId: z.uuid(),
   businessId: z.uuid(),
-  deliveryAddress: AddressUnionSchema.optional(),
-  pickupAddress: AddressUnionSchema.optional(),
+  deliveryAddress: AddressIdSchema.optional(),
+  pickupAddress: AddressIdSchema.optional(),
+
+  // --- snapshot cliente ---
+  customerName: z.string().min(1, 'El nombre del cliente es obligatorio'),
+  customerPhone: z.string().min(6, 'El teléfono del cliente es obligatorio'),
+  customerAddress: z.string().optional(),
+  customerObservations: z.string().optional(),
+
+  // --- snapshot negocio ---
+  businessName: z.string().min(1, 'El nombre del negocio es obligatorio'),
+  businessPhone: z.string().min(6, 'El teléfono del negocio es obligatorio'),
+  businessAddress: z.string().min(1, 'La dirección del negocio es obligatoria'),
+  businessObservations: z.string().optional(),
+
   status: z.enum(OrderStatus).optional(),
   isTest: z.boolean().optional(),
   total: z.number().refine((n) => /^\d+(\.\d{1,2})?$/.test(n.toFixed(2)), {
@@ -64,13 +68,35 @@ export const CreateOrderFullSchema = z.object({
   }),
   notes: z.string().optional(),
   items: z.array(CreateOrderItemSchema),
+
+  // --- pagos ---
+  paymentType: z.enum(PaymentMethodType).default(PaymentMethodType.TRANSFER),
+  paymentStatus: z.enum(PaymentStatus).default(PaymentStatus.PENDING),
+  paymentReceiptUrl: z.url().optional(),
+  paymentInstructions: z.string().optional(),
+  paymentHolderName: z.string().optional(),
+
+  deliveryType: z.enum(DeliveryType).default(DeliveryType.DELIVERY),
 });
+
 
 export const CreateOrderSchema = z.object({
   userId: z.string(),
   businessId: z.string(),
   deliveryAddressId: z.string().optional(),
   pickupAddressId: z.string().optional(),
+    // --- snapshot cliente ---
+  customerName: z.string().min(1, "El nombre del cliente es obligatorio"),
+  customerPhone: z.string().min(6, "El teléfono del cliente es obligatorio"),
+  customerAddress: z.string().optional(),
+  customerObservations: z.string().optional(),
+
+  // --- snapshot negocio ---
+  businessName: z.string().min(1, "El nombre del negocio es obligatorio"),
+  businessPhone: z.string().min(6, "El teléfono del negocio es obligatorio"),
+  businessAddress: z.string().min(1, "La dirección del negocio es obligatoria"),
+  businessObservations: z.string().optional(),
+
   status: z.enum(OrderStatus).optional(),
   origin: z.enum(OrderOrigin).optional(),
   isTest: z.boolean().optional(),
@@ -91,6 +117,4 @@ export type CreateOrderOptionGroupDTO = z.infer<
 >;
 export type CreateOrderOptionDTO = z.infer<typeof CreateOrderOptionSchema>;
 
-export type AddressDTO = z.infer<typeof AddressUnionSchema>;
-
-
+// export type AddressDTO = z.infer<typeof AddressUnionSchema>;

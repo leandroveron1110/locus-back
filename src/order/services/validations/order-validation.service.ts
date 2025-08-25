@@ -1,12 +1,12 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IMenuProductService } from 'src/menu-product/interfaces/menu-product-service.interface';
 import { IBusinessService } from 'src/business/interfaces/business.interface';
-import { CreateOrderFullDTO, CreateOrderItemDTO, CreateOrderOptionGroupDTO } from 'src/order/dtos/request/order.dto';
+import {
+  CreateOrderFullDTO,
+  CreateOrderItemDTO,
+  CreateOrderOptionGroupDTO,
+} from 'src/order/dtos/request/order.dto';
 import { IOrderValidationService } from 'src/order/interfaces/order-service.interface';
 
 @Injectable()
@@ -33,16 +33,20 @@ export class OrderValidationService implements IOrderValidationService {
       );
     }
 
-    await Promise.all(
-      dto.items.map(async (item) => {
-        const product = await this.getMenuProductOrThrow(item.menuProductId);
-        this.validateItemOptionGroups(product, item);
-      }),
-    );
-  }
+    const productIds = dto.items.map((item) => item.menuProductId);
+    const products =
+      await this.menuProductService.getMenuProductsByIds(productIds);
+    const productMap = new Map(products.map((p) => [p.id, p]));
 
-  private async getMenuProductOrThrow(menuProductId: string) {
-    return await this.menuProductService.getMenuProductById(menuProductId);
+    for (const item of dto.items) {
+      const product = productMap.get(item.menuProductId);
+      if (!product) {
+        throw new BadRequestException(
+          `El producto ${item.menuProductId} no existe.`,
+        );
+      }
+      this.validateItemOptionGroups(product, item);
+    }
   }
 
   private validateItemOptionGroups(
@@ -53,33 +57,45 @@ export class OrderValidationService implements IOrderValidationService {
         id: string;
         name: string;
         options: { id: string; name: string }[];
+        // minQuantity: number;
+        // maxQuantity: number;
       }[];
     },
     item: CreateOrderItemDTO,
   ) {
-    const validGroupIds = new Set(product.optionGroups.map((g) => g.id));
+    const validGroups = new Map(product.optionGroups.map((g) => [g.id, g]));
 
     for (const group of item.optionGroups) {
-      this.validateGroup(group, validGroupIds, product);
-      const optionGroup = product.optionGroups.find(
-        (g) => g.id === group.opcionGrupoId,
-      );
-
-      if (optionGroup) {
-        this.validateOptions(group, optionGroup.options, product);
+      // Validar existencia del grupo
+      if (group.opcionGrupoId && !validGroups.has(group.opcionGrupoId)) {
+        throw new BadRequestException(
+          `El grupo de opciones ${group.opcionGrupoId} no pertenece al producto ${product.name}.`,
+        );
       }
-    }
-  }
 
-  private validateGroup(
-    group: CreateOrderOptionGroupDTO,
-    validGroupIds: Set<string>,
-    product: { name: string },
-  ) {
-    if (group.opcionGrupoId && !validGroupIds.has(group.opcionGrupoId)) {
-      throw new BadRequestException(
-        `El grupo de opciones ${group.opcionGrupoId} no pertenece al producto ${product.name}.`,
-      );
+      const optionGroup = group.opcionGrupoId
+        ? validGroups.get(group.opcionGrupoId)
+        : undefined;
+      if (optionGroup) {
+        // Validar opciones
+        this.validateOptions(group, optionGroup.options, product);
+
+        // Validar cantidad seleccionada vs min y max
+        const totalQuantity = group.options.reduce(
+          (sum, o) => sum + o.quantity,
+          0,
+        );
+        // if (totalQuantity < optionGroup.minQuantity) {
+        //   throw new BadRequestException(
+        //     `El grupo de opciones ${optionGroup.name} del producto ${product.name} requiere al menos ${optionGroup.minQuantity} opción(es).`,
+        //   );
+        // }
+        // if (totalQuantity > optionGroup.maxQuantity) {
+        //   throw new BadRequestException(
+        //     `El grupo de opciones ${optionGroup.name} del producto ${product.name} permite un máximo de ${optionGroup.maxQuantity} opción(es).`,
+        //   );
+        // }
+      }
     }
   }
 

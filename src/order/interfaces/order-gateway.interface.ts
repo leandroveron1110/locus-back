@@ -28,4 +28,11 @@ export interface IOrderGateway {
     businessId: string,
     deliveryCompanyId?: string | null,
   ): void;
+  emitPaymentUpdated(
+    orderId: string,
+    paymentStatus: string,
+    paymentReceiptUrl: string,
+    userId: string,
+    businessId: string,
+  ): void;
 }

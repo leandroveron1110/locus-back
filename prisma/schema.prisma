@@ -281,12 +281,10 @@ model Business {
 
   businessTags BusinessTag[]
 
-  // ⭐ Campo que referencia al logo del negocio. Relación 1:1 con Image.
   logoId  String? @unique @map("logo_id")
   logo    Image?  @relation("BusinessLogo", fields: [logoId], references: [id], onDelete: SetNull)
   logoUrl String? @map("logo_url") // Redundancia optimizada para acceso rápido
 
-  // ⭐ Relación para la galería de imágenes del negocio (via BusinessImage).
   galleryImages BusinessImage[] @relation("BusinessGalleryImages")
 
   currentStatus Status? @relation(fields: [statusId], references: [id], name: "BusinessStatus")
@@ -297,12 +295,29 @@ model Business {
   businessFollower BusinessFollower[]
 
   // --- NUEVOS CAMPOS Y RELACIONES PARA MENÚ Y PRODUCTOS ---
-  menu    Menu? // Un negocio puede tener un menú (o varios, ver nota abajo)
-  // orderAddress OrderAddress[] @relation("BusinessOrderAddresses")
-  Address Address[] @relation("BusinessAddresses")
-  Order   Order[]
+  menu                  Menu?
+  Address               Address[]               @relation("BusinessAddresses")
+  Order                 Order[]
+  businessPaymentMethod BusinessPaymentMethod[]
 
   @@map("negocios")
+}
+
+model BusinessPaymentMethod {
+  id           String  @id @default(uuid()) @map("id")
+  businessId   String  @map("negocio_id")
+  alias        String  @map("alias") // alias bancario o nombre de cuenta
+  account      String  @map("cuenta") // número de cuenta, CBU o QR
+  holderName   String  @map("titular") // titular de la cuenta
+  instructions String? @map("instrucciones") // instrucciones opcionales
+  isActive     Boolean @default(true) @map("activo")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+
+  @@map("metodos_pago_negocio")
 }
 
 // Este modelo contendrá una copia desnormalizada y optimizada de los datos de negocio
@@ -587,11 +602,31 @@ model Order {
   pickupAddressId   String? @map("direccion_retiro_id") // opcional si es entrega
   deliveryCompanyId String?
 
-  status OrderStatus @default(PENDING) @map("estado")
-  origin OrderOrigin @default(APP) @map("origen") // web, app, whatsapp, etc.
-  isTest Boolean     @default(false) @map("es_prueba")
-  total  Decimal     @map("total") @db.Decimal(10, 2)
-  notes  String?     @map("notas")
+  // --- Snapshot reducido del cliente ---
+  customerName         String  @map("cliente_nombre")
+  customerPhone        String  @map("cliente_telefono")
+  customerAddress      String? @map("cliente_direccion")
+  customerObservations String? @map("cliente_observaciones")
+
+  // --- Snapshot reducido del negocio ---
+  businessName         String  @map("negocio_nombre")
+  businessPhone        String  @map("negocio_telefono")
+  businessAddress      String  @map("negocio_direccion")
+  businessObservations String? @map("negocio_observaciones")
+
+  // --- Pagos simplificados ---
+  paymentType         PaymentMethodType @default(TRANSFER) // CASH, TRANSFER, CARD
+  paymentStatus       PaymentStatus     @default(PENDING) // PENDING, IN_PROGRESS, CONFIRMED, REJECTED
+  paymentReceiptUrl   String? // URL del comprobante si aplica
+  paymentInstructions String? // Solo si es transferencia
+  paymentHolderName   String? // Titular de la cuenta (para transferencias)
+
+  deliveryType DeliveryType @default(DELIVERY) @map("tipo_entrega")
+  status       OrderStatus  @default(PENDING) @map("estado")
+  origin       OrderOrigin  @default(APP) @map("origen") // web, app, whatsapp, etc.
+  isTest       Boolean      @default(false) @map("es_prueba")
+  total        Decimal      @map("total") @db.Decimal(10, 2)
+  notes        String?      @map("notas")
 
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
@@ -604,13 +639,10 @@ model Order {
   OrderDiscount   OrderDiscount[]
   deliveryCompany DeliveryCompany? @relation("DeliveryCompanyOrders", fields: [deliveryCompanyId], references: [id])
 
-  // Índices para mejorar rendimiento de búsquedas comunes
-  @@index([businessId])
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-  @@index([origin])
-  @@index([isTest])
+  @@index([businessId]) // usado en findOrdersByBusiness
+  @@index([userId]) // usado en findOrdersByUserId
+  @@index([deliveryCompanyId]) // usado en findOrdersByDeliveryId
+  @@index([createdAt]) // útil para ordenar en findAll()
   @@map("ordenes")
 }
 
@@ -687,8 +719,10 @@ model OrderOption {
 
 // Enums
 
+
 enum DeliveryType {
   PICKUP // El cliente retira en el local
+  DELIVERY
   IN_HOUSE_DELIVERY // El negocio entrega por su cuenta
   EXTERNAL_DELIVERY // Se usa una cadetería externa
 }
@@ -696,50 +730,48 @@ enum DeliveryType {
 /// Estados generales que puede tener una orden
 enum OrderStatus {
   // 1. Creación y pago
-  PENDING                         /// Pedido creado (sin pago y sin confirmar)
-  WAITING_FOR_PAYMENT              /// Pedido esperando pago
-  PAYMENT_IN_PROGRESS              /// Pago en curso
-  PAYMENT_CONFIRMED                /// Pago confirmado
+  PENDING /// Pedido creado (sin pago y sin confirmar)
+  WAITING_FOR_PAYMENT /// Pedido esperando pago
+  PAYMENT_IN_PROGRESS /// Pago en curso
+  PAYMENT_CONFIRMED /// Pago confirmado
 
   // 2. Confirmación y preparación en negocio
-  PENDING_CONFIRMATION             /// Esperando que el negocio acepte
-  CONFIRMED                        /// Negocio aceptó el pedido
-  REJECTED_BY_BUSINESS              /// Negocio rechazó antes de preparar
-  PREPARING                        /// Pedido en preparación
+  PENDING_CONFIRMATION /// Esperando que el negocio acepte
+  CONFIRMED /// Negocio aceptó el pedido
+  REJECTED_BY_BUSINESS /// Negocio rechazó antes de preparar
+  PREPARING /// Pedido en preparación
 
   // 2.1 Pedido listo
-  READY_FOR_CUSTOMER_PICKUP        /// Pedido listo para retiro por el cliente
-  READY_FOR_DELIVERY_PICKUP        /// Pedido listo y negocio llamó al delivery
+  READY_FOR_CUSTOMER_PICKUP /// Pedido listo para retiro por el cliente
+  READY_FOR_DELIVERY_PICKUP /// Pedido listo y negocio llamó al delivery
 
   // 3. Asignación de delivery
-  DELIVERY_PENDING                 /// Buscando delivery para asignar
-  DELIVERY_ASSIGNED                /// Delivery asignado, esperando aceptación
-  DELIVERY_ACCEPTED                 /// Delivery aceptó la asignación
-  DELIVERY_REJECTED                 /// Delivery rechazó la asignación
-  DELIVERY_REASSIGNING              /// Buscando otro delivery tras rechazo
+  DELIVERY_PENDING /// Buscando delivery para asignar
+  DELIVERY_ASSIGNED /// Delivery asignado, esperando aceptación
+  DELIVERY_ACCEPTED /// Delivery aceptó la asignación
+  DELIVERY_REJECTED /// Delivery rechazó la asignación
+  DELIVERY_REASSIGNING /// Buscando otro delivery tras rechazo
 
   // 4. Transporte
-  OUT_FOR_PICKUP                   /// Delivery yendo al negocio a buscar el pedido
-  PICKED_UP                        /// Pedido recogido por el delivery
-  OUT_FOR_DELIVERY                 /// Delivery en camino al cliente
+  OUT_FOR_PICKUP /// Delivery yendo al negocio a buscar el pedido
+  PICKED_UP /// Pedido recogido por el delivery
+  OUT_FOR_DELIVERY /// Delivery en camino al cliente
 
   // 5. Entrega y finalización
-  DELIVERED                        /// Pedido entregado con éxito
-  DELIVERY_FAILED                   /// No se pudo entregar el pedido
-  RETURNED                         /// Pedido devuelto al negocio
-  REFUNDED                         /// Dinero devuelto al cliente
-  COMPLETED                        /// Pedido cerrado y finalizado
+  DELIVERED /// Pedido entregado con éxito
+  DELIVERY_FAILED /// No se pudo entregar el pedido
+  RETURNED /// Pedido devuelto al negocio
+  REFUNDED /// Dinero devuelto al cliente
+  COMPLETED /// Pedido cerrado y finalizado
 
   // 6. Cancelaciones
-  CANCELLED_BY_USER                /// Cancelado por el cliente
-  CANCELLED_BY_BUSINESS             /// Cancelado por el negocio
-  CANCELLED_BY_DELIVERY             /// Cancelado por el delivery
+  CANCELLED_BY_USER /// Cancelado por el cliente
+  CANCELLED_BY_BUSINESS /// Cancelado por el negocio
+  CANCELLED_BY_DELIVERY /// Cancelado por el delivery
 
   // 7. Errores generales
-  FAILED                           /// Error general (pago rechazado, problema interno)
+  FAILED /// Error general (pago rechazado, problema interno)
 }
-
-
 
 // Modelos
 
@@ -765,4 +797,18 @@ enum OrderOrigin {
   PHONE
   IN_PERSON
   OTHER
+}
+
+enum PaymentMethodType {
+  TRANSFER
+  CASH
+  DELIVERY
+}
+
+/// Estados de pago de una orden
+enum PaymentStatus {
+  PENDING /// Pago pendiente (cliente aún no inició)
+  IN_PROGRESS /// Pago en curso (por ejemplo, transferencia en proceso)
+  CONFIRMED /// Pago confirmado (negocio recibió el dinero)
+  REJECTED /// Pago rechazado o fallido
 }

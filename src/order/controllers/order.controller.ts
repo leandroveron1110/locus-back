@@ -15,7 +15,12 @@ import {
   UpdateOrderDTO,
   UpdateOrderSchema,
 } from '../dtos/request/order.dto';
-import { Order, OrderStatus } from '@prisma/client';
+import {
+  Order,
+  OrderStatus,
+  PaymentMethodType,
+  PaymentStatus,
+} from '@prisma/client';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IOrderService } from '../interfaces/order-service.interface';
 
@@ -23,7 +28,7 @@ import { IOrderService } from '../interfaces/order-service.interface';
 export class OrderController {
   constructor(
     @Inject(TOKENS.IOrderService)
-    private readonly ordersService: IOrderService
+    private readonly ordersService: IOrderService,
   ) {}
 
   @Post()
@@ -66,6 +71,30 @@ export class OrderController {
     @Body('status') status: OrderStatus,
   ): Promise<Order> {
     return this.ordersService.updateStatus(id, status);
+  }
+
+  @Patch('/order/payment/stauts/:id')
+  async updatePayment(
+    @Param('id') id: string,
+    @Body('status')
+    status: {
+      paymentType?: PaymentMethodType;
+      paymentStatus?: PaymentStatus;
+      paymentReceiptUrl?: string;
+      paymentInstructions?: string;
+      paymentHolderName?: string;
+    },
+  ): Promise<Order> {
+    return this.ordersService.updatePayment(id, status);
+  }
+
+  @Patch('/order/payment-status/stauts/:id')
+  async updatePaymentStatus(
+    @Param('id') id: string,
+    @Body('status')
+    status: PaymentStatus,
+  ): Promise<Order> {
+    return this.ordersService.updatePaymentStatus(id, status);
   }
 
   @Patch(':id')

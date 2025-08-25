@@ -215,6 +215,22 @@ export class BusinessService implements IBusinessService {
     });
   }
 
+  async findForOrder(id: string) {
+    const business = await this.prisma.business.findUnique({
+      where: { id },
+      include: {
+        businessPaymentMethod: true,
+      },
+    });
+    if (!business) {
+      throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
+    }
+
+    // const followNormalized = this.normalizeFollow(follow);
+
+    return business;
+  }
+
   /**
    * Update core information of an existing business
    * La actualización de tags, imágenes, estado o propietario se maneja en otros servicios.

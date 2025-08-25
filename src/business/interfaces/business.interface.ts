@@ -21,6 +21,7 @@ export interface IBusinessService {
   findAllPreview(): Promise<BusinessPreviewDto[]>;
 
   findOne(businessId: string): Promise<any>;
+  findForOrder(id: string): Promise<any>;
 
   findOneProfileById(id: string): Promise<any>;
 
