@@ -47,12 +47,14 @@ export class SeccionService implements ISeccionService {
     return seccion;
   }
 
-  public async updateSeccion(id: string, dto: SeccionUpdateDto) {
-    await this.menuValidator.existMenuAndOwnerAndBusiness(
-      dto.menuId,
-      dto.ownerId,
-      dto.businessId,
-    );
+  public async updateSeccion(id: string, dto: Partial<SeccionUpdateDto>) {
+    if (dto.menuId && dto.ownerId && dto.businessId) {
+      await this.menuValidator.existMenuAndOwnerAndBusiness(
+        dto.menuId,
+        dto.ownerId,
+        dto.businessId,
+      );
+    }
 
     const existing = await this.prisma.seccion.findUnique({ where: { id } });
     if (!existing)

@@ -88,6 +88,8 @@ model User {
   DeliveryCompany  DeliveryCompany[]
   deliveryEmployee DeliveryEmployee[]
   businessEmployee BusinessEmployee[]
+  isDeleted        Boolean            @default(false) @map("borrado") // soft delete
+  deletedAt        DateTime?          @map("fecha_borrado")
 
   @@map("usuarios")
 }
@@ -103,6 +105,9 @@ model Category {
 
   // ⭐ CAMBIO: Relación inversa a la nueva tabla intermedia BusinessCategory (N:M)
   businessCategories BusinessCategory[]
+
+  isDeleted Boolean   @default(false) @map("borrado") // soft delete
+  deletedAt DateTime? @map("fecha_borrado")
 
   @@map("categorias")
 }
@@ -219,6 +224,9 @@ model Tag {
   updatedAt   DateTime      @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
   BusinessTag BusinessTag[]
 
+  isDeleted Boolean   @default(false) @map("borrado") // soft delete
+  deletedAt DateTime? @map("fecha_borrado")
+
   @@map("tags")
 }
 
@@ -297,13 +305,17 @@ model Business {
   businessFollower BusinessFollower[]
 
   // --- NUEVOS CAMPOS Y RELACIONES PARA MENÚ Y PRODUCTOS ---
-  menu                  Menu?
+  menu                  Menu[]
   Address               Address[]               @relation("BusinessAddresses")
   Order                 Order[]
   businessPaymentMethod BusinessPaymentMethod[]
 
-  @@map("negocios")
+  isDeleted Boolean   @default(false) @map("borrado") // soft delete
+  deletedAt DateTime? @map("fecha_borrado")
+
   BusinessEmployee BusinessEmployee[]
+
+  @@map("negocios")
 }
 
 model BusinessPaymentMethod {
@@ -317,20 +329,21 @@ model BusinessPaymentMethod {
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now()) @map("creado_en")
-  updatedAt DateTime @updatedAt @map("actualizado_en")
+  createdAt DateTime  @default(now()) @map("creado_en")
+  updatedAt DateTime  @updatedAt @map("actualizado_en")
+  isDeleted Boolean   @default(false) @map("borrado") // soft delete
+  deletedAt DateTime? @map("fecha_borrado")
 
   @@map("metodos_pago_negocio")
 }
 
-
 model BusinessEmployee {
-  id         String   @id @default(uuid())
-  businessId String
-  userId     String
-  role       BusinessEmployeeRole
-  permissions Json?   // lista de permisos personalizados
-  createdAt  DateTime @default(now())
+  id          String               @id @default(uuid())
+  businessId  String
+  userId      String
+  role        BusinessEmployeeRole
+  permissions Json? // lista de permisos personalizados
+  createdAt   DateTime             @default(now())
 
   business Business @relation(fields: [businessId], references: [id])
   user     User     @relation(fields: [userId], references: [id])
@@ -346,12 +359,12 @@ enum BusinessEmployeeRole {
 // Empleados de cadeterías
 // -------------------------------------
 model DeliveryEmployee {
-  id               String   @id @default(uuid())
+  id                String               @id @default(uuid())
   deliveryCompanyId String
-  userId           String
-  role             DeliveryEmployeeRole
-  permissions      Json?
-  createdAt        DateTime @default(now())
+  userId            String
+  role              DeliveryEmployeeRole
+  permissions       Json?
+  createdAt         DateTime             @default(now())
 
   deliveryCompany DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id])
   user            User            @relation(fields: [userId], references: [id])
@@ -414,14 +427,17 @@ model Menu {
   id   String @id @default(uuid()) @map("id") // ID único del menú
   name String @map("nombre") // Nombre del menú (ej. "Menú de McDonald's Lav")
 
-  businessId String   @unique @map("negocio_id") // Un solo menú por negocio por ahora
-  business   Business @relation(fields: [businessId], references: [id]) // Relación inversa a Business
+  businessId String   @map("negocio_id") // quitar cualquier @unique
+  business   Business @relation(fields: [businessId], references: [id])
 
   sections Seccion[] // Un menú tiene muchas secciones
 
-  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  isDeleted Boolean   @default(false) @map("borrado") // soft delete
+  deletedAt DateTime? @map("fecha_borrado")
+  createdAt DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
+  @@unique([businessId, name])
   @@map("menus")
 }
 
@@ -439,8 +455,10 @@ model Seccion {
   // ⭐ AJUSTADO: Relación con MenuProducto
   menuProducts MenuProduct[] // Una sección contiene muchos productos de menú.
 
-  createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  isDeleted Boolean   @default(false) @map("borrado") // soft delete
+  deletedAt DateTime? @map("fecha_borrado")
+  createdAt DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
   @@map("secciones")
 }
@@ -496,6 +514,8 @@ model MenuProduct {
   // Un producto de menú puede tener varios grupos de opciones de personalización.
   optionGroups OpcionGrupo[] // Relación 1:N con grupos de opciones.
 
+  isDeleted Boolean     @default(false) @map("borrado") // soft delete
+  deletedAt DateTime?   @map("fecha_borrado")
   createdAt DateTime    @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime    @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
   OrderItem OrderItem[]
@@ -544,6 +564,9 @@ model OpcionGrupo {
   // Relación con Opciones
   options Opcion[] // Un grupo de opciones tiene muchas opciones
 
+  isDeleted Boolean   @default(false) @map("borrado") // soft delete
+  deletedAt DateTime? @map("fecha_borrado")
+
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
@@ -572,6 +595,9 @@ model Opcion {
   // Relación con OpcionGrupo
   optionGroupId String      @map("id_grupo_opcion")
   optionGroup   OpcionGrupo @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+
+  isDeleted Boolean   @default(false) @map("borrado") // soft delete
+  deletedAt DateTime? @map("fecha_borrado")
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
@@ -761,7 +787,6 @@ model OrderOption {
 
 // Enums
 
-
 enum DeliveryType {
   PICKUP // El cliente retira en el local
   DELIVERY
@@ -818,12 +843,12 @@ enum OrderStatus {
 // Modelos
 
 model DeliveryCompany {
-  id       String   @id @default(uuid())
+  id       String         @id @default(uuid())
   name     String
   phone    String
   // Relación uno a muchos con el nuevo modelo de zonas
-  zones     DeliveryZone[]
-  isActive Boolean  @default(true)
+  zones    DeliveryZone[]
+  isActive Boolean        @default(true)
 
   ownerId String
   orders  Order[] @relation("DeliveryCompanyOrders")
@@ -836,19 +861,19 @@ model DeliveryCompany {
 }
 
 model DeliveryZone {
-  id                String          @id @default(uuid())
-  name              String          // Nombre de la zona (ej: "Centro", "Norte")
-  price             Decimal         // Precio por entrega en esta zona
-  
+  id    String  @id @default(uuid())
+  name  String // Nombre de la zona (ej: "Centro", "Norte")
+  price Decimal // Precio por entrega en esta zona
+
   // Campo para almacenar la geometría del polígono en formato GeoJSON
-  geometry          Json?           
-  
+  geometry Json?
+
   // Relación con DeliveryCompany
   deliveryCompany   DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id])
   deliveryCompanyId String
 
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum OrderOrigin {

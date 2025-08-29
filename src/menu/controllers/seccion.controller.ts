@@ -6,7 +6,7 @@ import {
   Inject,
   Param,
   Post,
-  Put,
+  Patch,
   Query,
 } from '@nestjs/common';
 import { TOKENS } from 'src/common/constants/tokens';
@@ -35,8 +35,8 @@ export class SeccionController {
     return this.seccionService.findOne(id);
   }
 
-  @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: SeccionUpdateDto) {
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() dto: Partial<SeccionUpdateDto>) {
     return this.seccionService.updateSeccion(id, dto);
   }
 

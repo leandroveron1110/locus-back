@@ -6,7 +6,7 @@ export interface ISeccionService {
   createSeccion(dto: SeccionCreateDto): Promise<Seccion>;
   findAllByMenuId(menuId: string): Promise<Seccion[]>;
   findOne(id: string): Promise<Seccion>;
-  updateSeccion(id: string, dto: SeccionUpdateDto): Promise<Seccion>;
+  updateSeccion(id: string, dto: Partial<SeccionUpdateDto>): Promise<Seccion>;
   deleteSeccion(id: string): Promise<Seccion>;
 }
 
