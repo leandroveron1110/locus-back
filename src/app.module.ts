@@ -25,6 +25,8 @@ import { AddressModule } from './address/address.module';
 import { SocketModule } from './socket/socket.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { BusinessPaymentMethodsModule } from './business-payment-methods/business-payment-methods.module';
+import { DeliveryZonesModule } from './delivery-zones/delivery-zones.module';
+import { EmployeesModule } from './employees/employees.module';
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { BusinessPaymentMethodsModule } from './business-payment-methods/busines
     SocketModule,
     DeliveryModule,
     BusinessPaymentMethodsModule,
+    DeliveryZonesModule,
+    EmployeesModule,
   ],
   controllers: [AppController],
   providers: [AppService, IsBusinessIdExistsConstraint],

@@ -86,6 +86,8 @@ model User {
   address          Address[]          @relation("UserAddresses")
   Order            Order[]
   DeliveryCompany  DeliveryCompany[]
+  deliveryEmployee DeliveryEmployee[]
+  businessEmployee BusinessEmployee[]
 
   @@map("usuarios")
 }
@@ -301,6 +303,7 @@ model Business {
   businessPaymentMethod BusinessPaymentMethod[]
 
   @@map("negocios")
+  BusinessEmployee BusinessEmployee[]
 }
 
 model BusinessPaymentMethod {
@@ -318,6 +321,45 @@ model BusinessPaymentMethod {
   updatedAt DateTime @updatedAt @map("actualizado_en")
 
   @@map("metodos_pago_negocio")
+}
+
+
+model BusinessEmployee {
+  id         String   @id @default(uuid())
+  businessId String
+  userId     String
+  role       BusinessEmployeeRole
+  permissions Json?   // lista de permisos personalizados
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+}
+
+enum BusinessEmployeeRole {
+  MANAGER
+  CASHIER
+  WAITER
+}
+
+// -------------------------------------
+// Empleados de cadeterías
+// -------------------------------------
+model DeliveryEmployee {
+  id               String   @id @default(uuid())
+  deliveryCompanyId String
+  userId           String
+  role             DeliveryEmployeeRole
+  permissions      Json?
+  createdAt        DateTime @default(now())
+
+  deliveryCompany DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id])
+  user            User            @relation(fields: [userId], references: [id])
+}
+
+enum DeliveryEmployeeRole {
+  DRIVER
+  DISPATCHER
 }
 
 // Este modelo contendrá una copia desnormalizada y optimizada de los datos de negocio
@@ -779,7 +821,8 @@ model DeliveryCompany {
   id       String   @id @default(uuid())
   name     String
   phone    String
-  zones    String[] // Zonas donde opera (puede ser un enum si querés más control)
+  // Relación uno a muchos con el nuevo modelo de zonas
+  zones     DeliveryZone[]
   isActive Boolean  @default(true)
 
   ownerId String
@@ -788,6 +831,24 @@ model DeliveryCompany {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  DeliveryEmployee DeliveryEmployee[]
+}
+
+model DeliveryZone {
+  id                String          @id @default(uuid())
+  name              String          // Nombre de la zona (ej: "Centro", "Norte")
+  price             Decimal         // Precio por entrega en esta zona
+  
+  // Campo para almacenar la geometría del polígono en formato GeoJSON
+  geometry          Json?           
+  
+  // Relación con DeliveryCompany
+  deliveryCompany   DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id])
+  deliveryCompanyId String
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 }
 
 enum OrderOrigin {

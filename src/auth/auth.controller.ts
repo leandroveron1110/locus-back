@@ -24,28 +24,36 @@ export class AuthController {
     private authService: AuthService,
   ) {}
 
-  @Post('login') // Ruta para el login: /auth/login
-  @HttpCode(HttpStatus.OK) // Devuelve 200 OK para un login exitoso
-  async login(
-    @Body() loginDto: LoginDto,
-  ): Promise<{ user: LoginResponseDto; accessToken: string }> {
-    return this.authService.login(loginDto);
+  // -------------------------------
+  // Registro (signup)
+  // -------------------------------
+  @Post('register')
+  async register(@Body() createUserDto: CreateUserDto) {
+    return this.authService.create(createUserDto);
   }
 
-  @Post('login/delivery') // Ruta para el login: /auth/login
-  @HttpCode(HttpStatus.OK) // Devuelve 200 OK para un login exitoso
-  async loginDelivery(
-    @Body() loginDto: LoginDto,
-  ): Promise<{ user: LoginResponseDto; accessToken: string }> {
-    return this.authService.login(loginDto);
+  // -------------------------------
+  // Login cliente
+  // -------------------------------
+  @Post('login/client')
+  async loginClient(@Body() loginDto: LoginDto) {
+    return this.authService.loginClient(loginDto);
   }
 
-  @Post('register') // Ruta para el login: /auth/login
-  @HttpCode(HttpStatus.OK) // Devuelve 200 OK para un login exitoso
-  async register(
-    @Body() loginDto: CreateUserDto,
-  ): Promise<{ user: LoginResponseDto; accessToken: string }> {
-    return this.authService.create(loginDto);
+  // -------------------------------
+  // Login negocio (dueño o empleado)
+  // -------------------------------
+  @Post('login/business')
+  async loginBusiness(@Body() loginDto: Omit<LoginDto, 'role'>) {
+    return this.authService.loginBusiness(loginDto);
+  }
+
+  // -------------------------------
+  // Login cadetería (dueño o empleado)
+  // -------------------------------
+  @Post('login/delivery')
+  async loginDelivery(@Body() loginDto: LoginDto) {
+    return this.authService.loginDelivery(loginDto);
   }
 
   @UseGuards(JwtAuthGuard)

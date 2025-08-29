@@ -5,12 +5,22 @@ import { CreateUserDto } from 'src/users/dto/Request/create-user.dto';
 
 export interface IAuthService {
   validateUser(email: string, password: string): Promise<User | null>;
-  login(
+
+  loginClient(
     loginDto: LoginDto,
   ): Promise<{ user: LoginResponseDto; accessToken: string }>;
+
+  loginBusiness(
+    loginDto: LoginDto,
+  ): Promise<{ user: LoginResponseDto; accessToken: string }>;
+
+  loginDelivery(
+    loginDto: LoginDto,
+  ): Promise<{ user: LoginResponseDto; accessToken: string }>;
+
   getMe(userId: string): Promise<LoginResponseDto>;
 
   create(
-      data: CreateUserDto,
-    ): Promise<{ user: LoginResponseDto; accessToken: string }>
+    data: CreateUserDto,
+  ): Promise<{ user: LoginResponseDto; accessToken: string }>;
 }

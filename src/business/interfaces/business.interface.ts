@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Business, Prisma } from '@prisma/client';
 import { CreateBusinessDto } from '../dto/Request/create-business.dto';
 import {
   BusinessPreviewDto,
@@ -21,7 +21,10 @@ export interface IBusinessService {
   findAllPreview(): Promise<BusinessPreviewDto[]>;
 
   findOne(businessId: string): Promise<any>;
+
   findForOrder(id: string): Promise<any>;
+
+  findByOwner(owenrId: string): Promise<Business[]>;
 
   findOneProfileById(id: string): Promise<any>;
 
@@ -35,4 +38,6 @@ export interface IBusinessService {
   ): Promise<{ id: string; modulesConfig: Prisma.JsonValue }>;
 
   getModulesConfigByBusinessId(businessId: string): Promise<ModulesConfig>;
+
+  findManyByIds(businessIds: string[]): Promise<any[]>;
 }

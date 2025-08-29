@@ -6,9 +6,13 @@ import {
   Delete,
   Body,
   Param,
+  Patch,
 } from '@nestjs/common';
 import { OptionGroupService } from '../services/option-group.service';
-import { CreateOptionGroupDto, UpdateOptionGroupDto } from '../dtos/request/option-group-request.dto';
+import {
+  CreateOptionGroupDto,
+  UpdateOptionGroupDto,
+} from '../dtos/request/option-group-request.dto';
 
 @Controller('option-groups')
 export class OptionGroupController {
@@ -34,8 +38,8 @@ export class OptionGroupController {
     return this.service.findOne(id);
   }
 
-  @Put(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateOptionGroupDto) {
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() dto: Partial<UpdateOptionGroupDto>) {
     return this.service.update(id, dto);
   }
 

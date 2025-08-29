@@ -328,6 +328,19 @@ export class BusinessService implements IBusinessService {
     }
   }
 
+  async findByOwner(owenrId: string): Promise<any> {
+    const business = await this.prisma.business.findMany({
+      where: { ownerId: owenrId },
+    });
+    if (!business) {
+      throw new NotFoundException(`Negocio con ID "${owenrId}" no encontrado.`);
+    }
+
+    // const followNormalized = this.normalizeFollow(follow);
+
+    return business;
+  }
+
   /**
    * Actualiza la configuración de módulos opcionales para un negocio.
    * Esto SÍ es parte del core del negocio.
@@ -384,5 +397,23 @@ export class BusinessService implements IBusinessService {
     }
 
     return parsed.data;
+  }
+
+  async findManyByIds(businessIds: string[]) {
+    const businesses = await this.prisma.business.findMany({
+      where: {
+        id: {
+          in: businessIds,
+        },
+      },
+    });
+
+    return businesses.map((b) => ({
+      id: b.id,
+      name: b.name,
+      address: b.address,
+      description: b.shortDescription,
+      
+    }));
   }
 }

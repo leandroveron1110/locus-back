@@ -13,6 +13,8 @@ import { RolesGuard } from './guards/roles.guard';
 import { AdminSecretGuard } from './guards/admin-secret.guard';
 import { TOKENS } from 'src/common/constants/tokens';
 import { DeliveryModule } from 'src/delivery/delivery.module';
+import { EmployeesModule } from 'src/employees/employees.module';
+import { BusinessModule } from 'src/business/business.module';
 
 @Module({
   imports: [
@@ -23,6 +25,10 @@ import { DeliveryModule } from 'src/delivery/delivery.module';
     ConfigModule,
 
     DeliveryModule,
+
+    EmployeesModule,
+
+    BusinessModule,
 
     // 2. Importar UsersModule:
     // Permite que AuthService y JwtStrategy accedan a UsersService

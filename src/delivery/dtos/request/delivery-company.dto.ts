@@ -8,10 +8,6 @@ export class CreateDeliveryCompanyDto {
   @IsString()
   phone: string;
 
-  @IsArray()
-  @IsString({ each: true })
-  zones: string[];
-
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;

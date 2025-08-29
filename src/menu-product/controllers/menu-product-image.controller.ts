@@ -12,6 +12,7 @@ import {
   BadRequestException,
   Get,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { MenuProductImageService } from '../services/menu-product-image.service';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -26,7 +27,7 @@ export class MenuProductImageController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(
-    @Param('menuProductId') menuProductId: string,
+    @Query('menuProductId') menuProductId: string,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<ImageResponseDto> {
     if (!file) {

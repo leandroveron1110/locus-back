@@ -16,28 +16,16 @@ import {
   Inject,
   BadRequestException,
 } from '@nestjs/common';
-import { BusinessService } from '../services/business.service';
 import { CreateBusinessDto } from '../dto/Request/create-business.dto';
 import { UpdateBusinessDto } from '../dto/Request/update-business.dto';
 import { BusinessResponseDto } from '../dto/Response/business-response.dto';
 import { FindAllBusinessesDto } from '../dto/Request/find-all-businesses.dto'; // Importa el nuevo DTO
-import { UpdateModulesConfigDto } from '../dto/Request/update-modules-config.dto'; // Importa el nuevo DTO
-
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBody,
-  ApiParam,
-  ApiQuery,
-} from '@nestjs/swagger';
 import { Prisma } from '@prisma/client'; // Importa Prisma para los tipos de where/orderBy
 import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessService } from '../interfaces/business.interface';
-import z from 'zod';
 import { ModulesConfigSchema } from '../dto/Request/modules-config.schema.dto';
+import { GetBusinessesDto } from '../dto/Request/business-ids.dto';
 
-@ApiTags('Businesses')
 @Controller('businesses')
 // Aplica ValidationPipe a nivel de controlador para validar todos los DTOs
 @UsePipes(
@@ -62,13 +50,6 @@ export class BusinessController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Retrieve a list of businesses' })
-  @ApiQuery({ type: FindAllBusinessesDto }) // Usa el DTO para las queries
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Returns a list of businesses.',
-    type: [BusinessResponseDto],
-  })
   async findAll(@Query() queryParams: FindAllBusinessesDto): Promise<any[]> {
     // Transformar los strings JSON de `where` y `orderBy` a objetos de Prisma
     const where = queryParams.where
@@ -136,5 +117,10 @@ export class BusinessController {
     }
 
     return this.businessService.updateModulesConfig(businessId, parsed.data);
+  }
+
+  @Post('businesses/ids/')
+  async getBusinesses(@Body() body: GetBusinessesDto) {
+    return await this.businessService.findManyByIds(body.ids);
   }
 }
