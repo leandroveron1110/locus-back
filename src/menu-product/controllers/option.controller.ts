@@ -19,6 +19,7 @@ export class OptionController {
   // Crear una opción
   @Post()
   async create(@Body() dto: CreateOpcionDto) {
+    console.log("controller option", dto)
     return await this.optionService.create(dto);
   }
 
