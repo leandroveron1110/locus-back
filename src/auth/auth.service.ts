@@ -151,8 +151,9 @@ export class AuthService implements IAuthService {
   // LOGIN DELIVERY (dueño o empleado)
   // -------------------------------
   async loginDelivery(
-    loginDto: LoginDto,
+    loginDto: Omit<LoginDto, 'role'>,
   ): Promise<{ user: LoginResponseDto; accessToken: string }> {
+    console.log("loginDto", loginDto)
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas.');

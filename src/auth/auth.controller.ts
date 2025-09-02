@@ -52,7 +52,7 @@ export class AuthController {
   // Login cadetería (dueño o empleado)
   // -------------------------------
   @Post('login/delivery')
-  async loginDelivery(@Body() loginDto: LoginDto) {
+  async loginDelivery(@Body() loginDto: Omit<LoginDto, 'role'>) {
     return this.authService.loginDelivery(loginDto);
   }
 

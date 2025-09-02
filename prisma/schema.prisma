@@ -868,6 +868,12 @@ model DeliveryZone {
   // Campo para almacenar la geometría del polígono en formato GeoJSON
   geometry Json?
 
+  hasTimeLimit Boolean @default(false)
+  startTime    String?
+  endTime      String?
+
+  isActive Boolean @default(true)
+
   // Relación con DeliveryCompany
   deliveryCompany   DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id])
   deliveryCompanyId String

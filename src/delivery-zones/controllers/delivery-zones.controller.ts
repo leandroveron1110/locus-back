@@ -1,8 +1,7 @@
-// src/delivery-zones/delivery-zones.controller.ts
-
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Put, Delete, Patch } from '@nestjs/common';
 import { DeliveryZonesService } from '../services/delivery-zones.service';
 import { CreateDeliveryZoneDto } from '../dtos/request/delivery-zone.dto';
+import { UpdateDeliveryZoneDto } from '../dtos/request/update-delivery-zone.dto';
 
 @Controller('delivery-zones')
 export class DeliveryZonesController {
@@ -15,6 +14,22 @@ export class DeliveryZonesController {
     return this.deliveryZonesService.create(createZoneDto);
   }
 
+  // Endpoint para editar parcialmente una zona de entrega.
+  // La ruta incluye el ID de la zona a editar.
+  // Ejemplo de body: { "name": "Zona Norte (Actualizada)", "price": 1100 }
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() updateZoneDto: UpdateDeliveryZoneDto) {
+    console.log(id, updateZoneDto)
+    return this.deliveryZonesService.update(id, updateZoneDto);
+  }
+
+  // Endpoint para eliminar una zona de entrega por su ID.
+  // La ruta incluye el ID de la zona a eliminar.
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return this.deliveryZonesService.remove(id);
+  }
+
   // Endpoint para que el cliente obtenga el precio de una ubicación.
   // Ejemplo de body: { "companyId": "uuid-company", "lat": -34.6037, "lng": -58.3816 }
   @Post('calculate-price')
@@ -22,7 +37,7 @@ export class DeliveryZonesController {
     const price = await this.deliveryZonesService.calculatePrice(
       body.companyId,
       body.lat,
-      body.lng
+      body.lng,
     );
 
     if (price !== null) {
@@ -30,5 +45,10 @@ export class DeliveryZonesController {
     } else {
       return { price: null, message: 'Ubicación fuera del área de servicio de la compañía.' };
     }
+  }
+
+  @Get('zones/:companyId')
+  async getZonesByDeliberyCompany(@Param('companyId') companyId: string) {
+    return this.deliveryZonesService.getZonesByDeliberyCompany(companyId);
   }
 }

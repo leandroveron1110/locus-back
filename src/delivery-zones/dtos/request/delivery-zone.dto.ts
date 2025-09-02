@@ -1,6 +1,16 @@
 // src/delivery-zones/dto/create-delivery-zone.dto.ts
 
-import { IsString, IsNumber, IsNotEmpty, IsArray, ValidateNested, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsNotEmpty,
+  IsArray,
+  ValidateNested,
+  IsObject,
+  IsBoolean, // Nuevo
+  IsOptional,
+  IsEmpty, // Nuevo
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Define el DTO para la geometría GeoJSON
@@ -32,4 +42,18 @@ export class CreateDeliveryZoneDto {
   @ValidateNested()
   @Type(() => GeoJsonPolygonDto)
   geometry: GeoJsonPolygonDto;
+
+  @IsBoolean()
+  hasTimeLimit: boolean;
+
+  @IsOptional()
+  @IsString()
+  startTime?: string;
+
+  @IsOptional()
+  @IsString()
+  endTime?: string;
+
+  @IsBoolean()
+  isActive: boolean = true;
 }

@@ -39,11 +39,12 @@ export class DeliveryService implements IDeliveryService{
   }
 
   async findManyCompanyByOwnerId(ownerId: string) {
+
     const company = await this.prisma.deliveryCompany.findMany({
       where: { ownerId },
     });
     if (!company)
-      throw new NotFoundException(`DeliveryCompany ${ownerId} not found`);
+      throw new NotFoundException(`DeliveryCompany no se encontro nada${ownerId} not found`);
     return company;
   }
 
