@@ -43,7 +43,6 @@ export class DeliveryController {
   @Get('companies/owner/:ownerId')
   async findManyCompanyByOwnerId(@Param('ownerId') ownerId: string) {
     const res = await this.deliveryService.findManyCompanyByOwnerId(ownerId);
-    console.log("ress", res);
     return res; 
   }
 

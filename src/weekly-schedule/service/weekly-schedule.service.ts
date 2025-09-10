@@ -133,11 +133,61 @@ export class WeeklyScheduleService implements IWeeklyScheduleService {
    * @returns Lista de horarios semanales del negocio.
    * @throws NotFoundException Si el negocio no existe.
    */
+  async findPanleBusinessByBusinessId(
+    businessId: string,
+    isValidBusiness: boolean = true,
+  ): Promise<any> {
+    if (isValidBusiness) await this.businessValidator.checkOne(businessId);
+
+    const schedules = await this.prisma.weeklySchedule.findMany({
+      where: { businessId },
+      orderBy: [{ dayOfWeek: 'asc' }, { openingTime: 'asc' }],
+      select: {
+        id: true,
+        dayOfWeek: true,
+        openingTime: true,
+        closingTime: true,
+      },
+    });
+
+    // const grouped: Record<string, string[]> = {};
+
+    type s = {
+      id: string,
+      dayOfWeek: string,
+      openingTime: string,
+      closingTime: string
+    } 
+
+    const res: s[] = []
+
+    const formatTime = (date: Date): string => {
+      return date.toLocaleTimeString('es-AR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    };
+
+    for (const { id, dayOfWeek, openingTime, closingTime } of schedules) {
+      const key = dayOfWeek.toUpperCase();
+      res.push({
+        id,
+        closingTime: formatTime(closingTime),
+        dayOfWeek: key,
+        openingTime: formatTime(openingTime)
+      })
+
+    }
+
+    return res;
+  }
+
   async findByBusinessId(
     businessId: string,
-    isValidBusiness: boolean = true
+    isValidBusiness: boolean = true,
   ): Promise<Record<string, string[]>> {
-    if(isValidBusiness) await this.businessValidator.checkOne(businessId);
+    if (isValidBusiness) await this.businessValidator.checkOne(businessId);
 
     const schedules = await this.prisma.weeklySchedule.findMany({
       where: { businessId },
@@ -152,7 +202,11 @@ export class WeeklyScheduleService implements IWeeklyScheduleService {
     const grouped: Record<string, string[]> = {};
 
     const formatTime = (date: Date): string => {
-      return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+      return date.toLocaleTimeString('es-AR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
     };
 
     for (const { dayOfWeek, openingTime, closingTime } of schedules) {

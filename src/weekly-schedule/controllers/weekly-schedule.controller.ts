@@ -61,6 +61,12 @@ export class WeeklyScheduleController {
     return this.weeklyScheduleService.findByBusinessId(businessId);
   }
 
+    @Get('panel-business/:businessId')
+  @HttpCode(HttpStatus.OK)
+  findPanleBusinessByBusinessId(@Param('businessId') businessId: string): Promise<any> {
+    return this.weeklyScheduleService.findPanleBusinessByBusinessId(businessId);
+  }
+
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   update(
