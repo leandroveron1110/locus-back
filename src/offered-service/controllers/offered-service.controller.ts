@@ -1,14 +1,18 @@
 // src/modules/offered-service/offered-service.controller.ts
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from '@nestjs/common';
-import { OfferedServiceService } from '../services/offered-service.service';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query, Inject } from '@nestjs/common';
 import { CreateOfferedServiceDto } from '../dtos/Request/create-offered-service.dto';
 import { OfferedServiceResponseDto } from '../dtos/Response/offered-service-response.dto';
 import { UpdateOfferedServiceDto } from '../dtos/Request/update-offered-service.dto';
+import { TOKENS } from 'src/common/constants/tokens';
+import { IOfferedServiceService } from '../interfaces/offered-service-service.interface';
 
 
 @Controller('offered-services') // Prefijo de ruta
 export class OfferedServiceController {
-  constructor(private readonly offeredServiceService: OfferedServiceService) {}
+  constructor(
+    @Inject(TOKENS.IOfferedServiceSerice)
+    private readonly offeredServiceService: IOfferedServiceService
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED) // 201 Created

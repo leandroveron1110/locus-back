@@ -5,10 +5,11 @@ import { User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs'; // Importa bcryptjs aquí
 import { CreateUserDto } from '../dto/Request/create-user.dto';
 import { UpdateUserDto } from '../dto/Request/update-user.dto';
+import { IUserService } from '../interfaces/User-service.interface';
 
 
 @Injectable()
-export class UsersService {
+export class UsersService implements IUserService{
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -26,7 +27,7 @@ export class UsersService {
         passwordHash: hashedPassword, // Guarda el hash
         firstName: data.firstName,
         lastName: data.lastName,
-        role: data.role || UserRole.CLIENT,
+        role: UserRole.CLIENT,
       },
     });
   }
@@ -44,10 +45,16 @@ export class UsersService {
    * @param id El ID único del usuario.
    * @returns El objeto User si se encuentra, o null.
    */
-  async findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({
+  async findById(id: string): Promise<User> {
+    const user = await this.prisma.user.findUnique({
       where: { id },
     });
+
+    if(!user) {
+      throw new NotFoundException(`Usuario con el ID ${id} no encontrado`)
+    }
+
+    return user;
   }
 
   /**

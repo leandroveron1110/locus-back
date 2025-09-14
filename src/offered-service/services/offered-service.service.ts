@@ -1,17 +1,24 @@
 // src/modules/offered-service/offered-service.service.ts
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { BusinessService } from 'src/business/services/business.service';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  Inject,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateOfferedServiceDto } from '../dtos/Request/create-offered-service.dto';
 import { OfferedServiceResponseDto } from '../dtos/Response/offered-service-response.dto';
 import { UpdateOfferedServiceDto } from '../dtos/Request/update-offered-service.dto';
-
+import { TOKENS } from 'src/common/constants/tokens';
+import { IBusinessService } from 'src/business/interfaces/business.interface';
+import { IOfferedServiceService } from '../interfaces/offered-service-service.interface';
 
 @Injectable()
-export class OfferedServiceService {
+export class OfferedServiceService implements IOfferedServiceService {
   constructor(
     private prisma: PrismaService,
-    private businessService: BusinessService, // Inyecta BusinessService
+    @Inject(TOKENS.IBusinessService)
+    private businessService: IBusinessService,
   ) {}
 
   /**
@@ -21,11 +28,10 @@ export class OfferedServiceService {
    * @throws NotFoundException Si el negocio no existe.
    * @throws ConflictException Si ya existe un servicio con el mismo nombre para el mismo negocio.
    */
-  async create(createOfferedServiceDto: CreateOfferedServiceDto): Promise<OfferedServiceResponseDto> {
+  async create(
+    createOfferedServiceDto: CreateOfferedServiceDto,
+  ): Promise<OfferedServiceResponseDto> {
     const { businessId, name, ...data } = createOfferedServiceDto;
-
-    // 1. Validar que el negocio exista
-    await this.businessService.findOne(businessId);
 
     // 2. Verificar si ya existe un servicio con el mismo nombre para este negocio
     const existingService = await this.prisma.offeredService.findFirst({
@@ -39,7 +45,9 @@ export class OfferedServiceService {
     });
 
     if (existingService) {
-      throw new ConflictException(`Service with name "${name}" already exists for business ID "${businessId}".`);
+      throw new ConflictException(
+        `Service with name "${name}" already exists for business ID "${businessId}".`,
+      );
     }
 
     const offeredService = await this.prisma.offeredService.create({
@@ -60,7 +68,10 @@ export class OfferedServiceService {
    * @param isActive (Opcional) Filtro por estado activo/inactivo.
    * @returns Lista de servicios ofrecidos.
    */
-  async findAll(businessId?: string, isActive?: boolean): Promise<OfferedServiceResponseDto[]> {
+  async findAll(
+    businessId?: string,
+    isActive?: boolean,
+  ): Promise<OfferedServiceResponseDto[]> {
     const services = await this.prisma.offeredService.findMany({
       where: {
         businessId: businessId,
@@ -95,7 +106,9 @@ export class OfferedServiceService {
    * @returns Lista de servicios ofrecidos por el negocio.
    * @throws NotFoundException Si el negocio no existe.
    */
-  async findByBusinessId(businessId: string): Promise<OfferedServiceResponseDto[]> {
+  async findByBusinessId(
+    businessId: string,
+  ): Promise<OfferedServiceResponseDto[]> {
     await this.businessService.findOne(businessId); // Valida que el negocio exista
 
     const services = await this.prisma.offeredService.findMany({
@@ -113,7 +126,10 @@ export class OfferedServiceService {
    * @throws NotFoundException Si el servicio no se encuentra.
    * @throws ConflictException Si la actualización genera un conflicto de nombre para el mismo negocio.
    */
-  async update(id: string, updateOfferedServiceDto: UpdateOfferedServiceDto): Promise<OfferedServiceResponseDto> {
+  async update(
+    id: string,
+    updateOfferedServiceDto: UpdateOfferedServiceDto,
+  ): Promise<OfferedServiceResponseDto> {
     const { businessId, name, ...data } = updateOfferedServiceDto;
 
     // Obtener el servicio actual para verificar posibles conflictos
@@ -124,7 +140,10 @@ export class OfferedServiceService {
       const newBusinessId = businessId ?? currentService.businessId;
       const newName = name ?? currentService.name;
 
-      if (newBusinessId !== currentService.businessId || newName.toLowerCase() !== currentService.name.toLowerCase()) {
+      if (
+        newBusinessId !== currentService.businessId ||
+        newName.toLowerCase() !== currentService.name.toLowerCase()
+      ) {
         await this.businessService.findOne(newBusinessId); // Validar nuevo businessId si cambió
 
         const conflictService = await this.prisma.offeredService.findFirst({
@@ -138,7 +157,9 @@ export class OfferedServiceService {
         });
 
         if (conflictService && conflictService.id !== id) {
-          throw new ConflictException(`Service with name "${newName}" already exists for business ID "${newBusinessId}".`);
+          throw new ConflictException(
+            `Service with name "${newName}" already exists for business ID "${newBusinessId}".`,
+          );
         }
       }
     }
@@ -155,7 +176,9 @@ export class OfferedServiceService {
       return OfferedServiceResponseDto.fromPrisma(updatedService);
     } catch (error) {
       if (error.code === 'P2025') {
-        throw new NotFoundException(`OfferedService with ID "${id}" not found.`);
+        throw new NotFoundException(
+          `OfferedService with ID "${id}" not found.`,
+        );
       }
       throw error;
     }
@@ -172,14 +195,13 @@ export class OfferedServiceService {
   async remove(id: string): Promise<void> {
     // Opcional: Implementar lógica para verificar si el servicio está en uso (ej. en Booking)
     const serviceInUse = await this.prisma.offeredService.findUnique({
-        where: { id },
-        include: {
-            bookings: { take: 1 }, // Asumiendo que Booking tiene una relación con OfferedService
-        },
+      where: { id }
     });
 
-    if (serviceInUse && serviceInUse.bookings.length > 0) {
-        throw new ConflictException(`OfferedService with ID "${id}" cannot be deleted because it is currently associated with existing bookings.`);
+    if (serviceInUse) {
+      throw new ConflictException(
+        `OfferedService with ID "${id}" cannot be deleted because it is currently associated with existing bookings.`,
+      );
     }
 
     try {
@@ -188,7 +210,9 @@ export class OfferedServiceService {
       });
     } catch (error) {
       if (error.code === 'P2025') {
-        throw new NotFoundException(`OfferedService with ID "${id}" not found.`);
+        throw new NotFoundException(
+          `OfferedService with ID "${id}" not found.`,
+        );
       }
       throw error;
     }

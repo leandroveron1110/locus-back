@@ -12,14 +12,21 @@ import { BusinessModule } from './business/business.module';
 import { ImageModule } from './image/image.module';
 import { StatusModule } from './status/status.module';
 import { WeeklyScheduleModule } from './weekly-schedule/weekly-schedule.module';
-import { MenuSectionModule } from './menu-section/menu-section.module';
 import { OfferedServiceModule } from './offered-service/offered-service.module';
-import { ProductModule } from './product/product.module';
-import { BookingModule } from './booking/booking.module';
-import { EventModule } from './event/event.module';
 import { RatingModule } from './rating/rating.module';
-import { SpecialScheduleModule } from './special-schedule/special-schedule.module';
 import { SearchModule } from './search/search.module';
+import { UploadsModule } from './uploads/uploads.module';
+import { IsBusinessIdExistsConstraint } from './common/validators/is-business-id-exists.validator';
+import { FollowModule } from './follow/follow.module';
+import { MenuModule } from './menu/menu.module';
+import { MenuProductModule } from './menu-product/menu-product.module';
+import { OrderModule } from './order/order.module';
+import { AddressModule } from './address/address.module';
+import { SocketModule } from './socket/socket.module';
+import { DeliveryModule } from './delivery/delivery.module';
+import { BusinessPaymentMethodsModule } from './business-payment-methods/business-payment-methods.module';
+import { DeliveryZonesModule } from './delivery-zones/delivery-zones.module';
+import { EmployeesModule } from './employees/employees.module';
 
 @Module({
   imports: [
@@ -37,16 +44,22 @@ import { SearchModule } from './search/search.module';
     ImageModule,
     StatusModule,
     WeeklyScheduleModule,
-    MenuSectionModule,
     OfferedServiceModule,
-    ProductModule,
-    BookingModule,
-    EventModule,
     RatingModule,
-    SpecialScheduleModule,
     SearchModule,
+    UploadsModule,
+    FollowModule,
+    MenuModule,
+    MenuProductModule,
+    OrderModule,
+    AddressModule,
+    SocketModule,
+    DeliveryModule,
+    BusinessPaymentMethodsModule,
+    DeliveryZonesModule,
+    EmployeesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, IsBusinessIdExistsConstraint],
 })
 export class AppModule {}

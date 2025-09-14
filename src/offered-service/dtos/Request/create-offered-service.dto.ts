@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, Min, IsBoolean, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsBusinessIdExists } from 'src/common/validators/is-business-id-exists.validator';
 
 export class CreateOfferedServiceDto {
   @IsString()
@@ -11,7 +12,7 @@ export class CreateOfferedServiceDto {
   description?: string; // Descripción detallada del servicio
 
   @IsNotEmpty()
-  @IsUUID()
+  @IsBusinessIdExists({ message: 'El negocio especificado no existe.' }) // ¡Usa el validador aquí!
   businessId: string; // El ID del negocio que ofrece este servicio
 
   @IsOptional()

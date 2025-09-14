@@ -1,44 +1,46 @@
-import {
-  IsString,
-  IsUrl,
-  IsOptional,
-  IsInt,
-  IsEnum,
-  IsUUID,
-} from 'class-validator';
+// src/modules/image/dtos/Request/create-image.dto.ts
+import { IsString, IsUrl, IsOptional, IsInt, IsNumber, IsBoolean, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
-
-// Si tu 'type' de imagen va a ser un enum fijo (ej. 'logo', 'gallery', 'banner'),
-// puedes definir un enum TypeScript aquí o usar un simple string si es más flexible.
-export enum ImageType {
-  LOGO = 'logo',
-  GALLERY = 'gallery',
-  BANNER = 'banner',
-  PRODUCT = 'product', // Si Product usa su propia imagen_url, esto puede ser redundante.
-  // Considera si Product o MenuItem usaran el modelo Image.
-  // Por ahora lo mantengo por si acaso.
-}
+import { ImageType } from '@prisma/client';
 
 export class CreateImageDto {
   @IsString()
   @IsUrl()
-  url: string;
+  url: string; // URL de la imagen (ej. de Cloudinary)
 
   @IsString()
-  @IsUUID()
-  businessId: string; // El ID del negocio al que pertenece la imagen
+  publicId: string; // ID público en el proveedor de almacenamiento (ej. Cloudinary public_id)
 
   @IsOptional()
   @IsString()
-  @IsEnum(ImageType) // Valida que el tipo sea uno de los valores definidos en ImageType
-  type?: string = ImageType.GALLERY; // Valor por defecto si no se proporciona
+  format?: string;
 
   @IsOptional()
   @IsString()
-  provider?: string = 'default'; // Proveedor de almacenamiento (ej. 'firebase', 's3', 'cloudinary')
+  resourceType?: string; // 'image', 'video', 'raw' - Por defecto en Prisma 'image'
 
   @IsOptional()
-  @Type(() => Number) // Asegura que el valor se transforme a número
+  @Type(() => Number)
   @IsInt()
-  order?: number; // Orden para imágenes de galería
+  width?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  height?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber() // BigInt en Prisma se mapea a number en TypeScript
+  bytes?: number;
+
+  @IsOptional()
+  @IsString()
+  folder?: string;
+
+  @IsBoolean()
+  isCustomizedImage: boolean
+
+  @IsEnum(ImageType)
+  type: ImageType;
 }

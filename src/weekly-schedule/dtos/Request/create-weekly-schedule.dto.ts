@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEnum, IsUUID, Matches, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsUUID, Matches } from 'class-validator';
 import { DayOfWeek } from '@prisma/client'; // Importa el Enum DayOfWeek de Prisma Client
 
 export class CreateWeeklyScheduleDto {

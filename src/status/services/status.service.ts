@@ -1,13 +1,19 @@
-// src/modules/status/status.service.ts
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+// src/modules/status/services/status.service.ts
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateStatusDto } from '../dtos/Request/create-status.dto';
 import { StatusResponseDto } from '../dtos/Response/status-response.dto';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 import { UpdateStatusDto } from '../dtos/Request/update-status.dto';
-
+import { IStatusService } from '../interfaces/status-service.interface';
+import { Status } from '@prisma/client';
 
 @Injectable()
-export class StatusService {
+export class StatusService implements IStatusService {
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -23,7 +29,8 @@ export class StatusService {
     // Verificar si ya existe un estado con el mismo nombre y tipo de entidad
     const existingStatus = await this.prisma.status.findUnique({
       where: {
-        name_entityType: { // Usa el @@unique definido en Prisma schema
+        name_entityType: {
+          // Usa el @@unique definido en Prisma schema
           name: name,
           entityType: entityType,
         },
@@ -31,7 +38,9 @@ export class StatusService {
     });
 
     if (existingStatus) {
-      throw new ConflictException(`Status with name "${name}" for entity type "${entityType}" already exists.`);
+      throw new ConflictException(
+        `Status with name "${name}" for entity type "${entityType}" already exists.`,
+      );
     }
 
     const status = await this.prisma.status.create({
@@ -42,17 +51,18 @@ export class StatusService {
 
   /**
    * Obtiene todos los estados, opcionalmente filtrados por tipo de entidad.
-   * @param entityType (Opcional) Tipo de entidad para filtrar.
-   * @returns Lista de estados.
+   * @param entityType (Opcional) El tipo de entidad para el cual se desean listar los estados.
+   * @returns Una lista de DTOs de respuesta de estados.
    */
-  async findAll(entityType?: string): Promise<StatusResponseDto[]> {
+  async findAll(entityType?: EntityType): Promise<StatusResponseDto[]> {
+    // <-- Usa EntityType
     const statuses = await this.prisma.status.findMany({
       where: {
         entityType: entityType, // Aplica el filtro si entityType está presente
       },
       orderBy: {
         order: 'asc', // Ordena los estados por su campo 'order'
-      }
+      },
     });
     return statuses.map(StatusResponseDto.fromPrisma);
   }
@@ -76,11 +86,15 @@ export class StatusService {
   /**
    * Obtiene un estado por su nombre y tipo de entidad.
    * @param name Nombre técnico del estado.
-   * @param entityType Tipo de entidad a la que aplica el estado.
-   * @returns El estado encontrado.
-   * @throws NotFoundException Si el estado no se encuentra.
+   * @param entityType El tipo de entidad a la que se aplica el estado (ej. EntityType.BUSINESS).
+   * @returns El objeto Status encontrado.
+   * @throws NotFoundException Si el estado no es encontrado para el nombre y tipo de entidad especificados.
    */
-  async findByNameAndEntityType(name: string, entityType: string): Promise<StatusResponseDto> {
+  async findByNameAndEntityType(
+    name: string,
+    entityType: EntityType,
+  ): Promise<StatusResponseDto> {
+    // <-- Usa EntityType y retorna StatusResponseDto
     const status = await this.prisma.status.findUnique({
       where: {
         name_entityType: {
@@ -90,9 +104,11 @@ export class StatusService {
       },
     });
     if (!status) {
-      throw new NotFoundException(`Status with name "${name}" and entity type "${entityType}" not found.`);
+      throw new NotFoundException(
+        `Status with name "${name}" and entity type "${entityType}" not found.`,
+      );
     }
-    return StatusResponseDto.fromPrisma(status);
+    return StatusResponseDto.fromPrisma(status); // Retorna el DTO de respuesta
   }
 
   /**
@@ -103,14 +119,23 @@ export class StatusService {
    * @throws NotFoundException Si el estado no se encuentra.
    * @throws ConflictException Si la actualización genera un conflicto de unicidad (nombre + entityType).
    */
-  async update(id: string, updateStatusDto: UpdateStatusDto): Promise<StatusResponseDto> {
+  async update(
+    id: string,
+    updateStatusDto: UpdateStatusDto,
+  ): Promise<StatusResponseDto> {
     // Si se intenta cambiar el nombre o el entityType, verificar conflicto
     if (updateStatusDto.name || updateStatusDto.entityType) {
       const currentStatus = await this.findOne(id); // Obtener el estado actual
       const newName = updateStatusDto.name ?? currentStatus.name;
-      const newEntityType = updateStatusDto.entityType ?? currentStatus.entityType;
+      // Asegúrate de que newEntityType sea del tipo correcto (EntityType o string si es necesario)
+      const newEntityType =
+        (updateStatusDto.entityType as EntityType) ??
+        (currentStatus.entityType as EntityType);
 
-      if (newName !== currentStatus.name || newEntityType !== currentStatus.entityType) {
+      if (
+        newName !== currentStatus.name ||
+        newEntityType !== currentStatus.entityType
+      ) {
         const conflictStatus = await this.prisma.status.findUnique({
           where: {
             name_entityType: {
@@ -120,7 +145,9 @@ export class StatusService {
           },
         });
         if (conflictStatus && conflictStatus.id !== id) {
-          throw new ConflictException(`Status with name "${newName}" for entity type "${newEntityType}" already exists.`);
+          throw new ConflictException(
+            `Status with name "${newName}" for entity type "${newEntityType}" already exists.`,
+          );
         }
       }
     }
@@ -132,7 +159,8 @@ export class StatusService {
       });
       return StatusResponseDto.fromPrisma(updatedStatus);
     } catch (error) {
-      if (error.code === 'P2025') { // Código de error de Prisma para 'record not found'
+      if (error.code === 'P2025') {
+        // Código de error de Prisma para 'record not found'
         throw new NotFoundException(`Status with ID "${id}" not found.`);
       }
       throw error;
@@ -156,13 +184,13 @@ export class StatusService {
       include: {
         users: { take: 1 },
         businesses: { take: 1 },
-        bookings: { take: 1 },
-        orders: { take: 1 },
       },
     });
 
-    if (statusInUse && (statusInUse.users.length > 0 || statusInUse.businesses.length > 0 || statusInUse.bookings.length > 0 || statusInUse.orders.length > 0)) {
-        throw new ConflictException(`Status with ID "${id}" cannot be deleted because it is currently in use by other entities.`);
+    if (statusInUse) {
+      throw new ConflictException(
+        `Status with ID "${id}" cannot be deleted because it is currently in use by other entities.`,
+      );
     }
 
     try {
@@ -175,5 +203,22 @@ export class StatusService {
       }
       throw error;
     }
+  }
+
+  async findBusinessPendingReviewStatus(): Promise<Status> {
+    const pendingReviewStatus = await this.prisma.status.findUnique({
+      where: {
+        name_entityType: {
+          name: 'PENDING_REVIEW',
+          entityType: 'BUSINESS',
+        },
+      },
+    });
+
+    if (!pendingReviewStatus) {
+      throw new NotFoundException('No existe el status PENDING_REVIEW');
+    }
+
+    return pendingReviewStatus;
   }
 }

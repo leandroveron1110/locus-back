@@ -2,17 +2,13 @@ import { WeeklySchedule as PrismaWeeklySchedule, DayOfWeek } from '@prisma/clien
 
 export class WeeklyScheduleResponseDto {
   id: string;
-  businessId: string;
   dayOfWeek: DayOfWeek;
   openingTime: string; // Devuelve como string en HH:MM
   closingTime: string; // Devuelve como string en HH:MM
-  createdAt: Date;
-  updatedAt: Date;
 
   static fromPrisma(schedule: PrismaWeeklySchedule): WeeklyScheduleResponseDto {
     const dto = new WeeklyScheduleResponseDto();
     dto.id = schedule.id;
-    dto.businessId = schedule.businessId;
     dto.dayOfWeek = schedule.dayOfWeek;
 
     // Formatear las horas a HH:MM. Prisma devuelve Date para @db.Time(0)
@@ -23,8 +19,7 @@ export class WeeklyScheduleResponseDto {
 
     dto.openingTime = formatTime(schedule.openingTime);
     dto.closingTime = formatTime(schedule.closingTime);
-    dto.createdAt = schedule.createdAt;
-    dto.updatedAt = schedule.updatedAt;
+
     return dto;
   }
 }

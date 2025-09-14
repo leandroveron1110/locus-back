@@ -11,9 +11,9 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
   NotFoundException,
-  UseGuards, // Importa UseGuards
+  UseGuards,
+  Inject, // Importa UseGuards
 } from '@nestjs/common';
-import { CategoryService } from '../services/categories.service';
 import { plainToInstance } from 'class-transformer';
 
 // DTOs
@@ -26,17 +26,21 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client'; // Importa tu enum de roles de Prisma
+import { TOKENS } from 'src/common/constants/tokens';
+import { ICategoryService } from '../interfaces/Category.interface';
 
 @UseInterceptors(ClassSerializerInterceptor) // Transforma las respuestas automáticamente usando @Expose
 @Controller('categories') // Prefijo para todas las rutas: /categories
 export class CategoryController {
-  constructor(private readonly categoryService: CategoryService) {}
+  constructor(
+    @Inject(TOKENS.ICategoryService)
+    private readonly categoryService: ICategoryService) {}
 
   // --- Rutas para ADMINISTRADORES (Crear, Actualizar, Desactivar Categorías) ---
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  @Roles(UserRole.ADMIN)
+  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
+  // @Roles(UserRole.CLIENT)
   @HttpCode(HttpStatus.CREATED) // Código 201 para creación exitosa
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
@@ -45,9 +49,18 @@ export class CategoryController {
     return plainToInstance(CategoryResponseDto, category);
   }
 
+  @Post('all')
+  @HttpCode(HttpStatus.CREATED) // Código 201 para creación exitosa
+  async createAll(
+    @Body() createCategoryDto: CreateCategoryDto[],
+  ): Promise<CategoryResponseDto[]> {
+    const category = await this.categoryService.createAll(createCategoryDto);
+    return plainToInstance(CategoryResponseDto, category);
+  }
+
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  @Roles(UserRole.ADMIN)
+  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
+  // @Roles(UserRole.ADMIN)
   async update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
@@ -60,8 +73,8 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  @Roles(UserRole.ADMIN)
+  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
+  // @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT) // Código 204 para eliminación/desactivación exitosa (sin contenido de respuesta)
   async remove(@Param('id') id: string): Promise<void> {
     // El servicio maneja la lógica de desactivación (soft delete)
