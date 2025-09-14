@@ -6,14 +6,13 @@ import * as os from 'os';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+    // Leer CORS desde variable de entorno y convertir a array
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',')
+    : [];
+
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://192.168.1.56:3000',
-      'http://localhost:3002',
-      'http://localhost:3003',
-      'https://locus-drab.vercel.app/',
-    ],
+    origin: corsOrigins,
     credentials: true,
   });
 
