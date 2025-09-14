@@ -43,40 +43,53 @@ const AddressIdSchema = z.object({
   id: z.string(),
 });
 
+
 export const CreateOrderFullSchema = z.object({
   userId: z.uuid(),
   businessId: z.uuid(),
-  deliveryAddress: AddressIdSchema.optional(),
-  pickupAddress: AddressIdSchema.optional(),
+  deliveryAddressId: z.uuid().optional(),
+  pickupAddressId: z.uuid().optional(),
+  deliveryCompanyId: z.uuid().optional(),
 
-  // --- snapshot cliente ---
+  // --- Snapshot del cliente ---
   customerName: z.string().min(1, 'El nombre del cliente es obligatorio'),
   customerPhone: z.string().min(6, 'El teléfono del cliente es obligatorio'),
   customerAddress: z.string().optional(),
   customerObservations: z.string().optional(),
+  customerAddresslatitude: z.number().optional(),
+  customerAddresslongitude: z.number().optional(),
 
-  // --- snapshot negocio ---
+  // --- Snapshot del negocio ---
   businessName: z.string().min(1, 'El nombre del negocio es obligatorio'),
   businessPhone: z.string().min(6, 'El teléfono del negocio es obligatorio'),
   businessAddress: z.string().min(1, 'La dirección del negocio es obligatoria'),
   businessObservations: z.string().optional(),
+  businessAddresslatitude: z.number(),
+  businessAddresslongitude: z.number(),
 
-  status: z.enum(OrderStatus).optional(),
-  isTest: z.boolean().optional(),
-  total: z.number().refine((n) => /^\d+(\.\d{1,2})?$/.test(n.toFixed(2)), {
-    message: 'El total debe tener hasta 2 decimales',
+  // --- Snapshot de delivery ---
+  deliveryCompanyName: z.string().optional(),
+  deliveryCompanyPhone: z.string().optional(),
+  totalDelivery: z.number().optional().refine(val => val === undefined || /^\d+(\.\d{1,2})?$/.test(val.toFixed(2)), {
+    message: 'El costo de envío debe tener hasta 2 decimales',
   }),
-  notes: z.string().optional(),
-  items: z.array(CreateOrderItemSchema),
 
-  // --- pagos ---
+  // --- Pagos ---
   paymentType: z.enum(PaymentMethodType).default(PaymentMethodType.TRANSFER),
   paymentStatus: z.enum(PaymentStatus).default(PaymentStatus.PENDING),
-  paymentReceiptUrl: z.url().optional(),
+  paymentReceiptUrl: z.string().url().optional(),
   paymentInstructions: z.string().optional(),
   paymentHolderName: z.string().optional(),
 
   deliveryType: z.enum(DeliveryType).default(DeliveryType.DELIVERY),
+  status: z.enum(OrderStatus).default(OrderStatus.PENDING).optional(),
+  origin: z.enum(OrderOrigin).default(OrderOrigin.APP).optional(),
+  isTest: z.boolean().optional(),
+  total: z.number().refine(val => /^\d+(\.\d{1,2})?$/.test(val.toFixed(2)), {
+    message: 'El total debe tener hasta 2 decimales',
+  }),
+  notes: z.string().optional(),
+  items: z.array(CreateOrderItemSchema),
 });
 
 

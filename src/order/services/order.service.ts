@@ -54,13 +54,13 @@ export class OrderService implements IOrderService {
     await this.orderValidation.validateCreateFullOrder(dto);
 
     const order = await this.prisma.$transaction(async (tx) => {
-      const { items, pickupAddress, deliveryAddress, ...baseOrderData } = dto;
+      const { items, pickupAddressId, deliveryAddressId, ...baseOrderData } = dto;
 
       const createdOrder = await tx.order.create({
         data: {
           ...baseOrderData,
-          pickupAddressId: pickupAddress?.id,
-          deliveryAddressId: deliveryAddress?.id,
+          pickupAddressId: pickupAddressId,
+          deliveryAddressId: deliveryAddressId,
           origin: OrderOrigin.WEB,
         },
       });

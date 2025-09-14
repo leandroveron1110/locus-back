@@ -679,12 +679,17 @@ model Order {
   customerAddresslongitude Decimal? @map("cliente_direccion_longitud") @db.Decimal(10, 7)
 
   // --- Snapshot reducido del negocio ---
-  businessName             String   @map("negocio_nombre")
-  businessPhone            String   @map("negocio_telefono")
-  businessAddress          String   @map("negocio_direccion")
-  businessObservations     String?  @map("negocio_observaciones")
-  businessAddresslatitude  Decimal? @map("negocio_direccion_latitud") @db.Decimal(10, 7)
-  businessAddresslongitude Decimal? @map("negocio_direccion_longitud") @db.Decimal(10, 7)
+  businessName             String  @map("negocio_nombre")
+  businessPhone            String  @map("negocio_telefono")
+  businessAddress          String  @map("negocio_direccion")
+  businessObservations     String? @map("negocio_observaciones")
+  businessAddresslatitude  Decimal @map("negocio_direccion_latitud") @default(0) @db.Decimal(10, 7)
+  businessAddresslongitude Decimal @map("negocio_direccion_longitud") @default(0) @db.Decimal(10, 7)
+
+  // -- Snapshot reducido de delivery
+  deliveryCompanyName  String?  @map("cadeteria_nombre")
+  deliveryCompanyPhone String?  @map("cadeteria_telefono")
+  totalDelivery        Decimal? @map("total_delivery") @db.Decimal(10, 2)
 
   // --- Pagos simplificados ---
   paymentType         PaymentMethodType @default(TRANSFER) // CASH, TRANSFER, CARD

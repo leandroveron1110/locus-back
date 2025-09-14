@@ -40,11 +40,8 @@ export class DeliveryZonesController {
       body.lng,
     );
 
-    if (price !== null) {
-      return { price, message: 'Precio calculado exitosamente.' };
-    } else {
-      return { price: null, message: 'Ubicación fuera del área de servicio de la compañía.' };
-    }
+    return { ...price };
+
   }
 
   @Get('zones/:companyId')
