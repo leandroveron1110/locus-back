@@ -2,11 +2,7 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dto/login.dto';
-import {
-  BusinessEmployeeRole,
-  DeliveryEmployeeRole,
-  User,
-} from '@prisma/client';
+import { User, PermissionEnum } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { TOKENS } from 'src/common/constants/tokens';
@@ -60,6 +56,8 @@ export class AuthService implements IAuthService {
       sub: user.id,
       rol: user.role,
       email: user.email,
+      businesses: [],
+      deliveries: [],
     };
 
     const userDto = LoginResponseDto.fromPrisma(user);
@@ -78,9 +76,6 @@ export class AuthService implements IAuthService {
   ): Promise<{ user: LoginResponseDto; accessToken: string }> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
 
-    console.log(user);
-    console.log('dto', loginDto);
-
     if (!user || user.role !== 'CLIENT') {
       throw new UnauthorizedException('Credenciales inválidas para cliente.');
     }
@@ -89,6 +84,8 @@ export class AuthService implements IAuthService {
       sub: user.id,
       rol: user.role,
       email: user.email,
+      businesses: [],
+      deliveries: [],
     };
 
     const userDto = LoginResponseDto.fromPrisma(user);
@@ -110,25 +107,40 @@ export class AuthService implements IAuthService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    const ownedBusinesses = await this.businessService.findByOwner(user.id);
-    const employeeBusinesses =
-      await this.employeesService.findBusinessEmployees(user.id);
+    // 1️⃣ Negocios del usuario
+    const [ownedBusinesses, employeeBusinesses] = await Promise.all([
+      this.businessService.findByOwner(user.id),
+      this.employeesService.findBusinessesByUser(user.id), // <-- asegúrate de que incluya role y overrides
+    ]);
 
-    if (!ownedBusinesses.length && !employeeBusinesses.length) {
-      throw new UnauthorizedException('No tiene acceso a negocios.');
+    if (ownedBusinesses.length === 0 && employeeBusinesses.length === 0) {
+      throw new UnauthorizedException(
+        'No tiene negocios asignados ni empleo en ninguno.',
+      );
     }
 
+    // 2️⃣ Construimos businesses con permisos efectivos
     const businesses = [
       ...ownedBusinesses.map((b) => ({
         id: b.id,
-        role: 'OWNER' as const, // 👈 asegura que TS lo lea como literal
-        permissions: [] as string[],
+        role: 'OWNER' as const,
+        permissions: Object.values(PermissionEnum), // dueño tiene todos los permisos
       })),
-      ...employeeBusinesses.map((e) => ({
-        id: e.businessId,
-        role: e.role as BusinessEmployeeRole,
-        permissions: (e.permissions as string[]) || [],
-      })),
+      ...employeeBusinesses.map((e) => {
+        const rolePermissions = e.role?.permissions ?? [];
+        const permissionsSet = new Set(rolePermissions);
+
+        e.overrides?.forEach((o) => {
+          if (o.allowed) permissionsSet.add(o.permission);
+          else permissionsSet.delete(o.permission);
+        });
+
+        return {
+          id: e.businessId,
+          role: e.role?.name ?? 'UNASSIGNED',
+          permissions: Array.from(permissionsSet),
+        };
+      }),
     ];
 
     const payload: JwtPayload = {
@@ -136,24 +148,25 @@ export class AuthService implements IAuthService {
       rol: user.role,
       email: user.email,
       businesses,
+      deliveries: [],
     };
 
-    let userDto = LoginResponseDto.fromPrisma(user);
+    const userDto = LoginResponseDto.fromPrisma(user);
+    // Correcto: asignamos el array de negocios al objeto DTO
     userDto.businesses = businesses;
 
     return {
-      user: userDto,
+      user: userDto, // Correcto: devolvemos el objeto DTO completo
       accessToken: this.jwtService.sign(payload),
     };
   }
 
   // -------------------------------
-  // LOGIN DELIVERY (dueño o empleado)
+  // LOGIN DELIVERY
   // -------------------------------
   async loginDelivery(
     loginDto: Omit<LoginDto, 'role'>,
   ): Promise<{ user: LoginResponseDto; accessToken: string }> {
-    console.log("loginDto", loginDto)
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas.');
@@ -162,30 +175,22 @@ export class AuthService implements IAuthService {
     const ownedDeliveries = await this.deliveryService.findCompaniesByOwner(
       user.id,
     );
-    const employeeDeliveries =
-      await this.employeesService.findDeliveryEmployees(user.id);
 
-    if (!ownedDeliveries.length && !employeeDeliveries.length) {
+    if (!ownedDeliveries.length) {
       throw new UnauthorizedException('No tiene acceso a cadeterías.');
     }
 
-    const deliveries = [
-      ...ownedDeliveries.map((d) => ({
-        id: d.id,
-        role: 'OWNER' as const,
-        permissions: [] as string[],
-      })),
-      ...employeeDeliveries.map((e) => ({
-        id: e.deliveryCompanyId,
-        role: e.role as DeliveryEmployeeRole,
-        permissions: (e.permissions as string[]) || [],
-      })),
-    ];
+    const deliveries = ownedDeliveries.map((d) => ({
+      id: d.id,
+      role: 'OWNER' as const,
+      permissions: [], // Aquí podrías aplicar permisos si existen en delivery
+    }));
 
     const payload: JwtPayload = {
       sub: user.id,
       rol: user.role,
       email: user.email,
+      businesses: [],
       deliveries,
     };
 

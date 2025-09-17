@@ -9,7 +9,6 @@ import { UsersModule } from '../users/users.module'; // Importa UsersModule para
 import { JwtStrategy } from './jwt.strategy';
 // Importa tus Guards
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
 import { AdminSecretGuard } from './guards/admin-secret.guard';
 import { TOKENS } from 'src/common/constants/tokens';
 import { DeliveryModule } from 'src/delivery/delivery.module';
@@ -58,14 +57,12 @@ import { BusinessModule } from 'src/business/business.module';
     JwtStrategy, // Tu estrategia de JWT
     // Provee los Guards para que puedan ser usados con @UseGuards()
     JwtAuthGuard,
-    RolesGuard,
     AdminSecretGuard,
   ],
   exports: [
     TOKENS.IAuthService, // Exporta AuthService si otros módulos necesitan sus métodos (ej. para registrarse)
     // Exporta los Guards para que puedan ser utilizados en otros módulos (ej. UsersModule)
     JwtAuthGuard,
-    RolesGuard,
     AdminSecretGuard,
     // También puedes exportar JwtModule y PassportModule si otros módulos los necesitan directamente
     JwtModule,

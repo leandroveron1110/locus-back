@@ -11,16 +11,9 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
   NotFoundException,
-  UseGuards,
   Inject,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
-
-// Guards y Decoradores de Roles (asegúrate de que las rutas sean correctas)
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
 
 // DTOS
 import { UpdateTagDto } from '../dto/Request/update-tag.dto';

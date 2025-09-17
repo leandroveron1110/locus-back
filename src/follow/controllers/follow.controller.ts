@@ -9,10 +9,12 @@ import {
   ParseUUIDPipe,
   Inject,
 } from '@nestjs/common';
-import { FollowService } from '../services/follow.service';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IFollowService } from '../interfaces/follow-service.interface';
 import { FollowCountResponseDto } from '../dtos/response/follow-count-response.dto';
+import { Public } from 'src/auth/decorators/public.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('follow')
 export class FollowController {
@@ -22,6 +24,7 @@ export class FollowController {
   ) {}
 
   @Post(':userId/:businessId')
+  @Roles(UserRole.CLIENT)
   async followBusiness(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Param('businessId', ParseUUIDPipe) businessId: string,
@@ -32,6 +35,7 @@ export class FollowController {
 
   @Delete('unfollow/:userId/:businessId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles(UserRole.ADMIN)
   async unfollowBusiness(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Param('businessId', ParseUUIDPipe) businessId: string,
@@ -40,11 +44,13 @@ export class FollowController {
   }
 
   @Get('user/:userId')
+  @Roles(UserRole.CLIENT)
   async getFollowedBusinesses(@Param('userId', ParseUUIDPipe) userId: string) {
     return await this.followService.getFollowedBusinesses(userId);
   }
 
   @Get('business/:businessId')
+  @Public()
   async getBusinessFollowers(
     @Param('businessId', ParseUUIDPipe) businessId: string,
   ): Promise<FollowCountResponseDto> {
@@ -55,6 +61,7 @@ export class FollowController {
   }
 
   @Get('business/:businessId/:userId')
+  @Roles(UserRole.CLIENT)
   async getBusinessUsersFollowers(
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
@@ -68,6 +75,7 @@ export class FollowController {
   }
 
   @Get('isfollowing/:userId/:businessId')
+  @Roles(UserRole.CLIENT)
   async isFollowing(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Param('businessId', ParseUUIDPipe) businessId: string,

@@ -15,23 +15,13 @@ import {
   ParseIntPipe,
   Optional,
   BadRequestException, // Asegúrate de importar BadRequestException
-  NotFoundException,
   Inject, // Asegúrate de importar NotFoundException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiConsumes,
-  ApiBody,
-  ApiParam,
-  ApiQuery,
-} from '@nestjs/swagger';
-import { BusinessGalleryService } from '../services/images/business-gallery.service';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessGalleryService } from '../interfaces/business-gallery.interface';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 // DTO para la actualización de metadatos de la imagen de galería
 class UpdateGalleryImageDto {
@@ -57,7 +47,6 @@ export class BusinessGalleryController {
     @UploadedFile() file: Express.Multer.File,
     @Optional() @Query('order', ParseIntPipe) order?: number,
   ): Promise<ImageResponseDto> {
-    console.log('impacta');
     if (!file) {
       throw new BadRequestException(
         'No file provided for gallery image upload.',
@@ -71,6 +60,7 @@ export class BusinessGalleryController {
   }
 
   @Get()
+  @Public()
   async getGalleryImages(@Param('businessId') businessId: string): Promise<
     {
       id: string;

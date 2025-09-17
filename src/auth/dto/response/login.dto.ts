@@ -1,4 +1,4 @@
-import { BusinessEmployeeRole, DeliveryEmployeeRole, User, UserRole } from '@prisma/client';
+import { DeliveryEmployeeRole, User, UserRole } from '@prisma/client';
 
 export class LoginResponseDto {
   id: string;
@@ -9,16 +9,16 @@ export class LoginResponseDto {
   statusId?: string;
   avatarId?: string;
 
-  businesses?: {
+  businesses: {
     id: string;
-    role: BusinessEmployeeRole | 'OWNER'; // Soporta dueño o empleado
-    permissions?: any[];
+    role: string | 'OWNER'; // Soporta dueño o cualquier rol dinámico
+    permissions?: string[]; // Lista de permisos
   }[];
 
   deliveries?: {
     id: string;
-    role: DeliveryEmployeeRole | 'OWNER'; // Soporta dueño o empleado
-    permissions?: any[];
+    role: DeliveryEmployeeRole | 'OWNER';
+    permissions?: string[];
   }[];
 
   static fromPrisma(user: User): LoginResponseDto {

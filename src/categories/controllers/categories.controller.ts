@@ -21,11 +21,6 @@ import { CreateCategoryDto } from '../dto/Request/create-category.dto';
 import { UpdateCategoryDto } from '../dto/Request/update-category.dto';
 import { CategoryResponseDto } from '../dto/Response/category-response.dto';
 
-// Importa tus Guards y el Decorador de Roles (asegúrate de que las rutas sean correctas)
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { UserRole } from '@prisma/client'; // Importa tu enum de roles de Prisma
 import { TOKENS } from 'src/common/constants/tokens';
 import { ICategoryService } from '../interfaces/Category.interface';
 

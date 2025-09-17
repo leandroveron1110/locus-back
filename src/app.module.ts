@@ -1,10 +1,10 @@
 // src/app.module.ts
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config'; // Importa ConfigModule
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
-import { AuthModule } from './auth/auth.module'; // ¡Importa tu nuevo AuthModule!
+import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TargsModule } from './targs/targs.module';
@@ -27,11 +27,13 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { BusinessPaymentMethodsModule } from './business-payment-methods/business-payment-methods.module';
 import { DeliveryZonesModule } from './delivery-zones/delivery-zones.module';
 import { EmployeesModule } from './employees/employees.module';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { RBACGuard } from './auth/guards/rbac.guard'; // Importa el nuevo RBACGuard
+
 
 @Module({
   imports: [
-    // Carga las variables de entorno desde un archivo .env
-    // isGlobal: true hace que ConfigService esté disponible en toda la aplicación
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -60,6 +62,17 @@ import { EmployeesModule } from './employees/employees.module';
     EmployeesModule,
   ],
   controllers: [AppController],
-  providers: [AppService, IsBusinessIdExistsConstraint],
+  providers: [
+    AppService,
+    IsBusinessIdExistsConstraint,
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard, // Este guard se ejecuta primero
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RBACGuard, // Este guard se ejecuta después
+    },
+  ],
 })
 export class AppModule {}

@@ -11,14 +11,12 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { BusinessCategoryService } from '../services/business-category.service'; // Ajusta la ruta
 import { UuidParam } from 'src/common/pipes/uuid-param.pipe';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IsArray, IsUUID } from 'class-validator';
 import { IBusinessCategoryService } from '../interfaces/business-category.interface';
+import { Public } from 'src/auth/decorators/public.decorator';
 
-// DTO para la actualización de categorías
-// src/business/dto/update-business-categories.dto.ts (o puedes ponerlo en una subcarpeta business/business-category/dto)
 class UpdateBusinessCategoriesDto {
   @IsArray()
   @IsUUID('all', { each: true }) // Valida que cada ID sea un UUID válido
@@ -48,6 +46,7 @@ export class BusinessCategoryController {
   }
 
   @Get('category')
+  @Public()
   async getBusinessCategories(@Param('businessId', UuidParam) businessId: string) {
     return this.businessCategoryService.getCategoriesByBusinessId(businessId);
   }

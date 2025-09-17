@@ -20,14 +20,9 @@ import { CreateUserDto } from '../dto/Request/create-user.dto'; // Asegúrate qu
 import { UserResponseDto } from '../dto/Response/user-response.dto'; // Asegúrate que sea la ruta correcta
 import { UpdateUserDto } from '../dto/Request/update-user.dto'; // Asegúrate que sea la ruta correcta
 
-// Importa tus Guards y el Decorador de Roles desde el módulo Auth
-import { AdminSecretGuard } from '../../auth/guards/admin-secret.guard'; // Ajusta la ruta si es necesario
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'; // Ajusta la ruta si es necesario
-import { RolesGuard } from '../../auth/guards/roles.guard'; // Ajusta la ruta si es necesario
-import { Roles } from '../../auth/decorators/roles.decorator'; // Ajusta la ruta si es necesario
-import { UserRole } from '@prisma/client'; // Importa tu enum de roles de Prisma
 import { TOKENS } from 'src/common/constants/tokens';
 import { IUserService } from '../interfaces/User-service.interface';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @UseInterceptors(ClassSerializerInterceptor) // Aplica el interceptor para transformar las respuestas automáticamente
 @Controller('users') // Prefijo para todas las rutas de este controlador (ej. /users)
@@ -49,8 +44,7 @@ export class UsersController {
   // 2. Ruta para obtener TODOS los usuarios: Solo Administradores
   // Esta es la misma que ya tenías y está correctamente protegida.
   @Get()
-  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y luego verifica el rol
-  // @Roles(UserRole.ADMIN) // Solo usuarios con el rol ADMIN pueden ver todos los usuarios
+  @Public()
   async findAll(): Promise<UserResponseDto[]> {
     const users = await this.usersService.findAll();
     return plainToInstance(UserResponseDto, users);
@@ -60,8 +54,7 @@ export class UsersController {
   // Esta es la misma que ya tenías. Un cliente puede ver su propio perfil.
   // Un ADMIN o OWNER pueden ver cualquier perfil.
   @Get(':id')
-  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y luego verifica el rol
-  // @Roles(UserRole.CLIENT, UserRole.OWNER, UserRole.ADMIN) // Permite acceso a estos roles
+  @Public()
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     const user = await this.usersService.findById(id);
     if (!user) {

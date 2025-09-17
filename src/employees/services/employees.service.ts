@@ -1,69 +1,57 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import {
-  CreateBusinessEmployeeDto,
-  CreateDeliveryEmployeeDto,
-} from '../dto/request/create-employee.dto';
-import {
-  UpdateBusinessEmployeeDto,
-  UpdateDeliveryEmployeeDto,
-} from '../dto/request/update-employee.dto';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "src/prisma/prisma.service";
+import { CreateBusinessEmployeeDto, UpdateBusinessEmployeeDto } from "../dto/request/business-employee.dto";
 
 @Injectable()
 export class EmployeesService {
   constructor(private prisma: PrismaService) {}
 
-  // -------------------------------
-  // Business Employees
-  // -------------------------------
-  async createBusinessEmployee(dto: CreateBusinessEmployeeDto) {
+  async createEmployee(dto: CreateBusinessEmployeeDto) {
     return this.prisma.businessEmployee.create({
       data: {
         userId: dto.userId,
         businessId: dto.businessId,
-        role: dto.role,
-        permissions: dto.permissions,
+        roleId: dto.roleId,
       },
+      include: { role: true },
     });
   }
 
-  async updateBusinessEmployee(id: string, dto: UpdateBusinessEmployeeDto) {
+  async updateEmployee(id: string, dto: UpdateBusinessEmployeeDto) {
+    const data: any = {};
+    if (dto.roleId) data.roleId = dto.roleId;
+
+    if (dto.overrides) {
+      await this.prisma.businessEmployeeOverride.deleteMany({
+        where: { employeeId: id },
+      });
+
+      data.overrides = {
+        create: dto.overrides,
+      };
+    }
+
     return this.prisma.businessEmployee.update({
       where: { id },
-      data: dto,
+      data,
+      include: { role: true, overrides: true },
     });
   }
 
-  async findBusinessEmployees(userId: string) {
+  async listEmployees(businessId: string) {
+    return this.prisma.businessEmployee.findMany({
+      where: { businessId },
+      include: { role: true, overrides: true },
+    });
+  }
+
+  async findBusinessesByUser(userId: string) {
     return this.prisma.businessEmployee.findMany({
       where: { userId },
-    });
-  }
-
-  // -------------------------------
-  // Delivery Employees
-  // -------------------------------
-  async createDeliveryEmployee(dto: CreateDeliveryEmployeeDto) {
-    return this.prisma.deliveryEmployee.create({
-      data: {
-        userId: dto.userId,
-        deliveryCompanyId: dto.deliveryCompanyId,
-        role: dto.role,
-        permissions: dto.permissions,
+      include: {
+        role: true,
+        overrides: true,
       },
-    });
-  }
-
-  async updateDeliveryEmployee(id: string, dto: UpdateDeliveryEmployeeDto) {
-    return this.prisma.deliveryEmployee.update({
-      where: { id },
-      data: dto,
-    });
-  }
-
-  async findDeliveryEmployees(userId: string) {
-    return this.prisma.deliveryEmployee.findMany({
-      where: { userId },
     });
   }
 }

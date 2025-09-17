@@ -199,7 +199,7 @@ export class BusinessService implements IBusinessService {
    */
   async findOne(id: string) {
     const business = await this.prisma.business.findUnique({
-      where: { id },
+      where: { id, isDeleted: false },
     });
     if (!business) {
       throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
@@ -217,7 +217,7 @@ export class BusinessService implements IBusinessService {
 
   async findForOrder(id: string) {
     const business = await this.prisma.business.findUnique({
-      where: { id },
+      where: { id, isDeleted: false },
       include: {
         businessPaymentMethod: true,
       },
@@ -246,7 +246,7 @@ export class BusinessService implements IBusinessService {
     };
     try {
       const updatedBusiness = await this.prisma.business.update({
-        where: { id },
+        where: { id, isDeleted: false },
         data: dataToUpdate,
       });
       return updatedBusiness;
@@ -282,11 +282,15 @@ export class BusinessService implements IBusinessService {
 
     return this.prisma.$transaction(async (prismaTransaction) => {
       const business = await prismaTransaction.business.update({
-        where: { id },
+        where: { id, isDeleted: false },
         data: {
           ...dataToUpdate,
         },
       });
+
+      if (!business) {
+      throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
+    }
 
       if (categoryIds !== undefined) {
         await this.businessCategoryService.associateBusinessWithCategories(
@@ -312,10 +316,9 @@ export class BusinessService implements IBusinessService {
    */
   async remove(id: string) {
     try {
-      // Si tienes onDelete: Cascade en tu schema para Image, Prisma las eliminará.
-      // Para otras relaciones (ej. tags, status), sus servicios respectivos
-      // deberían gestionar la limpieza o el desenlace de la relación.
-      return await this.prisma.business.delete({ where: { id } });
+      return await this.prisma.business.update({ where: { id }, data: {
+        isDeleted: true
+      } });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -330,7 +333,7 @@ export class BusinessService implements IBusinessService {
 
   async findByOwner(owenrId: string): Promise<any> {
     const business = await this.prisma.business.findMany({
-      where: { ownerId: owenrId },
+      where: { ownerId: owenrId, isDeleted: false },
     });
     if (!business) {
       throw new NotFoundException(`Negocio con ID "${owenrId}" no encontrado.`);
@@ -358,7 +361,7 @@ export class BusinessService implements IBusinessService {
       }
 
       return this.prisma.business.update({
-        where: { id: businessId },
+        where: { id: businessId, isDeleted: false },
         data: { modulesConfig: result.data },
       });
     } catch (error) {

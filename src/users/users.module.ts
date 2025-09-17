@@ -4,6 +4,7 @@ import { UsersController } from './controllers/users.controller';
 import { TOKENS } from 'src/common/constants/tokens';
 import { UserExistenceValidator } from './services/user-existence.validator';
 import { BusinessModule } from 'src/business/business.module';
+import { EmployeesModule } from 'src/employees/employees.module';
 
 @Module({
   providers: [
@@ -18,6 +19,6 @@ import { BusinessModule } from 'src/business/business.module';
   ],
   exports: [TOKENS.IUserService, TOKENS.IUserValidator],
   controllers: [UsersController],
-  imports: [forwardRef(() => BusinessModule)],
+  imports: [forwardRef(() => BusinessModule), EmployeesModule],
 })
 export class UsersModule {}

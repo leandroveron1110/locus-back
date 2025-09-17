@@ -1,0 +1,5 @@
+export const ACCESS_STRATEGY_KEY = 'ACCESS_STRATEGY';
+export const PERMISSIONS_KEY = 'PERMISSIONS';
+export const ROLES_KEY = 'ROLES';
+export const PERMISSION_LOGIC_KEY = 'PERMISSION_LOGIC';
+export const IS_PUBLIC_KEY = 'IS_PUBLIC';

@@ -313,7 +313,7 @@ model Business {
   isDeleted Boolean   @default(false) @map("borrado") // soft delete
   deletedAt DateTime? @map("fecha_borrado")
 
-  BusinessEmployee BusinessEmployee[]
+  businessEmployee BusinessEmployee[]
 
   @@map("negocios")
 }
@@ -337,23 +337,67 @@ model BusinessPaymentMethod {
   @@map("metodos_pago_negocio")
 }
 
-model BusinessEmployee {
-  id          String               @id @default(uuid())
+
+
+
+
+model BusinessRole {
+  id          String            @id @default(uuid())
   businessId  String
-  userId      String
-  role        BusinessEmployeeRole
-  permissions Json? // lista de permisos personalizados
-  createdAt   DateTime             @default(now())
-
-  business Business @relation(fields: [businessId], references: [id])
-  user     User     @relation(fields: [userId], references: [id])
+  name        String            // Nombre dinámico: "Manager", "Cajero", "Encargado de Stock"
+  permissions PermissionEnum[]  // Lista de permisos asociados a este rol
+  employees   BusinessEmployee[]
 }
 
-enum BusinessEmployeeRole {
-  MANAGER
-  CASHIER
-  WAITER
+model BusinessEmployee {
+  id         String   @id @default(uuid())
+  userId     String
+  businessId String
+  roleId     String?
+  role       BusinessRole? @relation(fields: [roleId], references: [id])
+  overrides  BusinessEmployeeOverride[]
+
+  business   Business @relation(fields: [businessId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 }
+
+
+model BusinessEmployeeOverride {
+  id         String   @id @default(uuid())
+  employeeId String
+  permission PermissionEnum
+  allowed    Boolean // true = habilita extra, false = revoca el permiso del rol
+  employee   BusinessEmployee @relation(fields: [employeeId], references: [id])
+}
+enum PermissionEnum {
+  // Permisos para el panel de control y reportes
+  VIEW_DASHBOARD          // Permite ver el panel de control del negocio.
+  VIEW_REPORTS            // Permite ver los informes financieros y de ventas.
+
+  // Permisos para la gestión de productos y stock
+  MANAGE_PRODUCTS         // Permite crear, editar y eliminar productos.
+
+  // Permisos para el manejo de caja y transacciones
+  CLOSE_CASH_REGISTER     // Permite realizar el cierre de caja.
+
+  // Permisos para el sistema de reservas
+  CREATE_RESERVATION      // Permite crear una nueva reserva de mesa.
+  EDIT_RESERVATION        // Permite modificar o cancelar una reserva.
+
+  // Permisos para el sistema de pedidos (como PedidoYa)
+  VIEW_ORDERS             // Permite ver la lista de pedidos y su estado.
+  CREATE_ORDER            // Permite crear un pedido manual.
+  EDIT_ORDER              // Permite editar un pedido existente.
+  CANCEL_ORDER            // Permite cancelar un pedido.
+  PROCESS_ORDER           // Permite cambiar el estado de un pedido a "en preparación".
+  DELIVER_ORDER           // Permite asignar un pedido a un repartidor.
+  COMPLETE_ORDER          // Permite marcar un pedido como "entregado".
+
+  // Permisos de configuración
+  MANAGE_DELIVERY_ZONES   // Permite configurar las zonas de entrega y tarifas.
+}
+
+
 
 // -------------------------------------
 // Empleados de cadeterías

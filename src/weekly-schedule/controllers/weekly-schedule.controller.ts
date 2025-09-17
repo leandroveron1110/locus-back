@@ -18,6 +18,7 @@ import { WeeklyScheduleResponseDto } from '../dtos/Response/weekly-schedule-resp
 import { UpdateWeeklyScheduleDto } from '../dtos/Request/update-weekly-schedule.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IWeeklyScheduleService } from '../interface/weekly-schedule-service.interface';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller('weekly-schedules') // Prefijo de ruta
 export class WeeklyScheduleController {
@@ -57,11 +58,12 @@ export class WeeklyScheduleController {
 
   @Get('by-business/:businessId')
   @HttpCode(HttpStatus.OK)
+  @Public()
   findByBusinessId(@Param('businessId') businessId: string): Promise<any> {
     return this.weeklyScheduleService.findByBusinessId(businessId);
   }
 
-    @Get('panel-business/:businessId')
+  @Get('panel-business/:businessId')
   @HttpCode(HttpStatus.OK)
   findPanleBusinessByBusinessId(@Param('businessId') businessId: string): Promise<any> {
     return this.weeklyScheduleService.findPanleBusinessByBusinessId(businessId);

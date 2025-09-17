@@ -17,14 +17,6 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiConsumes,
-  ApiBody,
-  ApiParam,
-} from '@nestjs/swagger';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessLogoService } from '../interfaces/business-logo-service.interface';
 
@@ -38,7 +30,6 @@ class UpdateLogoMetadataDto {
   // Los campos como url, publicId, etc., no se actualizan directamente por el cliente
 }
 
-@ApiTags('Business Logos')
 @Controller('businesses/:businessId/logo')
 export class BusinessLogoController {
   constructor(
@@ -61,14 +52,6 @@ export class BusinessLogoController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get the current logo for a business' })
-  @ApiParam({ name: 'businessId', description: 'ID of the business', type: String })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Returns the business logo.',
-    type: ImageResponseDto,
-  })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Business or logo not found.' })
   async getLogo(@Param('businessId') businessId: string): Promise<ImageResponseDto> {
     const logo = await this.businessLogoService.getBusinessLogo(businessId);
     if (!logo) {
@@ -78,31 +61,6 @@ export class BusinessLogoController {
   }
 
   @Patch()
-  @ApiOperation({ summary: 'Update the logo of a business (replace file or update metadata)' })
-  @ApiParam({ name: 'businessId', description: 'ID of the business', type: String })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          nullable: true, // El archivo es opcional
-        },
-        // Puedes añadir otros campos para metadata aquí
-        // Por ejemplo: altText: { type: 'string', nullable: true }
-      },
-    },
-    description: 'New logo image file (optional) and/or metadata to update.',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Logo successfully updated.',
-    type: ImageResponseDto,
-  })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Business or logo not found.' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid file or update error.' })
   @UseInterceptors(FileInterceptor('file'))
   async updateLogo(
     @Param('businessId') businessId: string,
@@ -118,10 +76,6 @@ export class BusinessLogoController {
   }
 
   @Delete()
-  @ApiOperation({ summary: 'Remove the logo from a business' })
-  @ApiParam({ name: 'businessId', description: 'ID of the business', type: String })
-  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Logo successfully removed.' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Business or logo not found.' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeLogo(@Param('businessId') businessId: string): Promise<void> {
     await this.businessLogoService.removeBusinessLogo(businessId);

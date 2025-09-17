@@ -12,6 +12,7 @@ import {
 import { MenuCreateDto, MenuUpdateDto } from '../dtos/request/menu.request.dto';
 import { IMenuService } from '../interfaces/menu-service.interface';
 import { TOKENS } from 'src/common/constants/tokens';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller('menus')
 export class MenuController {
@@ -28,6 +29,7 @@ export class MenuController {
 
   // Obtener todos los menús de un negocio
   @Get('business/:businessId')
+  @Public()
   async findAllByBusiness(@Param('businessId') businessId: string) {
     return await this.menuService.findAllByBusinessId(businessId);
   }

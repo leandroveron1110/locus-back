@@ -1,16 +1,19 @@
 // src/users/services/users.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { User, UserRole } from '@prisma/client';
+import { DeliveryEmployeeRole, User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs'; // Importa bcryptjs aquí
 import { CreateUserDto } from '../dto/Request/create-user.dto';
 import { UpdateUserDto } from '../dto/Request/update-user.dto';
 import { IUserService } from '../interfaces/User-service.interface';
-
+import { EmployeesService } from 'src/employees/services/employees.service';
 
 @Injectable()
-export class UsersService implements IUserService{
-  constructor(private prisma: PrismaService) {}
+export class UsersService implements IUserService {
+  constructor(
+    private prisma: PrismaService,
+    private employeesService: EmployeesService
+  ) {}
 
   /**
    * Crea un nuevo usuario en la base de datos.
@@ -19,15 +22,16 @@ export class UsersService implements IUserService{
    * @returns El objeto User creado (tal como lo retorna Prisma).
    */
   async create(data: CreateUserDto): Promise<User> {
-    const hashedPassword = await bcrypt.hash(data.password, 10); // Hasheo aquí
+    const hashedPassword = await bcrypt.hash(data.password, 10);
 
     return this.prisma.user.create({
       data: {
         email: data.email,
-        passwordHash: hashedPassword, // Guarda el hash
+        passwordHash: hashedPassword,
         firstName: data.firstName,
         lastName: data.lastName,
-        role: UserRole.CLIENT,
+        // Usa el role que venga del DTO, si no viene asigna CLIENT por defecto
+        role: data.role ?? UserRole.CLIENT,
       },
     });
   }
@@ -50,12 +54,46 @@ export class UsersService implements IUserService{
       where: { id },
     });
 
-    if(!user) {
-      throw new NotFoundException(`Usuario con el ID ${id} no encontrado`)
+    if (!user) {
+      throw new NotFoundException(`Usuario con el ID ${id} no encontrado`);
     }
 
     return user;
   }
+
+async findAuthByUserId(userId: string) {
+    // 1️⃣ buscamos el usuario
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        deliveryEmployee: {
+          select: {
+            deliveryCompanyId: true,
+            role: true,
+            permissions: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Usuario con el ID ${userId} no encontrado`);
+    }
+
+    // 2️⃣ buscamos sus negocios usando EmployeesService
+    const businessEmployee = await this.employeesService.findBusinessesByUser(userId);
+
+    // 3️⃣ devolvemos la data combinada
+    return {
+      ...user,
+      businessEmployee, // ⬅ viene con role y overrides gracias a EmployeesService
+    };
+  }
+
+
 
   /**
    * Busca un usuario por su dirección de correo electrónico.
@@ -87,16 +125,16 @@ export class UsersService implements IUserService{
       }
       // Asegúrate de que 'password' del DTO no sobreescriba 'passwordHash' si no es newPassword
       if (updateData.password) {
-          delete updateData.password; // Si 'password' se usó para el oldPassword, lo removemos
+        delete updateData.password; // Si 'password' se usó para el oldPassword, lo removemos
       }
-
 
       return await this.prisma.user.update({
         where: { id },
         data: updateData,
       });
     } catch (error) {
-      if (error.code === 'P2025') { // Código de error de Prisma para "registro no encontrado"
+      if (error.code === 'P2025') {
+        // Código de error de Prisma para "registro no encontrado"
         throw new NotFoundException(`Usuario con ID "${id}" no encontrado.`);
       }
       throw error; // Propagar otros errores

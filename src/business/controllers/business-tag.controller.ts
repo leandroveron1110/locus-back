@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Param,
-  Patch, // Usamos Patch para la actualización de asociaciones
   Get,
   HttpCode,
   HttpStatus,
@@ -18,6 +17,7 @@ import { BusinessTagDetails } from '../services/business-tag.service'; // Import
 import { UuidParam } from 'src/common/pipes/uuid-param.pipe';
 import { IsArray, IsUUID } from 'class-validator';
 import { BusinessTagResponseDto } from '../dto/Response/business-tag-response.dto';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 class UpdateBusinessTagsDto {
   @IsArray()
@@ -50,6 +50,7 @@ export class BusinessTagController {
   }
 
   @Get('tags')
+  @Public()
   @HttpCode(HttpStatus.OK) // 200 OK para una consulta exitosa
   async getBusinessTags(
     @Param('businessId', UuidParam) businessId: string,

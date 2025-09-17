@@ -14,6 +14,7 @@ import {
 import { SearchBusinessDto } from '../dtos/request/search-business.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { ISearchService } from '../interfaces/search-service.interface';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller('search')
 export class SearchController {
@@ -25,6 +26,7 @@ export class SearchController {
   ) {}
 
   @Get('businesses')
+  @Public()
   async searchBusinesses(
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     searchDto: SearchBusinessDto,
