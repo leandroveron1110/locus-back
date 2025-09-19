@@ -25,6 +25,10 @@ import { IBusinessGalleryService } from '../interfaces/business-gallery.interfac
 import { Public } from 'src/auth/decorators/public.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { Permissions } from 'src/auth/decorators/permissions.decorator';
+import { BusinessPermissions } from 'src/common/enums/rolees-permissions';
+import { AccessStrategy } from 'src/auth/decorators/access-strategy.decorator';
+import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
 
 // DTO para la actualización de metadatos de la imagen de galería
 class UpdateGalleryImageDto {
@@ -72,7 +76,7 @@ export class BusinessGalleryController {
       order: number;
     }[]
   > {
-    return this.businessGalleryService.getSimpleGalleryForEntity(businessId);
+    return await this.businessGalleryService.getSimpleGalleryForEntity(businessId);
   }
 
   @Get()
@@ -100,6 +104,9 @@ export class BusinessGalleryController {
 
   @Delete(':imageId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles(UserRole.OWNER)
+  @Permissions(BusinessPermissions.EDIT_BUSINESS)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ALL_PERMISSIONS)
   async removeGalleryImage(
     @Param('businessId') businessId: string,
     @Param('imageId') imageId: string,

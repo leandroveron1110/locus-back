@@ -45,7 +45,6 @@ export class BusinessLogoController {
     @UploadedFile() file: Express.Multer.File,
   ): Promise<ImageResponseDto> {
     if (!file) {
-      console.log("not file")
       throw new BadRequestException('No file provided for logo upload.');
     }
     return this.businessLogoService.uploadAndAssignLogo(businessId, file);

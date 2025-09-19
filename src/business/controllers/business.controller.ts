@@ -96,7 +96,7 @@ export class BusinessController {
   @Patch(':id')
   @Roles(UserRole.OWNER)
   @Permissions(BusinessPermissions.EDIT_BUSINESS)
-  @AccessStrategy(AccessStrategyEnum.ONLY_ALL_PERMISSIONS)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ALL_PERMISSIONS)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateBusinessDto: UpdateBusinessDto,
@@ -112,7 +112,6 @@ export class BusinessController {
 
   @Get('modules-config/:id')
   @Roles(UserRole.OWNER)
-  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ALL_PERMISSIONS)
   async getModulesConfig(@Param('id', new ParseUUIDPipe()) businessId: string) {
     return this.businessService.getModulesConfigByBusinessId(businessId);
   }

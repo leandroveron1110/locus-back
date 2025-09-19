@@ -43,14 +43,15 @@ export class BusinessGalleryService
     this.logger.log(
       `[BusinessGalleryService] Starting upload and add gallery image for business ID: ${businessId}.`,
     );
-    await this.businessValidator.checkOne(businessId);
-
-    const newGalleryImage = await this.uploadAndPersistImage(
-      file,
-      ImageType.GALLERY,
-      `businesses/${businessId}/gallery`,
-      true,
-    );
+    const [_, newGalleryImage] = await Promise.all([
+      this.businessValidator.checkOne(businessId), // Validar la existencia del negocio
+      this.uploadAndPersistImage( // Subir la imagen a Cloudinary y guardar en la DB
+        file,
+        ImageType.GALLERY,
+        `businesses/${businessId}/gallery`,
+        true,
+      ),
+    ]);
 
     try {
       await this.linkImageToEntity(businessId, newGalleryImage, { order });
@@ -159,22 +160,15 @@ export class BusinessGalleryService
       return [];
     }
 
-    const imagsUrls: {
-      id: string;
-      url: string;
-      order: number;
-    }[] = [];
-    businessImages.forEach((b) => {
-      if (b.imageUrl && b.order) {
-        imagsUrls.push({
-          id: b.imageId,
-          order: b.order,
-          url: b.imageUrl,
-        });
-      }
-    });
+    const imageUrls = businessImages
+      .filter((image) => image.imageUrl)
+      .map((image) => ({
+        id: image.imageId,
+        order: image.order || 0,
+        url: image.imageUrl || "",
+      }));
 
-    return imagsUrls;
+    return imageUrls;
   }
 
   public async getImagesForEntity(

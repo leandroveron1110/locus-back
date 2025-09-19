@@ -55,7 +55,7 @@ export class SearchableBusinessCrudService
 
       return rest;
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   }
   async update(data: UperrBusinessDto): Promise<any> {

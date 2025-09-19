@@ -51,7 +51,6 @@ export class WeeklyScheduleService implements IWeeklyScheduleService {
         schedule,
       );
 
-      console.log(`Horario semanal establecido para el negocio ${idBusiness}.`);
     } catch (error) {
       console.error(
         `Error al establecer el horario semanal para el negocio ${idBusiness}:`,
@@ -76,7 +75,6 @@ export class WeeklyScheduleService implements IWeeklyScheduleService {
     });
 
     if (!business || !business.horarios) {
-      console.log(`No se encontró horario semanal para el negocio ${idBusiness}.`);
       return null;
     }
 

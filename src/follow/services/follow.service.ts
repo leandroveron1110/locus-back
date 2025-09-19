@@ -101,7 +101,6 @@ export class FollowService implements IFollowService {
     isFollowing: boolean;
     count: number;
   }> {
-    console.log(userId, '- -', businessId);
     const result = await this.prisma.$queryRaw<
       Array<{ isFollowing: boolean; count: number }>
     >(Prisma.sql`

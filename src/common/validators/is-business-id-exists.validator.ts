@@ -23,7 +23,6 @@ export class IsBusinessIdExistsConstraint
   ) {}
 
   async validate(businessId: string, args: ValidationArguments) {
-    console.log(businessId);
     if (!businessId) {
       return true; // Si el campo es opcional y no está presente, considera válido aquí.
       // Si es obligatorio, @IsNotEmpty o @IsUUID lo capturarán antes.

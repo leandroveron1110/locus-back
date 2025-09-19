@@ -8,6 +8,9 @@ import {
   SearchResultBusiness,
 } from '../interfaces/search-service.interface';
 import { WeeklyScheduleStructure } from '../types/WeeklySchedule';
+import { toZonedTime } from 'date-fns-tz';
+import { getDay } from 'date-fns';
+
 
 @Injectable()
 export class SearchService implements ISearchService {
@@ -24,7 +27,7 @@ export class SearchService implements ISearchService {
     const {
       page = 1,
       limit = 20,
-      openNow,
+      openNow = true,
       query,
       city,
       province,
@@ -165,60 +168,62 @@ export class SearchService implements ISearchService {
     return days[now.getDay()];
   }
 
-  private checkIfBusinessIsOpenNow(
-    horariosJson: Prisma.JsonValue | null,
-  ): boolean {
-    if (!horariosJson) return false;
 
-    try {
-      const schedules: WeeklyScheduleStructure =
-        typeof horariosJson === 'string'
-          ? JSON.parse(horariosJson)
-          : (horariosJson as WeeklyScheduleStructure);
 
-      const now = new Date();
-      const currentDay = this.getCurrentDayOfWeek();
-      const currentTime = now.getHours() * 60 + now.getMinutes();
+private checkIfBusinessIsOpenNow(
+  horariosJson: Prisma.JsonValue | null,
+): boolean {
+  if (!horariosJson) return false;
+  try {
+    const schedules: WeeklyScheduleStructure =
+      typeof horariosJson === 'string'
+        ? JSON.parse(horariosJson)
+        : (horariosJson as WeeklyScheduleStructure);
 
-      const todayScheduleRanges = schedules[currentDay];
-      if (!todayScheduleRanges || todayScheduleRanges.length === 0)
-        return false;
+    // Obtiene la hora actual en la zona horaria de Argentina.
+    const AR_TIME_ZONE = 'America/Argentina/Buenos_Aires';
+    const nowInArgentina = toZonedTime(new Date(), AR_TIME_ZONE); // <-- Aquí se corrige el nombre de la función
 
-      for (const timeRange of todayScheduleRanges) {
-        if (timeRange === 'Cerrado') continue;
+    // Mapea el día de la semana (0=Domingo, 1=Lunes, etc.) a la clave del JSON
+    const daysOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const currentDay = daysOfWeek[getDay(nowInArgentina)];
 
-        const [openTimeStr, closeTimeStr] = timeRange.split('-');
-        if (!openTimeStr || !closeTimeStr) continue;
+    const currentTimeMinutes = nowInArgentina.getHours() * 60 + nowInArgentina.getMinutes();
+    const todayScheduleRanges = schedules[currentDay];
 
-        const [openHour, openMinute] = openTimeStr.split(':').map(Number);
-        let totalOpenMinutes = openHour * 60 + openMinute;
+    if (!todayScheduleRanges || todayScheduleRanges.length === 0) {
+      return false;
+    }
 
-        const [closeHour, closeMinute] = closeTimeStr.split(':').map(Number);
-        let totalCloseMinutes = closeHour * 60 + closeMinute;
+    for (const timeRange of todayScheduleRanges) {
+      if (timeRange === 'Cerrado') continue;
 
-        // Manejo de horarios que cruzan medianoche
-        if (totalCloseMinutes < totalOpenMinutes) {
-          if (currentTime < totalCloseMinutes) {
-            totalOpenMinutes -= 24 * 60;
-          } else {
-            totalCloseMinutes += 24 * 60;
-          }
+      const [openTimeStr, closeTimeStr] = timeRange.split('-');
+      if (!openTimeStr || !closeTimeStr) continue;
+
+      const [openHour, openMinute] = openTimeStr.split(':').map(Number);
+      const [closeHour, closeMinute] = closeTimeStr.split(':').map(Number);
+
+      const totalOpenMinutes = openHour * 60 + openMinute;
+      const totalCloseMinutes = closeHour * 60 + closeMinute;
+
+      if (totalCloseMinutes <= totalOpenMinutes) {
+        if (currentTimeMinutes >= totalOpenMinutes || currentTimeMinutes <= totalCloseMinutes) {
+          return true;
         }
-
-        if (
-          currentTime >= totalOpenMinutes &&
-          currentTime <= totalCloseMinutes
-        ) {
+      } else {
+        if (currentTimeMinutes >= totalOpenMinutes && currentTimeMinutes <= totalCloseMinutes) {
           return true;
         }
       }
-      return false;
-    } catch (e) {
-      this.logger.error(
-        `Error en checkIfBusinessIsOpenNow: ${e.message}`,
-        e.stack,
-      );
-      return false;
     }
+    return false;
+  } catch (e) {
+    this.logger.error(
+      `Error en checkIfBusinessIsOpenNow: ${e.message}`,
+      e.stack,
+    );
+    return false;
   }
+}
 }

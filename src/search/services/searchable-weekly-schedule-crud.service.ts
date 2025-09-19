@@ -39,7 +39,6 @@ export class SearchableWeeklyScheduleCrudService
           horarios: scheduleJsonString,
         },
       });
-      console.log(`Horario semanal establecido para el negocio ${idBusiness}.`);
     } catch (error) {
       console.error(
         `Error al establecer el horario semanal para el negocio ${idBusiness}:`,
@@ -64,9 +63,6 @@ export class SearchableWeeklyScheduleCrudService
     });
 
     if (!business || !business.horarios) {
-      console.log(
-        `No se encontró horario semanal para el negocio ${idBusiness}.`,
-      );
       return null;
     }
 
@@ -115,9 +111,7 @@ export class SearchableWeeklyScheduleCrudService
 
     // Guarda el horario modificado (reemplazando el anterior)
     await this.setWeeklySchedule(idBusiness, currentSchedule);
-    console.log(
-      `Horario para ${day} actualizado a [${timeRanges.join(', ')}] para el negocio ${idBusiness}.`,
-    );
+
   }
 
   /**
@@ -150,9 +144,7 @@ export class SearchableWeeklyScheduleCrudService
     }
 
     await this.setWeeklySchedule(idBusiness, currentSchedule);
-    console.log(
-      `Rango de tiempo "${newTimeRange}" añadido al día ${day} para el negocio ${idBusiness}.`,
-    );
+
   }
 
   /**
@@ -170,9 +162,7 @@ export class SearchableWeeklyScheduleCrudService
 
     let currentSchedule = await this.getWeeklySchedule(idBusiness);
     if (!currentSchedule) {
-      console.log(
-        `No hay horario para el negocio ${idBusiness} o el día ${day}.`,
-      );
+ 
       return;
     }
 
@@ -187,16 +177,10 @@ export class SearchableWeeklyScheduleCrudService
         delete currentSchedule[upperDay];
       }
     } else {
-      console.log(
-        `No se encontró el día ${day} en el horario del negocio ${idBusiness}.`,
-      );
       return;
     }
 
     await this.setWeeklySchedule(idBusiness, currentSchedule);
-    console.log(
-      `Rango de tiempo "${timeRangeToRemove}" eliminado del día ${day} para el negocio ${idBusiness}.`,
-    );
   }
 
   /**
@@ -211,9 +195,6 @@ export class SearchableWeeklyScheduleCrudService
     let currentSchedule = await this.getWeeklySchedule(idBusiness);
 
     if (!currentSchedule) {
-      console.log(
-        `No hay horario para eliminar para el negocio ${idBusiness}.`,
-      );
       return;
     }
 
@@ -221,6 +202,5 @@ export class SearchableWeeklyScheduleCrudService
     delete currentSchedule[day.toUpperCase()];
 
     await this.setWeeklySchedule(idBusiness, currentSchedule);
-    console.log(`Horario para ${day} eliminado del negocio ${idBusiness}.`);
   }
 }

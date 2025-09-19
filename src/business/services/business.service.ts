@@ -65,13 +65,8 @@ export class BusinessService implements IBusinessService {
     createBusinessDto: CreateBusinessDto,
     // authenticatedOwnerId: string
   ): Promise<BusinessResponseDto> {
-    const {
-      ownerId,
-      modulesConfig,
-      latitude,
-      longitude,
-      ...data
-    } = createBusinessDto;
+    const { ownerId, modulesConfig, latitude, longitude, ...data } =
+      createBusinessDto;
 
     // 1. Validar que el `ownerId` de la request sea el mismo que el `authenticatedOwnerId`
     // if (ownerId !== authenticatedOwnerId) {
@@ -201,10 +196,6 @@ export class BusinessService implements IBusinessService {
     return business;
   }
 
-  /**
-   * Update core information of an existing business
-   * La actualización de tags, imágenes, estado o propietario se maneja en otros servicios.
-   */
   async update(id: string, updateBusinessDto: UpdateBusinessDto) {
     const { modulesConfig, ...rest } = updateBusinessDto;
 
@@ -214,11 +205,35 @@ export class BusinessService implements IBusinessService {
         modulesConfig: modulesConfig as Prisma.InputJsonValue,
       }),
     };
+
     try {
+      // 1️⃣ Actualizamos la entidad principal
       const updatedBusiness = await this.prisma.business.update({
         where: { id, isDeleted: false },
         data: dataToUpdate,
       });
+
+      // 2️⃣ Sincronizamos searchableBusiness en paralelo, no bloqueamos el return
+      await Promise.all([
+        this.searchableBusinessCrudService.update({
+          id,
+          name: updatedBusiness.name,
+          shortDescription: updatedBusiness.shortDescription || undefined,
+          fullDescription: updatedBusiness.fullDescription || undefined,
+          address: updatedBusiness.address || undefined,
+          latitude:
+            updatedBusiness.latitude !== null &&
+            updatedBusiness.latitude !== undefined
+              ? Number(updatedBusiness.latitude)
+              : undefined,
+          longitude:
+            updatedBusiness.longitude !== null &&
+            updatedBusiness.longitude !== undefined
+              ? Number(updatedBusiness.longitude)
+              : undefined,
+        }),
+      ]);
+
       return updatedBusiness;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -228,7 +243,6 @@ export class BusinessService implements IBusinessService {
           );
         }
         if (error.code === 'P2003') {
-          // Foreign key constraint failed
           throw new NotFoundException(
             'ID de categoría o propietario no válido para la actualización.',
           );

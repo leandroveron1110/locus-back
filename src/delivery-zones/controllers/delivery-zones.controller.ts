@@ -23,7 +23,6 @@ export class DeliveryZonesController {
   @Patch(':id')
   @Roles(UserRole.OWNER)
   async update(@Param('id') id: string, @Body() updateZoneDto: UpdateDeliveryZoneDto) {
-    console.log(id, updateZoneDto)
     return this.deliveryZonesService.update(id, updateZoneDto);
   }
 

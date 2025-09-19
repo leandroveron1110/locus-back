@@ -35,7 +35,6 @@ export class FollowController {
 
   @Delete('unfollow/:userId/:businessId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Roles(UserRole.ADMIN)
   async unfollowBusiness(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Param('businessId', ParseUUIDPipe) businessId: string,
@@ -49,7 +48,7 @@ export class FollowController {
     return await this.followService.getFollowedBusinesses(userId);
   }
 
-  @Get('business/:businessId')
+  @Get('business/follow/:businessId')
   @Public()
   async getBusinessFollowers(
     @Param('businessId', ParseUUIDPipe) businessId: string,

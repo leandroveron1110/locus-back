@@ -35,8 +35,6 @@ export class SearchableTagCrudService implements ISearchableTagCrudService {
     // combine current tag with new tags
     const combineTagName = [...new Set([...currentTag, ...newTags])];
 
-    console.log("new Tag", newTags)
-
     await this.prisma.searchableBusiness.update({
       where: { id: idBusiness },
       data: { tagNames: combineTagName },
@@ -71,9 +69,6 @@ export class SearchableTagCrudService implements ISearchableTagCrudService {
       where: { id: idBusiness },
       data: { tagNames: remainingTags },
     });
-    console.log(
-      `Tags ${tagNames.join(', ')} deleted from business ${idBusiness}.`,
-    );
   }
 
   /**
@@ -88,6 +83,5 @@ export class SearchableTagCrudService implements ISearchableTagCrudService {
       where: { id: idBusiness },
       data: { tagNames: tags },
     });
-    console.log(`Tags for business ${idBusiness} set to: ${tags.join(', ')}.`);
   }
 }

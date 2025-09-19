@@ -9,7 +9,6 @@ export class OptionService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateOpcionDto) {
-    console.log(dto)
     const existOptionGroup = await this.prisma.opcionGrupo.count({
       where: { id: dto.optionGroupId },
     });

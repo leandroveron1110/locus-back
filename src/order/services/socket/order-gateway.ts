@@ -55,7 +55,6 @@ export class OrderGateway
     data: { role: 'user' | 'business' | 'delivery'; id?: string },
     @ConnectedSocket() client: Socket,
   ) {
-    console.log(data.role);
     if (data.role === 'user' && data.id) {
       client.join(`user-${data.id}`);
       this.logger.log(`Client ${client.id} joined user room user-${data.id}`);
