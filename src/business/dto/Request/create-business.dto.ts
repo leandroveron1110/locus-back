@@ -46,11 +46,6 @@ export class CreateBusinessDto {
   @IsNotEmpty({ message: 'El nombre del negocio es requerido.' })
   name: string;
 
-  @ApiProperty({ description: 'Lista de IDs de categorías a asociar con el negocio.', type: [String], example: ['uuid-cat-1', 'uuid-cat-2'], required: true })
-  @IsArray({ message: 'categoryIds debe ser un array de IDs de categorías.' })
-  @IsUUID('4', { each: true, message: 'Cada categoryId debe ser un UUID válido.' })
-  categoryIds: string[]; // IDs de categorías
-
   @ApiProperty({ description: 'Descripción corta del negocio.', example: 'Sirviendo la mejor comida local desde 2005.', required: false })
   @IsOptional()
   @IsString({ message: 'La descripción corta debe ser una cadena de texto.' })
@@ -85,11 +80,6 @@ export class CreateBusinessDto {
   @IsOptional()
   @IsEmail({}, { message: 'El email debe ser una dirección de correo válida.' })
   email?: string;
-
-  @ApiProperty({ description: 'ID del estado inicial del negocio (UUIDv4). Si no se proporciona, se usará un estado por defecto.', example: 'uuid-status-active', required: false })
-  @IsOptional()
-  @IsUUID('4', { message: 'statusId debe ser un UUID válido.' })
-  statusId?: string; // ID del estado inicial del negocio
 
   @ApiProperty({ description: 'URL del perfil de Instagram del negocio.', example: 'https://instagram.com/mirestaurante', required: false })
   @IsOptional()
@@ -127,9 +117,4 @@ export class CreateBusinessDto {
   @Max(180, { message: 'La longitud debe ser menor o igual a 180.' })
   // Si usas @IsDecimal, necesitas importarlo y configurar los dígitos.
   longitude?: number; // Mapeado a 'longitud' (Prisma espera Decimal, se convertirá en el servicio)
-
-  @ApiProperty({ description: 'ID del logo del negocio (UUIDv4).', example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef', required: false })
-  @IsOptional()
-  @IsUUID('4', { message: 'logoId debe ser un UUID válido.' })
-  logoId?: string; // Referencia al ID de la imagen en la tabla Image
 }

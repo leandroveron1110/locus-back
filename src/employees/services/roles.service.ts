@@ -32,9 +32,6 @@ export class RolesService {
   async listRoles(businessId: string) {
     return this.prisma.businessRole.findMany({
       where: { businessId },
-      include: {
-        employees: true, // Opcional: solo si querés ver qué empleados están asociados
-      },
     });
   }
 

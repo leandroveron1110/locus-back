@@ -20,6 +20,7 @@ import { BusinessTagService } from './services/business-tag.service';
 import { BusinessCategoryController } from './controllers/business-category.controller';
 import { WeeklyScheduleModule } from 'src/weekly-schedule/weekly-schedule.module';
 import { FollowModule } from 'src/follow/follow.module';
+import { SearchModule } from 'src/search/search.module';
 
 @Module({
   controllers: [
@@ -65,6 +66,7 @@ import { FollowModule } from 'src/follow/follow.module';
     forwardRef(() =>WeeklyScheduleModule),
     forwardRef(() => ImageModule),
     UploadsModule,
+    SearchModule
   ],
   exports: [
     TOKENS.IBusinessService,

@@ -25,31 +25,34 @@ export class AuthController {
   // -------------------------------
   // Registro (signup)
   // -------------------------------
-@Post('register')
-@Public()
-async register(@Body() createUserDto: CreateUserDto) {
-  // Si no se pasa role, se crea como CLIENT automáticamente
-  if (!createUserDto.role || createUserDto.role === 'CLIENT') {
+  @Post('register')
+  @Public()
+  async register(@Body() createUserDto: CreateUserDto) {
+    // Si no se pasa role, se crea como CLIENT automáticamente
+    if (!createUserDto.role || createUserDto.role === 'CLIENT') {
+      return this.authService.create(createUserDto);
+    }
+
+    // OWNER necesita JWT_SECRET
+    if (createUserDto.role === 'OWNER') {
+      if (createUserDto.secretKey !== process.env.JWT_SECRET) {
+        throw new BadRequestException(
+          'Clave secreta inválida para crear OWNER',
+        );
+      }
+    }
+
+    // ADMIN necesita ADMIN_SECRET_KEY
+    if (createUserDto.role === 'ADMIN') {
+      if (createUserDto.secretKey !== process.env.ADMIN_SECRET_KEY) {
+        throw new BadRequestException(
+          'Clave secreta inválida para crear ADMIN',
+        );
+      }
+    }
+
     return this.authService.create(createUserDto);
   }
-
-  // OWNER necesita JWT_SECRET
-  if (createUserDto.role === 'OWNER') {
-    if (createUserDto.secretKey !== process.env.JWT_SECRET) {
-      throw new BadRequestException('Clave secreta inválida para crear OWNER');
-    }
-  }
-
-  // ADMIN necesita ADMIN_SECRET_KEY
-  if (createUserDto.role === 'ADMIN') {
-    if (createUserDto.secretKey !== process.env.ADMIN_SECRET_KEY) {
-      throw new BadRequestException('Clave secreta inválida para crear ADMIN');
-    }
-  }
-
-  return this.authService.create(createUserDto);
-}
-
 
   // -------------------------------
   // Login cliente
@@ -76,6 +79,12 @@ async register(@Body() createUserDto: CreateUserDto) {
   @Public()
   async loginDelivery(@Body() loginDto: Omit<LoginDto, 'role'>) {
     return this.authService.loginDelivery(loginDto);
+  }
+
+  @Post('login/admin')
+  @Public()
+  async loginAdmin(@Body() loginDto: LoginDto) {
+    return await this.authService.loginAdmin(loginDto);
   }
 
   @Get('me')

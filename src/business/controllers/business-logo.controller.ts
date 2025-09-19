@@ -30,7 +30,7 @@ class UpdateLogoMetadataDto {
   // Los campos como url, publicId, etc., no se actualizan directamente por el cliente
 }
 
-@Controller('businesses/:businessId/logo')
+@Controller('business/:businessId/logo')
 export class BusinessLogoController {
   constructor(
     @Inject(TOKENS.IBusinessLogoService)

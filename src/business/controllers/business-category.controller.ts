@@ -16,6 +16,11 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { IsArray, IsUUID } from 'class-validator';
 import { IBusinessCategoryService } from '../interfaces/business-category.interface';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { PermissionEnum, UserRole } from '@prisma/client';
+import { Permissions } from 'src/auth/decorators/permissions.decorator';
+import { AccessStrategy } from 'src/auth/decorators/access-strategy.decorator';
+import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
 
 class UpdateBusinessCategoriesDto {
   @IsArray()
@@ -33,6 +38,9 @@ export class BusinessCategoryController {
 
   @Patch()
   @HttpCode(HttpStatus.OK) // Indica que la operación fue exitosa
+  @Roles(UserRole.OWNER)
+  @Permissions(PermissionEnum.EDIT_BUSINESS)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   async updateBusinessCategories(
     @Param('businessId', UuidParam) businessId: string,
     @Body() updateDto: UpdateBusinessCategoriesDto, // updateDto contendrá { categoryIds: string[] }

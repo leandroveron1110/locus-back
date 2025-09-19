@@ -31,7 +31,7 @@ import { BusinessPermissions, EmployeePermissions, ProductPermissions } from 'sr
 import { AccessStrategy } from 'src/auth/decorators/access-strategy.decorator';
 import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
 
-@Controller('businesses')
+@Controller('business')
 @UsePipes(
   new ValidationPipe({
     transform: true,
@@ -39,7 +39,6 @@ import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
     forbidNonWhitelisted: true,
   }),
 )
-// Aplicamos los guards a nivel de controlador
 export class BusinessController {
   constructor(
     @Inject(TOKENS.IBusinessService)
@@ -48,8 +47,8 @@ export class BusinessController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @Roles(UserRole.ADMIN, UserRole.OWNER) // El dueño también puede crear negocios
   @Permissions(BusinessPermissions.CREATE_BUSINESS) // Asumimos un permiso para esto
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ALL_PERMISSIONS)
   async create(
     @Body() createBusinessDto: CreateBusinessDto,
   ): Promise<BusinessResponseDto> {
@@ -95,7 +94,9 @@ export class BusinessController {
   
   
   @Patch(':id')
-  @Public()
+  @Roles(UserRole.OWNER)
+  @Permissions(BusinessPermissions.EDIT_BUSINESS)
+  @AccessStrategy(AccessStrategyEnum.ONLY_ALL_PERMISSIONS)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateBusinessDto: UpdateBusinessDto,
@@ -105,19 +106,18 @@ export class BusinessController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Public()
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.businessService.remove(id);
   }
 
   @Get('modules-config/:id')
-  @Public()
+  @Roles(UserRole.OWNER)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ALL_PERMISSIONS)
   async getModulesConfig(@Param('id', new ParseUUIDPipe()) businessId: string) {
     return this.businessService.getModulesConfigByBusinessId(businessId);
   }
 
   @Patch('modules-config/:id')
-  @Public()
   async updateModulesConfig(
     @Param('id', new ParseUUIDPipe()) businessId: string,
     @Body() body: unknown,
@@ -131,8 +131,8 @@ export class BusinessController {
 
   @Post('businesses/ids/')
   @Roles(UserRole.OWNER)
-  @Permissions(ProductPermissions.MANAGE_PRODUCTS, EmployeePermissions.DELETE_EMPLOYEE)
-  @AccessStrategy(AccessStrategyEnum.ONLY_ROLE)
+  @Permissions(BusinessPermissions.VIEW_DASHBOARD)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   async getBusinesses(@Body() body: GetBusinessesDto) {
     return await this.businessService.findManyByIds(body.ids);
   }

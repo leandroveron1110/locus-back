@@ -3,21 +3,18 @@ import {
   Controller,
   Get,
   Post,
-  Body,
-  Patch,
-  Param,
+  Put,
   Delete,
-  HttpCode,
-  HttpStatus,
-  Query,
+  Param,
+  Body,
   Inject,
+  NotFoundException,
+  HttpCode,
+  BadRequestException,
 } from '@nestjs/common';
-import { DayOfWeek } from '@prisma/client'; // Importa el Enum
-import { CreateWeeklyScheduleDto } from '../dtos/Request/create-weekly-schedule.dto';
-import { WeeklyScheduleResponseDto } from '../dtos/Response/weekly-schedule-response.dto';
-import { UpdateWeeklyScheduleDto } from '../dtos/Request/update-weekly-schedule.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IWeeklyScheduleService } from '../interface/weekly-schedule-service.interface';
+import { WeeklyScheduleStructure } from '../types/WeeklySchedule';
 import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller('weekly-schedules') // Prefijo de ruta
@@ -27,60 +24,121 @@ export class WeeklyScheduleController {
     private readonly weeklyScheduleService: IWeeklyScheduleService,
   ) {}
 
-  @Post()
-  @HttpCode(HttpStatus.CREATED) // 201 Created
-  create(
-    @Body() createWeeklyScheduleDto: CreateWeeklyScheduleDto,
-  ): Promise<WeeklyScheduleResponseDto> {
-    return this.weeklyScheduleService.create(createWeeklyScheduleDto);
-  }
-
-  @Get()
-  @HttpCode(HttpStatus.OK)
-  // Permite filtrar por businessId y/o dayOfWeek
-  findAll(
-    @Query('businessId') businessId?: string,
-    @Query('dayOfWeek') dayOfWeek?: DayOfWeek, // El query param vendrá como string, NestJS lo mapeará si el tipo es DayOfWeek.
-  ): Promise<WeeklyScheduleResponseDto[]> {
-    return this.weeklyScheduleService.findAll(businessId, dayOfWeek);
-  }
-  @Get()
-  @HttpCode(HttpStatus.OK)
-  findAllW(): Promise<WeeklyScheduleResponseDto[]> {
-    return this.weeklyScheduleService.findAllW();
-  }
-
-  @Get(':id')
-  @HttpCode(HttpStatus.OK)
-  findOne(@Param('id') id: string): Promise<WeeklyScheduleResponseDto> {
-    return this.weeklyScheduleService.findOne(id);
-  }
-
-  @Get('by-business/:businessId')
-  @HttpCode(HttpStatus.OK)
+  /**
+   * Obtiene el horario semanal completo de un negocio.
+   * GET /weekly-schedules/:idBusiness
+   */
+  @Get(':idBusiness')
   @Public()
-  findByBusinessId(@Param('businessId') businessId: string): Promise<any> {
-    return this.weeklyScheduleService.findByBusinessId(businessId);
+  async getWeeklySchedule(@Param('idBusiness') idBusiness: string) {
+    const schedule = await this.weeklyScheduleService.getWeeklySchedule(
+      idBusiness,
+    );
+    if (!schedule) {
+      throw new NotFoundException(
+        `No se encontró un horario para el negocio con ID ${idBusiness}.`,
+      );
+    }
+    return schedule;
   }
 
-  @Get('panel-business/:businessId')
-  @HttpCode(HttpStatus.OK)
-  findPanleBusinessByBusinessId(@Param('businessId') businessId: string): Promise<any> {
-    return this.weeklyScheduleService.findPanleBusinessByBusinessId(businessId);
+  /**
+   * Reemplaza (establece) el horario semanal completo de un negocio.
+   * POST /weekly-schedules/:idBusiness
+   */
+  @Post(':idBusiness')
+  @HttpCode(204) // No Content, ya que la respuesta no necesita cuerpo
+  async setWeeklySchedule(
+    @Param('idBusiness') idBusiness: string,
+    @Body() body: WeeklyScheduleStructure, // Aquí puedes usar un DTO más específico si lo necesitas
+  ) {
+    try {
+      await this.weeklyScheduleService.setWeeklySchedule(idBusiness, body);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
-  @Patch(':id')
-  @HttpCode(HttpStatus.OK)
-  update(
-    @Param('id') id: string,
-    @Body() updateWeeklyScheduleDto: UpdateWeeklyScheduleDto,
-  ): Promise<WeeklyScheduleResponseDto> {
-    return this.weeklyScheduleService.update(id, updateWeeklyScheduleDto);
+  /**
+   * Actualiza los horarios de un día específico.
+   * PUT /weekly-schedules/:idBusiness/daily/:day
+   */
+  @Put(':idBusiness/daily/:day')
+  @HttpCode(204)
+  async updateDailySchedule(
+    @Param('idBusiness') idBusiness: string,
+    @Param('day') day: string,
+    @Body() body: { timeRanges: string[] },
+  ) {
+    try {
+      await this.weeklyScheduleService.updateDailySchedule(
+        idBusiness,
+        day,
+        body.timeRanges,
+      );
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT) // 204 No Content
-  remove(@Param('id') id: string): Promise<void> {
-    return this.weeklyScheduleService.remove(id);
+  /**
+   * Añade un nuevo rango de tiempo a un día específico.
+   * POST /weekly-schedules/:idBusiness/daily/:day
+   */
+  @Post(':idBusiness/daily/:day')
+  @HttpCode(204)
+  async addTimeRangeToDay(
+    @Param('idBusiness') idBusiness: string,
+    @Param('day') day: string,
+    @Body() body: { newTimeRange: string },
+  ) {
+    try {
+      await this.weeklyScheduleService.addTimeRangeToDay(
+        idBusiness,
+        day,
+        body.newTimeRange,
+      );
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  /**
+   * Elimina un rango de tiempo específico de un día.
+   * DELETE /weekly-schedules/:idBusiness/daily/:day
+   */
+  @Delete(':idBusiness/daily/:day')
+  @HttpCode(204)
+  async removeTimeRangeFromDay(
+    @Param('idBusiness') idBusiness: string,
+    @Param('day') day: string,
+    @Body() body: { timeRangeToRemove: string },
+  ) {
+    try {
+      await this.weeklyScheduleService.removeTimeRangeFromDay(
+        idBusiness,
+        day,
+        body.timeRangeToRemove,
+      );
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  /**
+   * Elimina el horario de un día completo.
+   * DELETE /weekly-schedules/:idBusiness/:day
+   */
+  @Delete(':idBusiness/:day')
+  @HttpCode(204)
+  async deleteDailySchedule(
+    @Param('idBusiness') idBusiness: string,
+    @Param('day') day: string,
+  ) {
+    try {
+      await this.weeklyScheduleService.deleteDailySchedule(idBusiness, day);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 }

@@ -5,11 +5,13 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { WeeklyScheduleController } from './controllers/weekly-schedule.controller';
 import { WeeklyScheduleService } from './service/weekly-schedule.service';
 import { TOKENS } from 'src/common/constants/tokens';
+import { SearchModule } from 'src/search/search.module';
 
 @Module({
   imports: [
     PrismaModule, // Necesario para la interacción con la base de datos
-    forwardRef(() =>BusinessModule), // Necesario para validar la existencia del negocio
+    forwardRef(() =>BusinessModule),
+    SearchModule
   ],
   controllers: [WeeklyScheduleController],
   providers: [

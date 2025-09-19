@@ -203,6 +203,29 @@ export class AuthService implements IAuthService {
     };
   }
 
+  async loginAdmin(loginDto: LoginDto){
+  const user = await this.validateUser(loginDto.email, loginDto.password);
+
+  if (!user || user.role !== 'ADMIN') {
+    throw new UnauthorizedException('Credenciales inválidas para admin.');
+  }
+
+  const payload: JwtPayload = {
+    sub: user.id,
+    rol: user.role,
+    email: user.email,
+    businesses: [],
+    deliveries: [],
+  };
+
+  const userDto = LoginResponseDto.fromPrisma(user);
+
+  return {
+    user: userDto,
+    accessToken: this.jwtService.sign(payload),
+  };
+}
+
   // -------------------------------
   // Obtener perfil del usuario
   // -------------------------------

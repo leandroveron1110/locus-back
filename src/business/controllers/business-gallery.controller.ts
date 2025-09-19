@@ -15,13 +15,16 @@ import {
   ParseIntPipe,
   Optional,
   BadRequestException, // Asegúrate de importar BadRequestException
-  Inject, // Asegúrate de importar NotFoundException
+  Inject,
+  DefaultValuePipe, // Asegúrate de importar NotFoundException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessGalleryService } from '../interfaces/business-gallery.interface';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 // DTO para la actualización de metadatos de la imagen de galería
 class UpdateGalleryImageDto {
@@ -31,7 +34,7 @@ class UpdateGalleryImageDto {
   // description?: string;
 }
 
-@Controller('businesses/:businessId/gallery')
+@Controller('business/:businessId/gallery')
 export class BusinessGalleryController {
   constructor(
     @Inject(TOKENS.IBusinessGalleryService)
@@ -41,11 +44,12 @@ export class BusinessGalleryController {
   @Post()
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.OWNER)
   async addGalleryImage(
     // businessId se obtiene de la URL base del controlador
     @Param('businessId') businessId: string,
     @UploadedFile() file: Express.Multer.File,
-    @Optional() @Query('order', ParseIntPipe) order?: number,
+    @Query('order', new DefaultValuePipe(0), ParseIntPipe) order: number,
   ): Promise<ImageResponseDto> {
     if (!file) {
       throw new BadRequestException(

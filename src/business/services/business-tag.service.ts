@@ -1,5 +1,5 @@
 // src/business/services/business-tag.service.ts
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { IBusinessTagService } from '../interfaces/business-tag.interface';
 import { TOKENS } from 'src/common/constants/tokens';
@@ -7,6 +7,7 @@ import { IExistenceValidator } from 'src/common/interfaces/existence-validator.i
 import { Tag as PrismaTag } from '@prisma/client'; // Importamos el tipo Tag de Prisma para el DTO de retorno
 import { ITagService } from 'src/targs/interfaces/tag-service.interface';
 import { BusinessTagResponseDto } from '../dto/Response/business-tag-response.dto';
+import { ISearchableTagCrudService } from 'src/search/interfaces/searchable-tag-crud-service.interface';
 
 // Definir el DTO de retorno para getTagsByBusinessId
 export interface BusinessTagDetails {
@@ -27,39 +28,63 @@ export class BusinessTagService implements IBusinessTagService {
     private prisma: PrismaService,
     @Inject(TOKENS.IBusinessValidator)
     private readonly businessValidator: IExistenceValidator,
-    @Inject(TOKENS.ITagValidator)
-    private readonly tagValidator: IExistenceValidator,
+    @Inject(TOKENS.ISearchableTagCrudService)
+    private readonly searchableTagCrudService: ISearchableTagCrudService,
     @Inject(TOKENS.ITagService)
     private readonly tagService: ITagService,
   ) {}
 
-  async associateBusinessWithTags(
-    businessId: string,
-    tagIds: string[],
-  ): Promise<void> {
-    await this.businessValidator.checkOne(businessId);
+// src/business/business-tag.service.ts (o donde se encuentre)
 
-    if (tagIds && tagIds.length > 0) {
-      await this.tagValidator.checkMany(tagIds);
-    }
+// Asume que tienes un TagService para obtener los nombres de los tags
+// y un SearchableTagCrudService inyectado.
 
-    await this.prisma.$transaction(async (prisma) => {
-      await prisma.businessTag.deleteMany({
-        where: { businessId: businessId },
-      });
+async associateBusinessWithTags(
+  businessId: string,
+  tagIds: string[],
+): Promise<void> {
+  // 1. Validar si el negocio existe.
+  await this.businessValidator.checkOne(businessId);
 
-      if (tagIds && tagIds.length > 0) {
-        const createManyData = tagIds.map((tagId) => ({
-          businessId: businessId,
-          tagId: tagId,
-        }));
-        await prisma.businessTag.createMany({
-          data: createManyData,
-          skipDuplicates: true,
-        });
-      }
-    });
+  // 2. Unificar la validación de tags y la obtención de nombres en una sola llamada.
+  const tags = await this.prisma.tag.findMany({
+    where: { id: { in: tagIds } },
+    select: { id: true, name: true },
+  });
+
+  if (tags.length !== tagIds.length) {
+    const foundIds = new Set(tags.map((t) => t.id));
+    const missingIds = tagIds.filter((id) => !foundIds.has(id));
+    throw new NotFoundException(
+      `Uno o más tags no fueron encontrados: ${missingIds.join(', ')}`,
+    );
   }
+
+  const tagNames = tags.map((t) => t.name);
+
+  // 3. Usar una transacción para `deleteMany` y `createMany` en la base de datos principal.
+  const createManyData = tagIds.map((tagId) => ({
+    businessId: businessId,
+    tagId: tagId,
+  }));
+
+  await this.prisma.$transaction([
+    this.prisma.businessTag.deleteMany({
+      where: { businessId: businessId },
+    }),
+    this.prisma.businessTag.createMany({
+      data: createManyData,
+      skipDuplicates: true,
+    }),
+  ]);
+
+  // 4. Sincronizar con el buscador.
+  // Es crucial usar `setTagsForBusiness` para reemplazar los tags existentes.
+  await this.searchableTagCrudService.setTagsForBusiness(
+    businessId,
+    tagNames,
+  );
+}
 
   async getTagsByBusinessId(
     businessId: string,

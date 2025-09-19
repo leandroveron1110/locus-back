@@ -231,20 +231,20 @@ model Tag {
 }
 
 // Modelo WeeklySchedule. Define los horarios de apertura y cierre regulares de un negocio por día de la semana.
-model WeeklySchedule {
-  id          String    @id @default(uuid()) @map("id")
-  businessId  String    @map("negocio_id")
-  dayOfWeek   DayOfWeek @map("dia_semana")
-  openingTime DateTime  @map("hora_apertura") @db.Time(0)
-  closingTime DateTime  @map("hora_cierre") @db.Time(0)
-  createdAt   DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+// model WeeklySchedule {
+//   id          String    @id @default(uuid()) @map("id")
+//   businessId  String    @map("negocio_id")
+//   dayOfWeek   DayOfWeek @map("dia_semana")
+//   openingTime DateTime  @map("hora_apertura") @db.Time(0)
+//   closingTime DateTime  @map("hora_cierre") @db.Time(0)
+//   createdAt   DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+//   updatedAt   DateTime  @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+//   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  @@unique([businessId, dayOfWeek, openingTime, closingTime]) // Evita horarios duplicados para el mismo día.
-  @@map("horarios_semanales")
-}
+//   @@unique([businessId, dayOfWeek, openingTime, closingTime]) // Evita horarios duplicados para el mismo día.
+//   @@map("horarios_semanales")
+// }
 
 // Modelo OfferedService. Define los servicios que un negocio ofrece (ej. "Corte de pelo", "Clase de yoga").
 model OfferedService {
@@ -299,7 +299,7 @@ model Business {
 
   currentStatus Status? @relation(fields: [statusId], references: [id], name: "BusinessStatus")
 
-  weeklySchedules  WeeklySchedule[]
+  horarios Json?   @map("horarios")
   ratings          Rating[]
   offeredServices  OfferedService[]
   businessFollower BusinessFollower[]
@@ -370,32 +370,44 @@ model BusinessEmployeeOverride {
   employee   BusinessEmployee @relation(fields: [employeeId], references: [id])
 }
 enum PermissionEnum {
-  // Permisos para el panel de control y reportes
-  VIEW_DASHBOARD          // Permite ver el panel de control del negocio.
-  VIEW_REPORTS            // Permite ver los informes financieros y de ventas.
+  // -------------------------
+  // Permisos para empleados
+  // -------------------------
+  CREATE_EMPLOYEE       // Permite crear empleados en el negocio.
+  EDIT_EMPLOYEE         // Permite editar información de empleados.
+  DELETE_EMPLOYEE       // Permite eliminar empleados.
 
-  // Permisos para la gestión de productos y stock
-  MANAGE_PRODUCTS         // Permite crear, editar y eliminar productos.
+  // -------------------------
+  // Permisos para productos
+  // -------------------------
+  CREATE_PRODUCT        // Permite crear nuevos productos.
+  EDIT_PRODUCT          // Permite editar productos existentes.
+  DELETE_PRODUCT        // Permite eliminar productos.
+  MANAGE_PRODUCTS       // Permite gestionar todo lo relacionado a productos.
 
-  // Permisos para el manejo de caja y transacciones
-  CLOSE_CASH_REGISTER     // Permite realizar el cierre de caja.
+  // -------------------------
+  // Permisos para el negocio
+  // -------------------------
+  CREATE_BUSINESS       // Permite crear un negocio.
+  EDIT_BUSINESS         // Permite editar los datos del negocio.
+  DELETE_BUSINESS       // Permite eliminar el negocio.
+  VIEW_DASHBOARD        // Permite ver el panel de control del negocio.
+  CLOSE_CASH_REGISTER   // Permite realizar el cierre de caja.
+  VIEW_REPORTS          // Permite ver reportes de ventas y finanzas.
+  MANAGE_DELIVERY_ZONES // Permite configurar zonas de entrega y tarifas.
 
-  // Permisos para el sistema de reservas
-  CREATE_RESERVATION      // Permite crear una nueva reserva de mesa.
-  EDIT_RESERVATION        // Permite modificar o cancelar una reserva.
-
-  // Permisos para el sistema de pedidos (como PedidoYa)
-  VIEW_ORDERS             // Permite ver la lista de pedidos y su estado.
-  CREATE_ORDER            // Permite crear un pedido manual.
-  EDIT_ORDER              // Permite editar un pedido existente.
-  CANCEL_ORDER            // Permite cancelar un pedido.
-  PROCESS_ORDER           // Permite cambiar el estado de un pedido a "en preparación".
-  DELIVER_ORDER           // Permite asignar un pedido a un repartidor.
-  COMPLETE_ORDER          // Permite marcar un pedido como "entregado".
-
-  // Permisos de configuración
-  MANAGE_DELIVERY_ZONES   // Permite configurar las zonas de entrega y tarifas.
+  // -------------------------
+  // Permisos para pedidos
+  // -------------------------
+  VIEW_ORDERS           // Permite ver la lista de pedidos y su estado.
+  CREATE_ORDER          // Permite crear un pedido manual.
+  EDIT_ORDER            // Permite editar un pedido existente.
+  CANCEL_ORDER          // Permite cancelar un pedido.
+  PROCESS_ORDER         // Permite cambiar el estado de un pedido a "en preparación".
+  DELIVER_ORDER         // Permite asignar un pedido a un repartidor y marcarlo como enviado.
+  COMPLETE_ORDER        // Permite marcar un pedido como entregado.
 }
+
 
 
 

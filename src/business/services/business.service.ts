@@ -29,6 +29,7 @@ import {
   ModulesConfigSchema,
   ModulesConfig,
 } from '../dto/Request/modules-config.schema.dto';
+import { ISearchableBusinessCrudService } from 'src/search/interfaces/searchable-business-crud-service.interface';
 
 @Injectable()
 export class BusinessService implements IBusinessService {
@@ -47,8 +48,8 @@ export class BusinessService implements IBusinessService {
     private statusService: IStatusService,
     @Inject(TOKENS.IBusinessCategoryService)
     private businessCategoryService: IBusinessCategoryService,
-    @Inject(TOKENS.IBusinessLogoService)
-    private readonly businessLogoService: IBusinessLogoService,
+    @Inject(TOKENS.ISearchableBusinessCrudService)
+    private readonly searchableBusinessCrudService: ISearchableBusinessCrudService,
   ) {}
 
   async findOneProfileById(id: string): Promise<any> {
@@ -66,10 +67,7 @@ export class BusinessService implements IBusinessService {
   ): Promise<BusinessResponseDto> {
     const {
       ownerId,
-      categoryIds,
-      statusId,
       modulesConfig,
-      logoId,
       latitude,
       longitude,
       ...data
@@ -80,7 +78,6 @@ export class BusinessService implements IBusinessService {
     //   throw new ForbiddenException('No tienes permiso para crear un negocio para otro propietario.');
     // }
 
-    // 2. Validamos que existe el usuario y que sea OWENER
     const user = await this.userService.findById(ownerId);
     if (!user) {
       throw new ForbiddenException(
@@ -88,62 +85,35 @@ export class BusinessService implements IBusinessService {
       );
     }
 
-    // 3. Validar la existencia de las categorías proporcionadas
-    await this.categoryValidator.checkMany(categoryIds);
-
-    // 4. Obtener o validar el ID del estado inicial
-    let finalStatusId: string | undefined;
-    if (statusId) {
-      // Si el usuario proporciona un statusId, validarlo
-      await this.statusValidator.checkOne(statusId);
-      const providedStatus = await this.statusService.findOne(statusId);
-      if (!providedStatus) {
-        throw new BadRequestException(
-          `El statusId "${statusId}" no es un estado válido para entidades BUSINESS.`,
-        );
-      }
-      finalStatusId = providedStatus.id;
-    } else {
-      // Si no se proporciona, buscar el estado por defecto 'PENDING_REVIEW'
-      const pendingReviewStatus =
-        await this.statusService.findBusinessPendingReviewStatus();
-
-      finalStatusId = pendingReviewStatus.id;
-    }
-
     try {
-      const business = await this.prisma.$transaction(async (tx) => {
-        // Crear el negocio
-        const newBusiness = await tx.business.create({
-          data: {
-            ...data,
-            owner: { connect: { id: ownerId } },
-            currentStatus: { connect: { id: finalStatusId } },
-            logo: logoId ? { connect: { id: logoId } } : undefined, // Conectar logo si se proporciona
-            modulesConfig: (modulesConfig || {}) as Prisma.InputJsonValue, // Asegura un objeto JSON vacío si es null/undefined
-            // Convertir number (del DTO) a Prisma.Decimal para la base de datos
-            latitude:
-              latitude !== undefined ? new Prisma.Decimal(latitude) : null,
-            longitude:
-              longitude !== undefined ? new Prisma.Decimal(longitude) : null,
-          },
-          // Incluir relaciones que necesitarás para SearchableBusiness
-          include: {
-            logo: true, // Para obtener la URL del logo
-            weeklySchedules: true, // Para horarios
-            currentStatus: true, // Para obtener el nombre del estado
-          },
-        });
+      const business = await this.prisma.business.create({
+        data: {
+          ...data,
+          owner: { connect: { id: ownerId } },
+          modulesConfig: (modulesConfig || {}) as Prisma.InputJsonValue, // Asegura un objeto JSON vacío si es null/undefined
+          // Convertir number (del DTO) a Prisma.Decimal para la base de datos
+          latitude:
+            latitude !== undefined ? new Prisma.Decimal(latitude) : null,
+          longitude:
+            longitude !== undefined ? new Prisma.Decimal(longitude) : null,
+        },
+      });
 
-        if (categoryIds && categoryIds.length > 0) {
-          // asociamos las categorias al business
-          this.businessCategoryService.associateBusinessWithCategories(
-            newBusiness.id,
-            categoryIds,
-          );
-        }
-
-        return newBusiness;
+      await this.searchableBusinessCrudService.create({
+        followersCount: 0,
+        id: business.id,
+        name: business.name,
+        address: business.address,
+        city: 'Concepcion del Uruguay',
+        fullDescription: business.fullDescription || '',
+        latitude: Number(business.latitude),
+        longitude: Number(business.longitude),
+        logoUrl: business.logoUrl || undefined,
+        modulesConfig: business.modulesConfig
+          ? JSON.stringify(business.modulesConfig)
+          : undefined,
+        shortDescription: business.shortDescription || '',
+        province: 'Entre rios',
       });
 
       // Si necesitas transformar el resultado a un DTO de respuesta específico
@@ -269,7 +239,7 @@ export class BusinessService implements IBusinessService {
   }
 
   async updateBusiness(id: string, data: UpdateBusinessDto) {
-    const { categoryIds, ownerId, modulesConfig, ...businessData } = data;
+    const { ownerId, modulesConfig, ...businessData } = data;
 
     await this.businessValidator.checkOne(id);
 
@@ -289,14 +259,7 @@ export class BusinessService implements IBusinessService {
       });
 
       if (!business) {
-      throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
-    }
-
-      if (categoryIds !== undefined) {
-        await this.businessCategoryService.associateBusinessWithCategories(
-          business.id,
-          categoryIds,
-        );
+        throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
       }
 
       // Después de la actualización, si necesitas los detalles de las categorías para la respuesta
@@ -316,9 +279,12 @@ export class BusinessService implements IBusinessService {
    */
   async remove(id: string) {
     try {
-      return await this.prisma.business.update({ where: { id }, data: {
-        isDeleted: true
-      } });
+      return await this.prisma.business.update({
+        where: { id },
+        data: {
+          isDeleted: true,
+        },
+      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -416,7 +382,6 @@ export class BusinessService implements IBusinessService {
       name: b.name,
       address: b.address,
       description: b.shortDescription,
-      
     }));
   }
 }
