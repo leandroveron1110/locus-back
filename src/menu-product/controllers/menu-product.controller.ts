@@ -19,6 +19,8 @@ import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { ProductPermissions } from 'src/common/enums/rolees-permissions';
+import { AccessStrategy } from 'src/auth/decorators/access-strategy.decorator';
+import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
 
 @Controller('menu-products')
 @UsePipes(
@@ -37,7 +39,8 @@ export class MenuProductController {
   @Post()
   // Solo los dueños o aquellos con el permiso para gestionar productos pueden crear uno.
   @Roles(UserRole.OWNER)
-  @Permissions(ProductPermissions.MANAGE_PRODUCTS)
+  @Permissions(ProductPermissions.MANAGE_PRODUCTS, ProductPermissions.EDIT_PRODUCT)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   async create(@Body() dto: CreateMenuProductDto) {
     return await this.menuProductService.create(dto);
   }

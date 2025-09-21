@@ -5,7 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-    // Leer CORS desde variable de entorno y convertir a array
+  // Leer CORS desde variable de entorno y convertir a array
   const corsOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',')
     : [];
@@ -25,7 +25,6 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT) || 3001;
   await app.listen(port);
-
 
   console.log('');
   console.log('🚀 NestJS server running at:');

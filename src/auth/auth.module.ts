@@ -43,7 +43,7 @@ import { BusinessModule } from 'src/business/business.module';
       imports: [ConfigModule], // Necesario para inyectar ConfigService
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'), // Obtiene el secreto de las variables de entorno
-        signOptions: { expiresIn: '260m' }, // Opciones de firma: el token expira en 60 minutos
+        signOptions: { expiresIn: '15d' },
       }),
       inject: [ConfigService], // Especifica qué servicios inyectar en useFactory
     }),

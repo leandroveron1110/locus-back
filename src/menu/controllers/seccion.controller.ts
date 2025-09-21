@@ -32,7 +32,7 @@ export class SeccionController {
   @Post()
   // Solo dueños o empleados con el rol de manager pueden crear secciones
   @Roles(UserRole.OWNER)
-  @Permissions(ProductPermissions.MANAGE_PRODUCTS)
+  @Permissions(ProductPermissions.MANAGE_PRODUCTS, ProductPermissions.EDIT_PRODUCT)
   async create(@Body() dto: SeccionCreateDto) {
     return this.seccionService.createSeccion(dto);
   }

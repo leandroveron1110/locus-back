@@ -108,9 +108,10 @@ export class AuthService implements IAuthService {
     }
 
     // 1️⃣ Negocios del usuario
+    // Asegúrate de que findBusinessesByUser incluya el rol y las sobrescrituras
     const [ownedBusinesses, employeeBusinesses] = await Promise.all([
       this.businessService.findByOwner(user.id),
-      this.employeesService.findBusinessesByUser(user.id), // <-- asegúrate de que incluya role y overrides
+      this.employeesService.findBusinessesByUser(user.id),
     ]);
 
     if (ownedBusinesses.length === 0 && employeeBusinesses.length === 0) {
@@ -128,17 +129,23 @@ export class AuthService implements IAuthService {
       })),
       ...employeeBusinesses.map((e) => {
         const rolePermissions = e.role?.permissions ?? [];
-        const permissionsSet = new Set(rolePermissions);
+        const overrides = new Map(e.overrides?.map(o => [o.permission, o.allowed]) ?? []);
 
-        e.overrides?.forEach((o) => {
-          if (o.allowed) permissionsSet.add(o.permission);
-          else permissionsSet.delete(o.permission);
+        // 🚀 Lógica corregida para combinar permisos
+        const effectivePermissions = Array.from(rolePermissions).filter(p => {
+          return !(overrides.has(p) && overrides.get(p) === false);
         });
 
+        overrides.forEach((allowed, permission) => {
+          if (allowed && !effectivePermissions.includes(permission)) {
+            effectivePermissions.push(permission);
+          }
+        });
+        
         return {
           id: e.businessId,
           role: e.role?.name ?? 'UNASSIGNED',
-          permissions: Array.from(permissionsSet),
+          permissions: effectivePermissions,
         };
       }),
     ];

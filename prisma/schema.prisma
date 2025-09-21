@@ -359,6 +359,8 @@ model BusinessEmployee {
 
   business   Business @relation(fields: [businessId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([businessId, userId])
 }
 
 

@@ -26,7 +26,7 @@ export class AuthController {
   // Registro (signup)
   // -------------------------------
   @Post('register')
-  @Public()
+  @Public() 
   async register(@Body() createUserDto: CreateUserDto) {
     // Si no se pasa role, se crea como CLIENT automáticamente
     if (!createUserDto.role || createUserDto.role === 'CLIENT') {
@@ -35,10 +35,8 @@ export class AuthController {
 
     // OWNER necesita JWT_SECRET
     if (createUserDto.role === 'OWNER') {
-      if (createUserDto.secretKey !== process.env.JWT_SECRET) {
-        throw new BadRequestException(
-          'Clave secreta inválida para crear OWNER',
-        );
+      if (createUserDto.secretKey !== process.env.OWNER_SECRET_KEY) {
+        throw new BadRequestException('Clave secreta inválida para crear OWNER');
       }
     }
 

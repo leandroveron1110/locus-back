@@ -12,7 +12,6 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
   NotFoundException,
-  UseGuards,
   Inject, // Importa UseGuards
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
@@ -23,6 +22,8 @@ import { UpdateUserDto } from '../dto/Request/update-user.dto'; // Asegúrate qu
 import { TOKENS } from 'src/common/constants/tokens';
 import { IUserService } from '../interfaces/User-service.interface';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @UseInterceptors(ClassSerializerInterceptor) // Aplica el interceptor para transformar las respuestas automáticamente
 @Controller('users') // Prefijo para todas las rutas de este controlador (ej. /users)
@@ -54,11 +55,21 @@ export class UsersController {
   // Esta es la misma que ya tenías. Un cliente puede ver su propio perfil.
   // Un ADMIN o OWNER pueden ver cualquier perfil.
   @Get(':id')
-  @Public()
+  @Roles(UserRole.OWNER)
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     const user = await this.usersService.findById(id);
     if (!user) {
       throw new NotFoundException(`Usuario con ID "${id}" no encontrado.`);
+    }
+    return plainToInstance(UserResponseDto, user);
+  }
+
+  @Get('email/:email')
+  @Roles(UserRole.OWNER)
+  async findByEmail(@Param('email') email: string): Promise<UserResponseDto> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException(`Usuario con email "${email}" no encontrado.`);
     }
     return plainToInstance(UserResponseDto, user);
   }

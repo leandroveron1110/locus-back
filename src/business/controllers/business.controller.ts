@@ -130,7 +130,7 @@ export class BusinessController {
 
   @Post('businesses/ids/')
   @Roles(UserRole.OWNER)
-  @Permissions(BusinessPermissions.VIEW_DASHBOARD)
+  @Permissions(BusinessPermissions.VIEW_DASHBOARD, BusinessPermissions.EDIT_BUSINESS)
   @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   async getBusinesses(@Body() body: GetBusinessesDto) {
     return await this.businessService.findManyByIds(body.ids);

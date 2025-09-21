@@ -15,7 +15,6 @@ import {
   ArrayMinSize, // Nuevo para categoryIds
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger'; // Solo si usas Swagger
 
 // --- Interfaces para modulesConfig (pueden estar en un archivo separado como types/modules-config.ts) ---
 export interface ModuleConfigEntry {
@@ -36,62 +35,51 @@ export interface ModulesConfig {
 // --- Fin de Interfaces para modulesConfig ---
 
 export class CreateBusinessDto {
-  @ApiProperty({ description: 'ID del usuario propietario del negocio (UUIDv4).', example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef' })
   @IsUUID('4', { message: 'ownerId debe ser un UUID válido.' })
   @IsNotEmpty({ message: 'ownerId es requerido.' })
   ownerId: string; // ID del usuario propietario
 
-  @ApiProperty({ description: 'Nombre del negocio.', example: 'Mi Restaurante Favorito' })
   @IsString({ message: 'El nombre debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'El nombre del negocio es requerido.' })
   name: string;
 
-  @ApiProperty({ description: 'Descripción corta del negocio.', example: 'Sirviendo la mejor comida local desde 2005.', required: false })
   @IsOptional()
   @IsString({ message: 'La descripción corta debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'La descripción corta no puede estar vacía si está presente.' })
   shortDescription?: string; // Mapeado a 'descripcion_corta'
 
-  @ApiProperty({ description: 'Descripción completa del negocio.', example: 'Un lugar acogedor con una amplia variedad de platos.', required: false })
   @IsOptional()
   @IsString({ message: 'La descripción completa debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'La descripción completa no puede estar vacía si está presente.' })
   fullDescription?: string; // Mapeado a 'descripcion_completa'
 
-  @ApiProperty({ description: 'Dirección física del negocio.', example: 'Av. Siempre Viva 742' })
   @IsString({ message: 'La dirección debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'La dirección es requerida.' })
   address: string;
 
-  @ApiProperty({ description: 'Número de teléfono de contacto del negocio.', example: '+5491123456789' })
   @IsString({ message: 'El teléfono debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'El teléfono es requerido.' })
   // Si usas @IsPhoneNumber, asegúrate de que la librería 'libphonenumber-js' esté instalada y configurada
   // @IsPhoneNumber('AR', { message: 'El teléfono debe ser un número de teléfono válido para Argentina.' })
   phone: string;
 
-  @ApiProperty({ description: 'Número de WhatsApp del negocio.', example: '+5491123456789' })
   @IsString({ message: 'El WhatsApp debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'El WhatsApp es requerido.' })
   // @IsPhoneNumber('AR', { message: 'El WhatsApp debe ser un número de teléfono válido para Argentina.' })
   whatsapp: string;
 
-  @ApiProperty({ description: 'Dirección de email de contacto del negocio.', example: 'info@mirestaurante.com', required: false })
   @IsOptional()
   @IsEmail({}, { message: 'El email debe ser una dirección de correo válida.' })
   email?: string;
 
-  @ApiProperty({ description: 'URL del perfil de Instagram del negocio.', example: 'https://instagram.com/mirestaurante', required: false })
   @IsOptional()
   @IsUrl({}, { message: 'La URL de Instagram debe ser una URL válida.' })
   instagramUrl?: string; // Mapeado a 'url_instagram'
 
-  @ApiProperty({ description: 'URL del perfil de Facebook del negocio.', example: 'https://facebook.com/mirestaurante', required: false })
   @IsOptional()
   @IsUrl({}, { message: 'La URL de Facebook debe ser una URL válida.' })
   facebookUrl?: string; // Mapeado a 'url_facebook'
 
-  @ApiProperty({ description: 'URL del sitio web del negocio.', example: 'https://www.mirestaurante.com', required: false })
   @IsOptional()
   @IsUrl({}, { message: 'La URL del sitio web debe ser una URL válida.' })
   websiteUrl?: string; // Mapeado a 'url_web'
@@ -101,7 +89,6 @@ export class CreateBusinessDto {
   @Type(() => Object) // Usar Type(() => Object) para objetos anidados simples
   modulesConfig?: ModulesConfig; // Mapeado a 'modulos_config'
 
-  @ApiProperty({ description: 'Latitud de la ubicación del negocio.', example: -34.6037, required: false, type: Number })
   @IsOptional()
   @Type(() => Number) // IMPORTANTE: Transforma el string de la request a Number
   @Min(-90, { message: 'La latitud debe ser mayor o igual a -90.' })
@@ -110,7 +97,6 @@ export class CreateBusinessDto {
   // Pero si el campo en el DTO es 'number', los decoradores Min/Max son más adecuados.
   latitude?: number; // Mapeado a 'latitud' (Prisma espera Decimal, se convertirá en el servicio)
 
-  @ApiProperty({ description: 'Longitud de la ubicación del negocio.', example: -58.3816, required: false, type: Number })
   @IsOptional()
   @Type(() => Number) // IMPORTANTE: Transforma el string de la request a Number
   @Min(-180, { message: 'La longitud debe ser mayor o igual a -180.' })

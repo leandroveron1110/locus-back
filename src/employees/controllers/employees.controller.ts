@@ -1,12 +1,16 @@
 import { Controller, Post, Body, Param, Patch, Get } from '@nestjs/common';
 import { EmployeesService } from '../services/employees.service';
-import { CreateBusinessEmployeeDto, UpdateBusinessEmployeeDto } from '../dto/request/business-employee.dto';
+import {
+  CreateBusinessEmployeeDto,
+  UpdateBusinessEmployeeDto,
+} from '../dto/request/business-employee.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { UserRole } from '@prisma/client';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { EmployeePermissions } from 'src/common/enums/rolees-permissions';
-
+import { AccessStrategy } from 'src/auth/decorators/access-strategy.decorator';
+import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
 
 @Controller('employees')
 export class EmployeesController {
@@ -20,16 +24,24 @@ export class EmployeesController {
   @Roles(UserRole.OWNER)
   @Permissions(EmployeePermissions.CREATE_EMPLOYEE)
   async createBusinessEmployee(@Body() dto: CreateBusinessEmployeeDto) {
-    return this.employeesService.createEmployee(dto);
+    return this.employeesService.createOrUpdateEmployee(dto);
   }
 
   @Patch('business/:id')
+  @Roles(UserRole.OWNER)
   @Permissions(EmployeePermissions.EDIT_EMPLOYEE)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ALL_PERMISSIONS)
   async updateBusinessEmployee(
     @Param('id') id: string,
     @Body() dto: UpdateBusinessEmployeeDto,
   ) {
     return this.employeesService.updateEmployee(id, dto);
+  }
+  
+  @Get('business/employess/:businessId')
+  @Public()
+  async findBusinessesByUser(@Param('businessId') businessId: string) {
+    return this.employeesService.findEmployeesByBusiness(businessId);
   }
 
   @Get('business/:businessId')
@@ -37,6 +49,17 @@ export class EmployeesController {
   async listBusinessEmployees(@Param('businessId') businessId: string) {
     return this.employeesService.listEmployees(businessId);
   }
+
+  @Patch('/remove-role/:businessId/:employeeId')
+  @Roles(UserRole.OWNER)
+  removeRole(
+    @Param('businessId') businessId: string,
+    @Param('employeeId') employeeId: string,
+  ) {
+    // Llama al servicio para eliminar el rol y las sobrescrituras
+    return this.employeesService.removeRole(employeeId, businessId);
+  }
+
 
   // -------------------------------
   // Delivery Employees
