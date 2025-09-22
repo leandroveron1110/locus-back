@@ -18,8 +18,11 @@ constructor(
     ownerId: string,
     businessId: string,
   ): Promise<void> {
-    await this.menuValidator.existMenuAndOwnerAndBusiness(menuId, ownerId, businessId );
-    await this.checkOne(seccionId);
+    await Promise.all([
+      this.menuValidator.existMenuAndOwnerAndBusiness(menuId, ownerId, businessId ),
+      this.checkOne(seccionId)
+
+    ])
   }
   async checkOne(id: string): Promise<void> {
     const count = await this.prisma.seccion.count({ where: { id } });

@@ -17,8 +17,10 @@ export class MenuValidatorService implements IMenuValidator {
     ownerId: string,
     businessId: string,
   ): Promise<void> {
-    await this.userValidator.existBusinessAndOwner(businessId, ownerId);
-    await this.checkOne(menuId);
+    await Promise.all([
+      this.userValidator.existBusinessAndOwner(businessId, ownerId),
+      this.checkOne(menuId)
+    ])
   }
   async checkOne(id: string): Promise<void> {
     const count = await this.prisma.menu.count({ where: { id } });

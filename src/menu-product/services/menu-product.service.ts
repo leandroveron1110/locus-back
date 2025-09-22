@@ -19,7 +19,6 @@ export class MenuProductService implements IMenuProductService {
 
   async create(dtoCreate: CreateMenuProductDto): Promise<MenuProduct> {
     const { seccionId, menuId, ownerId, businessId, ...dto } = dtoCreate;
-    // Verifica que la sección, menú, dueño y negocio existen y están vinculados
     await this.seccionValidatorService.existSeccionAndMenuAndOwnerAndBusiness(
       seccionId,
       menuId,
@@ -30,6 +29,7 @@ export class MenuProductService implements IMenuProductService {
     return await this.prisma.menuProduct.create({
       data: {
         ...dto,
+        description: dto.description || "",
         enabled: dto.enabled ?? true,
         hasOptions: dto.hasOptions ?? false,
         isMostOrdered: dto.isMostOrdered ?? false,

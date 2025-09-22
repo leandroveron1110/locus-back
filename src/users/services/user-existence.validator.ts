@@ -18,7 +18,7 @@ export class UserExistenceValidator implements IUserValidator {
     businessId: string,
     owenerId: string,
   ): Promise<void> {
-    const owner = this.prisma.user.count({
+    const owner = await this.prisma.user.count({
       where: {
         id: owenerId,
         role: UserRole.OWNER,
