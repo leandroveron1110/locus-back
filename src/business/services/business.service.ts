@@ -165,6 +165,9 @@ export class BusinessService implements IBusinessService {
   async findOne(id: string) {
     const business = await this.prisma.business.findUnique({
       where: { id, isDeleted: false },
+      include: {
+        businessPaymentMethod: true,
+      },
     });
     if (!business) {
       throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);

@@ -14,6 +14,8 @@ export interface IMenuProductService {
 
   findProducDetaillById(productId: string): Promise<MenuProductDto>;
 
+  findAllBySeccionIdsForBusiness(seccionIds: string[]): Promise<MenuProductDto[]>
+
   findAllBySeccion(seccionId: string): Promise<MenuProduct[]>;
 
   findAllBySeccionIds(seccionIds: string[]): Promise<MenuProductDto[]>;

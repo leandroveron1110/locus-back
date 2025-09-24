@@ -97,6 +97,55 @@ public async findAllByBusinessId(businessId: string): Promise<MenuWithSectionsDt
   return result;
 }
 
+public async findAllByBusinessIdForBusiness(businessId: string): Promise<MenuWithSectionsDto[]> {
+  const menus = await this.prisma.menu.findMany({
+    where: { businessId },
+    include: {
+      sections: {
+        select: {
+          id: true,
+          imageUrls: true,
+          index: true,
+          name: true,
+        },
+        orderBy: {
+          index: 'asc',
+        },
+      },
+    },
+  });
+
+  const seccionIds: string[] = menus.flatMap((menu) =>
+    menu.sections.map((section) => section.id),
+  );
+
+  const products = await this.menuProductService.findAllBySeccionIdsForBusiness(seccionIds);
+
+  // Agrupar productos por seccionId
+  const productsBySeccion: Record<string, MenuProductDto[]> = {};
+  for (const product of products) {
+    const id = product.seccionId;
+    if (!productsBySeccion[id]) productsBySeccion[id] = [];
+    productsBySeccion[id].push(product);
+  }
+
+  // Construir DTO completo
+  const result: MenuWithSectionsDto[] = menus.map((menu) => ({
+    id: menu.id,
+    businessId,
+    name: menu.name,
+    sections: menu.sections.map((section): MenuSectionWithProductsDto => ({
+      id: section.id,
+      name: section.name,
+      imageUrls: section.imageUrls,
+      index: section.index,
+      products: productsBySeccion[section.id] ?? [],
+    })),
+  }));
+
+  return result;
+}
+
   // READ ONE
   public async findOne(id: string) {
     const menu = await this.prisma.menu.findUnique({

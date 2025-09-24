@@ -34,6 +34,12 @@ export class MenuController {
     return await this.menuService.findAllByBusinessId(businessId);
   }
 
+  @Get('business/all/:businessId')
+  @Public()
+  async findAllByBusinessIdForBusiness(@Param('businessId') businessId: string) {
+    return await this.menuService.findAllByBusinessIdForBusiness(businessId);
+  }
+
   @Get()
   async findAll() {
     return await this.menuService.findAll();

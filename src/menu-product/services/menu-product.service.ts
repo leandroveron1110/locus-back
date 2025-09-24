@@ -94,6 +94,36 @@ export class MenuProductService implements IMenuProductService {
     const products = await this.prisma.menuProduct.findMany({
       where: {
         seccionId: { in: seccionIds },
+        enabled: true
+      },
+      include: {
+        optionGroups: {
+          include: {
+            options: {
+              include: {
+                optionImages: true,
+              },
+            },
+          },
+        },
+        foodCategories: {
+          include: {
+            foodCategory: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return MenuProductDto.fromPrismaMany(products);
+  }
+
+    async findAllBySeccionIdsForBusiness(seccionIds: string[]): Promise<MenuProductDto[]> {
+    const products = await this.prisma.menuProduct.findMany({
+      where: {
+        seccionId: { in: seccionIds },
       },
       include: {
         optionGroups: {
@@ -123,6 +153,7 @@ export class MenuProductService implements IMenuProductService {
     const products = await this.prisma.menuProduct.findMany({
       where: {
         id: { in: ids },
+        enabled: true,
       },
       include: {
         optionGroups: {
