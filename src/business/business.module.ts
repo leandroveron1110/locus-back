@@ -1,6 +1,5 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { BusinessController } from './controllers/business.controller';
-import { BusinessService } from './services/business.service';
 import { CategoriesModule } from 'src/categories/categories.module';
 import { TargsModule } from 'src/targs/targs.module';
 import { BusinessGalleryService } from './services/images/business-gallery.service';
@@ -21,6 +20,8 @@ import { BusinessCategoryController } from './controllers/business-category.cont
 import { WeeklyScheduleModule } from 'src/weekly-schedule/weekly-schedule.module';
 import { FollowModule } from 'src/follow/follow.module';
 import { SearchModule } from 'src/search/search.module';
+import { BusinessCommandService } from './services/commands/business-command.service';
+import { BusinessQueryService } from './services/query/business-query.service';
 
 @Module({
   controllers: [
@@ -31,9 +32,13 @@ import { SearchModule } from 'src/search/search.module';
     BusinessCategoryController
   ],
   providers: [
-    {
-      provide: TOKENS.IBusinessService,
-      useClass: BusinessService,
+      {
+      provide: TOKENS.IBusinessCommandService,
+      useClass: BusinessCommandService,
+    },
+        {
+      provide: TOKENS.IBusinessQueryService,
+      useClass: BusinessQueryService,
     },
     {
       provide: TOKENS.IBusinessGalleryService,
@@ -69,7 +74,8 @@ import { SearchModule } from 'src/search/search.module';
     SearchModule
   ],
   exports: [
-    TOKENS.IBusinessService,
+    TOKENS.IBusinessCommandService,
+    TOKENS.IBusinessQueryService,
     TOKENS.IBusinessGalleryService,
     TOKENS.IBusinessLogoService,
     TOKENS.IBusinessCategoryService,

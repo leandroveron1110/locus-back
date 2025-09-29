@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { IBusinessQueryService } from 'src/business/interfaces/business.interface';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IMenuProductService } from 'src/menu-product/interfaces/menu-product-service.interface';
-import { IBusinessService } from 'src/business/interfaces/business.interface';
 import {
   CreateOrderFullDTO,
   CreateOrderItemDTO,
@@ -14,8 +14,8 @@ export class OrderValidationService implements IOrderValidationService {
   constructor(
     @Inject(TOKENS.IMenuProductService)
     private readonly menuProductService: IMenuProductService,
-    @Inject(TOKENS.IBusinessService)
-    private readonly businessService: IBusinessService,
+    @Inject(TOKENS.IBusinessQueryService)
+    private readonly businessService: IBusinessQueryService,
   ) {}
 
   async validateCreateFullOrder(dto: CreateOrderFullDTO): Promise<void> {

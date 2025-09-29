@@ -10,7 +10,7 @@ import {
 import { WeeklyScheduleStructure } from '../types/WeeklySchedule';
 import { toZonedTime } from 'date-fns-tz';
 import { getDay } from 'date-fns';
-
+import NewDate from 'src/common/validators/date';
 
 @Injectable()
 export class SearchService implements ISearchService {
@@ -84,7 +84,6 @@ export class SearchService implements ISearchService {
       const allBusinesses: SearchableBusiness[] =
         await this.prisma.$queryRawUnsafe(rawQuery, query);
 
-
       const total = allBusinesses.length;
       const paginated = allBusinesses.slice(skip, skip + take);
       const data = this.formatBusinesses(paginated, openNow);
@@ -107,6 +106,24 @@ export class SearchService implements ISearchService {
 
     const data = this.formatBusinesses(businesses, openNow);
     return { data, total, skip, take };
+  }
+
+
+  async searchBusinessesIds(ids: string[]): Promise<{
+    data: SearchResultBusiness[];
+  }> {
+    const businesses = await this.prisma.searchableBusiness.findMany({
+      where: {
+      id: {
+        in: ids,
+      },
+    },
+      orderBy: { createdAt: 'desc' },
+    });
+
+
+    const data = this.formatBusinesses(businesses, false);
+    return { data };
   }
 
   // ---------------- Helpers ----------------
@@ -148,82 +165,77 @@ export class SearchService implements ISearchService {
       reviewCount: sb.reviewCount ?? 0,
       status: sb.status ?? undefined,
       followersCount: sb.followersCount,
-      isOpenNow: openNow
-        ? this.checkIfBusinessIsOpenNow(sb.horarios)
-        : false,
+      isOpenNow: openNow ? this.checkIfBusinessIsOpenNow(sb.horarios) : false,
     }));
   }
 
-  private getCurrentDayOfWeek(): string {
-    const now = new Date();
-    const days = [
-      'SUNDAY',
-      'MONDAY',
-      'TUESDAY',
-      'WEDNESDAY',
-      'THURSDAY',
-      'FRIDAY',
-      'SATURDAY',
-    ];
-    return days[now.getDay()];
-  }
+  private checkIfBusinessIsOpenNow(
+    horariosJson: Prisma.JsonValue | null,
+  ): boolean {
+    if (!horariosJson) return false;
+    try {
+      const schedules: WeeklyScheduleStructure =
+        typeof horariosJson === 'string'
+          ? JSON.parse(horariosJson)
+          : (horariosJson as WeeklyScheduleStructure);
 
+      const nowInArgentina = NewDate()
 
+      // Mapea el día de la semana (0=Domingo, 1=Lunes, etc.) a la clave del JSON
+      const daysOfWeek = [
+        'SUNDAY',
+        'MONDAY',
+        'TUESDAY',
+        'WEDNESDAY',
+        'THURSDAY',
+        'FRIDAY',
+        'SATURDAY',
+      ];
+      const currentDay = daysOfWeek[getDay(nowInArgentina)];
 
-private checkIfBusinessIsOpenNow(
-  horariosJson: Prisma.JsonValue | null,
-): boolean {
-  if (!horariosJson) return false;
-  try {
-    const schedules: WeeklyScheduleStructure =
-      typeof horariosJson === 'string'
-        ? JSON.parse(horariosJson)
-        : (horariosJson as WeeklyScheduleStructure);
+      const currentTimeMinutes =
+        nowInArgentina.getHours() * 60 + nowInArgentina.getMinutes();
+      const todayScheduleRanges = schedules[currentDay];
 
-    // Obtiene la hora actual en la zona horaria de Argentina.
-    const AR_TIME_ZONE = 'America/Argentina/Buenos_Aires';
-    const nowInArgentina = toZonedTime(new Date(), AR_TIME_ZONE); // <-- Aquí se corrige el nombre de la función
+      if (!todayScheduleRanges || todayScheduleRanges.length === 0) {
+        return false;
+      }
 
-    // Mapea el día de la semana (0=Domingo, 1=Lunes, etc.) a la clave del JSON
-    const daysOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-    const currentDay = daysOfWeek[getDay(nowInArgentina)];
+      for (const timeRange of todayScheduleRanges) {
+        if (timeRange === 'Cerrado') continue;
 
-    const currentTimeMinutes = nowInArgentina.getHours() * 60 + nowInArgentina.getMinutes();
-    const todayScheduleRanges = schedules[currentDay];
+        const [openTimeStr, closeTimeStr] = timeRange.split('-');
+        if (!openTimeStr || !closeTimeStr) continue;
 
-    if (!todayScheduleRanges || todayScheduleRanges.length === 0) {
-      return false;
-    }
+        const [openHour, openMinute] = openTimeStr.split(':').map(Number);
+        const [closeHour, closeMinute] = closeTimeStr.split(':').map(Number);
 
-    for (const timeRange of todayScheduleRanges) {
-      if (timeRange === 'Cerrado') continue;
+        const totalOpenMinutes = openHour * 60 + openMinute;
+        const totalCloseMinutes = closeHour * 60 + closeMinute;
 
-      const [openTimeStr, closeTimeStr] = timeRange.split('-');
-      if (!openTimeStr || !closeTimeStr) continue;
-
-      const [openHour, openMinute] = openTimeStr.split(':').map(Number);
-      const [closeHour, closeMinute] = closeTimeStr.split(':').map(Number);
-
-      const totalOpenMinutes = openHour * 60 + openMinute;
-      const totalCloseMinutes = closeHour * 60 + closeMinute;
-
-      if (totalCloseMinutes <= totalOpenMinutes) {
-        if (currentTimeMinutes >= totalOpenMinutes || currentTimeMinutes <= totalCloseMinutes) {
-          return true;
-        }
-      } else {
-        if (currentTimeMinutes >= totalOpenMinutes && currentTimeMinutes <= totalCloseMinutes) {
-          return true;
+        if (totalCloseMinutes <= totalOpenMinutes) {
+          if (
+            currentTimeMinutes >= totalOpenMinutes ||
+            currentTimeMinutes <= totalCloseMinutes
+          ) {
+            return true;
+          }
+        } else {
+          if (
+            currentTimeMinutes >= totalOpenMinutes &&
+            currentTimeMinutes <= totalCloseMinutes
+          ) {
+            return true;
+          }
         }
       }
+      return false;
+    } catch (e) {
+      this.logger.error(
+        `Error en checkIfBusinessIsOpenNow: ${e.message}`,
+        e.stack,
+      );
+      return false;
     }
-    return false;
-  } catch (e) {
-    this.logger.error(
-      `Error en checkIfBusinessIsOpenNow: ${e.message}`,
-      e.stack,
-    );
-    return false;
   }
-}
 }

@@ -11,6 +11,7 @@ export interface IMenuService {
   findOne(id: string): Promise<Menu>;
   updateMenu(id: string, dto: MenuUpdateDto): Promise<Menu>;
   deleteMenu(id: string): Promise<Menu>;
+  findBusinessesWithDiscountedProducts(): Promise<any>;
 }
 
 export interface IMenuValidator extends IExistenceValidator {

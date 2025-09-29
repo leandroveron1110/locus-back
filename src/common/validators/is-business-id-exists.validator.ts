@@ -7,7 +7,6 @@ import {
   ValidationOptions,
 } from 'class-validator';
 import { Injectable, Inject } from '@nestjs/common';
-import { IBusinessService } from 'src/business/interfaces/business.interface';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IExistenceValidator } from '../interfaces/existence-validator.interface';
 

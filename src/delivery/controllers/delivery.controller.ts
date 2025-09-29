@@ -31,8 +31,6 @@ export class DeliveryController {
   // --- CRUD compañías ---
   
   @Post('companies')
-  // Solo los dueños de negocios o administradores pueden gestionar compañías de delivery
-  @Roles(UserRole.OWNER)
   create(@Body() dto: CreateDeliveryCompanyDto) {
     return this.deliveryService.createCompany(dto);
   }

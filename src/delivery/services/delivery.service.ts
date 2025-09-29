@@ -8,7 +8,7 @@ import { IDeliveryService } from '../interfaces/delivery-service.interface';
 import { OrderStatus } from '@prisma/client';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IOrderGateway } from 'src/order/interfaces/order-gateway.interface';
-import { IOrderService } from 'src/order/interfaces/order-service.interface';
+import { IOrderQueryService } from 'src/order/interfaces/order-service.interface';
 
 @Injectable()
 export class DeliveryService implements IDeliveryService{
@@ -16,8 +16,8 @@ export class DeliveryService implements IDeliveryService{
     private prisma: PrismaService,
     @Inject(TOKENS.IOrderGateway)
     private orderGateway: IOrderGateway,
-    @Inject(TOKENS.IOrderService)
-    private orderService: IOrderService,
+    @Inject(TOKENS.IOrderQueryService)
+    private orderQueryService: IOrderQueryService,
   ) {}
 
   // ----------- Compañías -----------
@@ -83,7 +83,7 @@ export class DeliveryService implements IDeliveryService{
       });
 
     // Obtener el DTO con toda la info detallada
-    const dto = await this.orderService.findOne(updatedOrder.id);
+    const dto = await this.orderQueryService.findOne(updatedOrder.id);
 
     // Emitir evento a la empresa de delivery
     this.orderGateway.emitOrderAssignedToDelivery(dto);

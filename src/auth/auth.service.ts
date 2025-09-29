@@ -11,8 +11,8 @@ import { LoginResponseDto } from './dto/response/login.dto';
 import { IAuthService } from './interfaces/Auth-service.interface';
 import { CreateUserDto } from 'src/users/dto/Request/create-user.dto';
 import { IDeliveryService } from 'src/delivery/interfaces/delivery-service.interface';
-import { IBusinessService } from 'src/business/interfaces/business.interface';
 import { EmployeesService } from 'src/employees/services/employees.service';
+import { IBusinessQueryService } from 'src/business/interfaces/business.interface';
 
 @Injectable()
 export class AuthService implements IAuthService {
@@ -25,8 +25,8 @@ export class AuthService implements IAuthService {
     @Inject(TOKENS.IDeliveryService)
     private deliveryService: IDeliveryService,
 
-    @Inject(TOKENS.IBusinessService)
-    private businessService: IBusinessService,
+    @Inject(TOKENS.IBusinessQueryService)
+    private businessService: IBusinessQueryService,
 
     private employeesService: EmployeesService,
   ) {}
@@ -76,7 +76,7 @@ export class AuthService implements IAuthService {
   ): Promise<{ user: LoginResponseDto; accessToken: string }> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
 
-    if (!user || user.role !== 'CLIENT') {
+    if (!user) {
       throw new UnauthorizedException('Credenciales inválidas para cliente.');
     }
 

@@ -15,6 +15,7 @@ import { SearchBusinessDto } from '../dtos/request/search-business.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { ISearchService } from '../interfaces/search-service.interface';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { GetBusinessesDto } from 'src/business/dto/Request/business-ids.dto';
 
 @Controller('search')
 export class SearchController {
@@ -33,6 +34,13 @@ export class SearchController {
   ) {
     this.logger.log(`Received search request: ${JSON.stringify(searchDto)}`);
     return this.searchService.searchBusinesses(searchDto);
+  }
+
+  @Post('businesses/ids/')
+  @Public()
+  async getBusinesses(@Body() body: GetBusinessesDto) {
+    this.logger.log(`Received search request: ${JSON.stringify(body.ids)}`);
+    return this.searchService.searchBusinessesIds(body.ids);
   }
 
 }

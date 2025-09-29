@@ -10,7 +10,7 @@ export class RatingController {
 
   @Post()
   create(@Body() createRatingDto: CreateRatingDto) {
-    return this.ratingService.create(createRatingDto);
+    return this.ratingService.rate(createRatingDto, createRatingDto.userId);
   }
 
   @Get('summary/:businessId')

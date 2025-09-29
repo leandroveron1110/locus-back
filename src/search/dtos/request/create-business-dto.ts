@@ -56,6 +56,14 @@ export class CreateBusinessDto {
 
   @IsNumber()
   followersCount: number = 0
+
+  @IsOptional()
+  @IsNumber()
+  reviewCount?: number = 0
+
+  @IsOptional()
+  @IsNumber()
+  averageRating?: number = 0;
 }
 
 export class UperrBusinessDto extends PartialType(CreateBusinessDto){

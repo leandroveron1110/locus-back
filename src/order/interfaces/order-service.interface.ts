@@ -9,26 +9,36 @@ import {
   CreateOrderFullDTO,
   UpdateOrderDTO,
 } from '../dtos/request/order.dto';
+import { OrderResponseDto } from '../dtos/response/order-response.dto';
 
-export interface IOrderService {
+/**
+ * Interfaz solo para creación de órdenes
+ */
+export interface IOrderCreationService {
   create(createOrderDto: CreateOrderDto): Promise<Order>;
-
   createFullOrder(dto: CreateOrderFullDTO): Promise<Order>;
+}
 
+/**
+ * Interfaz para consultas/lectura de órdenes
+ */
+export interface IOrderQueryService {
   findAll(): Promise<Order[]>;
-
-  findOne(id: string): Promise<any>; // aquí usas OrderResponseDtoMapper.fromPrisma, por eso puse any (puedes importar el tipo si tienes)
-
+  findOne(id: string): Promise<OrderResponseDto>;
   findOrdersByBusiness(businessId: string): Promise<any[]>;
-
   findOrdersByUserId(userId: string): Promise<any[]>;
-
   findOrdersByDeliveyId(deliveryId: string): Promise<any[]>;
+}
 
+/**
+ * Interfaz para actualización de órdenes
+ */
+export interface IOrderUpdateService {
   update(id: string, updateOrderDto: UpdateOrderDTO): Promise<Order>;
-
-  updateStatus(id: string, updateOrderStatus: OrderStatus): Promise<Order>;
-
+  updateStatus(
+    id: string,
+    updateOrderStatus: OrderStatus,
+  ): Promise<OrderStatus>;
   updatePayment(
     orderId: string,
     data: {
@@ -38,16 +48,23 @@ export interface IOrderService {
       paymentInstructions?: string;
       paymentHolderName?: string;
     },
-  ): Promise<Order>;
-
+  ): Promise<PaymentMethodType>;
   updatePaymentStatus(
-      orderId: string,
-      paymentStatus: PaymentStatus,
-    ): Promise<Order>
+    orderId: string,
+    paymentStatus: PaymentStatus,
+  ): Promise<PaymentStatus>;
+}
 
+/**
+ * Interfaz para eliminación de órdenes
+ */
+export interface IOrderDeleteService {
   remove(id: string): Promise<Order>;
 }
 
+/**
+ * Interfaz para validaciones
+ */
 export interface IOrderValidationService {
   validateCreateFullOrder(dto: CreateOrderFullDTO): Promise<void>;
 }

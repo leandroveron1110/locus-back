@@ -10,6 +10,8 @@ export interface ISearchService {
     take: number;
   }>;
 
+  searchBusinessesIds(ids: string[]): Promise<{data: SearchBusinessDto[]}>
+
 }
 
 export interface SearchResultBusiness {

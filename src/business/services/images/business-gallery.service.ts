@@ -14,7 +14,6 @@ import { IBusinessGalleryService } from 'src/business/interfaces/business-galler
 import { TOKENS } from 'src/common/constants/tokens';
 import { IImageService } from 'src/image/interfaces/image-service.interface';
 import { ImageDto } from 'src/business/interfaces/image.interface';
-import { IBusinessService } from 'src/business/interfaces/business.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 import { ImageType } from '@prisma/client';
 

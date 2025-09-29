@@ -10,15 +10,15 @@ import { CreateOfferedServiceDto } from '../dtos/Request/create-offered-service.
 import { OfferedServiceResponseDto } from '../dtos/Response/offered-service-response.dto';
 import { UpdateOfferedServiceDto } from '../dtos/Request/update-offered-service.dto';
 import { TOKENS } from 'src/common/constants/tokens';
-import { IBusinessService } from 'src/business/interfaces/business.interface';
+import { IBusinessQueryService } from 'src/business/interfaces/business.interface';
 import { IOfferedServiceService } from '../interfaces/offered-service-service.interface';
 
 @Injectable()
 export class OfferedServiceService implements IOfferedServiceService {
   constructor(
     private prisma: PrismaService,
-    @Inject(TOKENS.IBusinessService)
-    private businessService: IBusinessService,
+    @Inject(TOKENS.IBusinessQueryService)
+    private businessService: IBusinessQueryService,
   ) {}
 
   /**

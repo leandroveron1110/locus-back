@@ -29,6 +29,8 @@ export const TOKENS = {
 
   // Module Business
   IBusinessService: Symbol('IBusinessService'),
+  IBusinessCommandService: Symbol('IBusinessCommandService'),
+  IBusinessQueryService: Symbol('IBusinessQueryService'),
   // Asociaciones a Business
   IBusinessGalleryService: Symbol('IBusinessGalleryService'),
   IBusinessCategoryService: Symbol('IBusinessCategoryService'),
@@ -51,6 +53,10 @@ export const TOKENS = {
 
   // Module Order
   IOrderService: Symbol('IOrderService'),
+  IOrderCreationService: Symbol('IOrderCreationService'),
+  IOrderQueryService: Symbol('IOrderQueryService'),
+  IOrderUpdateService: Symbol('IOrderUpdateService'),
+  IOrderDeleteService: Symbol('IOrderDeleteService'),
   IOrderGateway: Symbol('IOrderGateway'),
 
   // Module Delivery

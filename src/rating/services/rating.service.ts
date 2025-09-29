@@ -1,144 +1,101 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRatingDto } from '../dtos/request/create-rating.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IUserService } from 'src/users/interfaces/User-service.interface';
+import { ISearchableBusinessCrudService } from 'src/search/interfaces/searchable-business-crud-service.interface';
 
 @Injectable()
 export class RatingService {
   constructor(
-    private prisma: PrismaService,
+    private readonly prisma: PrismaService,
     @Inject(TOKENS.IUserService)
     private readonly userService: IUserService,
+    @Inject(TOKENS.ISearchableBusinessCrudService)
+    private readonly searchableBusinessCrudService: ISearchableBusinessCrudService,
   ) {}
 
-  async create(createRatingDto: CreateRatingDto) {
-    // Verificamos si el usuario ya calificó este negocio
-    const existing = await this.prisma.rating.count({
-      where: {
-        businessId: createRatingDto.businessId,
-        userId: createRatingDto.userId,
-      },
+  /**
+   * Crea o actualiza un rating para un negocio dado por un usuario.
+   * Si ya existe → lo actualiza.
+   * Si no existe → lo crea.
+   */
+  async rate(dto: CreateRatingDto, userId: string) {
+    const { businessId, value, comment } = dto;
+
+    const rating = await this.prisma.rating.upsert({
+      where: { businessId_userId: { businessId, userId } },
+      update: { value, comment },
+      create: { businessId, userId, value, comment },
     });
 
-    if (existing > 0) {
-      throw new Error('El usuario ya calificó este negocio');
-    }
-
-    const rating = await this.prisma.rating.create({
-      data: {
-        value: createRatingDto.value,
-        comment: createRatingDto.comment,
-        businessId: createRatingDto.businessId,
-        userId: createRatingDto.userId,
-      },
-    });
-
-    await this.updateBusinessRating(createRatingDto.businessId);
-
+    await this.updateBusinessRating(businessId);
     return rating;
   }
 
-  async updateBusinessRating(businessId: string) {
-    // Obtenemos todas las calificaciones para ese negocio
-    const ratings = await this.prisma.rating.findMany({
+  private async updateBusinessRating(businessId: string) {
+    const result = await this.prisma.rating.aggregate({
       where: { businessId },
+      _avg: { value: true },
+      _count: true,
     });
 
-    if (ratings.length === 0) {
-      await this.prisma.business.update({
+    const average = result._avg.value ?? 0;
+    const count = result._count;
+
+    await Promise.all([
+      this.prisma.business.update({
         where: { id: businessId },
-        data: { averageRating: null, ratingsCount: 0 },
-      });
-      return;
-    }
-
-    const sum = ratings.reduce((acc, r) => acc + r.value, 0);
-    const average = sum / ratings.length;
-
-    await this.prisma.business.update({
-      where: { id: businessId },
-      data: {
+        data: {
+          averageRating: result._avg.value ?? null,
+          ratingsCount: count,
+        },
+      }),
+      this.searchableBusinessCrudService.update({
+        id: businessId,
+        reviewCount: count,
         averageRating: average,
-        ratingsCount: ratings.length,
-      },
-    });
+      }),
+    ]);
   }
 
   async getSummaryByBusinessId(businessId: string) {
-    const ratings = await this.prisma.rating.findMany({
+    const result = await this.prisma.rating.aggregate({
       where: { businessId },
-      select: { value: true },
+      _avg: { value: true },
+      _count: true,
     });
-
-    const ratingsCount = ratings.length;
-    const averageRating =
-      ratingsCount === 0
-        ? null
-        : ratings.reduce((sum, r) => sum + r.value, 0) / ratingsCount;
 
     return {
-      averageRating: averageRating ? Number(averageRating.toFixed(1)) : 0,
-      ratingsCount,
+      averageRating: result._avg.value
+        ? Number(result._avg.value.toFixed(1))
+        : 0,
+      ratingsCount: result._count,
     };
-  }
-
-  async createOrUpdate(dto: CreateRatingDto, userId: string) {
-    const { businessId, value, comment } = dto;
-
-    await this.prisma.rating.upsert({
-      where: {
-        businessId_userId: {
-          businessId,
-          userId,
-        },
-      },
-      update: {
-        value,
-        comment,
-        createdAt: new Date(),
-      },
-      create: {
-        businessId,
-        userId,
-        value,
-        comment,
-      },
-    });
-
-    return { message: 'Rating saved successfully' };
   }
 
   async getCommentsByBusinessId(businessId: string) {
     const ratings = await this.prisma.rating.findMany({
-      where: {
-        businessId,
-        comment: { not: null },
-      },
+      where: { businessId, comment: { not: null } },
       orderBy: { createdAt: 'desc' },
     });
 
-    const ratingsWithUser = await Promise.all(
-      ratings.map(async (r) => {
-        const userRes = await this.userService.findById(r.userId);
-        const user = {
-          id: userRes.id,
-          fullName: `${userRes.firstName} ${userRes.lastName}`,
-        };
-
-        const rating = {
-          id: r.id,
-          comment: r.comment,
-          value: r.value,
-        };
-
-        return {
-          ...rating,
-          user,
-        };
-      }),
+    const userIds = [...new Set(ratings.map((r) => r.userId))];
+    const users = await Promise.all(
+      userIds.map((id) => this.userService.findById(id)),
     );
+    const usersMap = new Map(users.map((u) => [u.id, u]));
 
-    return ratingsWithUser;
+    return ratings.map((r) => ({
+      id: r.id,
+      comment: r.comment,
+      value: r.value,
+      user: {
+        id: r.userId,
+        fullName: `${usersMap.get(r.userId)?.firstName ?? ''} ${
+          usersMap.get(r.userId)?.lastName ?? ''
+        }`.trim(),
+      },
+    }));
   }
 }
