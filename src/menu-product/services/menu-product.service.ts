@@ -29,7 +29,7 @@ export class MenuProductService implements IMenuProductService {
     return await this.prisma.menuProduct.create({
       data: {
         ...dto,
-        description: dto.description || "",
+        description: dto.description || '',
         enabled: dto.enabled ?? true,
         hasOptions: dto.hasOptions ?? false,
         isMostOrdered: dto.isMostOrdered ?? false,
@@ -44,16 +44,7 @@ export class MenuProductService implements IMenuProductService {
       include: {
         optionGroups: {
           include: {
-            options: {
-              include: {
-                optionImages: true,
-              },
-            },
-          },
-        },
-        foodCategories: {
-          include: {
-            foodCategory: true,
+            options: true,
           },
         },
       },
@@ -94,7 +85,7 @@ export class MenuProductService implements IMenuProductService {
     const products = await this.prisma.menuProduct.findMany({
       where: {
         seccionId: { in: seccionIds },
-        enabled: true
+        enabled: true,
       },
       include: {
         optionGroups: {
@@ -120,7 +111,9 @@ export class MenuProductService implements IMenuProductService {
     return MenuProductDto.fromPrismaMany(products);
   }
 
-    async findAllBySeccionIdsForBusiness(seccionIds: string[]): Promise<MenuProductDto[]> {
+  async findAllBySeccionIdsForBusiness(
+    seccionIds: string[],
+  ): Promise<MenuProductDto[]> {
     const products = await this.prisma.menuProduct.findMany({
       where: {
         seccionId: { in: seccionIds },
@@ -128,16 +121,7 @@ export class MenuProductService implements IMenuProductService {
       include: {
         optionGroups: {
           include: {
-            options: {
-              include: {
-                optionImages: true,
-              },
-            },
-          },
-        },
-        foodCategories: {
-          include: {
-            foodCategory: true,
+            options: true,
           },
         },
       },

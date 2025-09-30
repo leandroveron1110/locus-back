@@ -109,15 +109,8 @@ export class MenuService implements IMenuService {
       where: { businessId },
       include: {
         sections: {
-          select: {
-            id: true,
-            imageUrls: true,
-            index: true,
-            name: true,
-          },
-          orderBy: {
-            index: 'asc',
-          },
+          select: { id: true, index: true, name: true },
+          orderBy: { index: 'asc' },
         },
       },
     });
@@ -130,7 +123,15 @@ export class MenuService implements IMenuService {
       await this.menuProductService.findAllBySeccionIdsForBusiness(seccionIds);
 
     // Agrupar productos por seccionId
-    const productsBySeccion: Record<string, MenuProductDto[]> = {};
+
+    const productsBySeccion = products.reduce<Record<string, MenuProductDto[]>>(
+      (acc, product) => {
+        (acc[product.seccionId] ??= []).push(product);
+        return acc;
+      },
+      {},
+    );
+
     for (const product of products) {
       const id = product.seccionId;
       if (!productsBySeccion[id]) productsBySeccion[id] = [];
@@ -138,22 +139,18 @@ export class MenuService implements IMenuService {
     }
 
     // Construir DTO completo
-    const result: MenuWithSectionsDto[] = menus.map((menu) => ({
+    return menus.map((menu) => ({
       id: menu.id,
       businessId,
       name: menu.name,
-      sections: menu.sections.map(
-        (section): MenuSectionWithProductsDto => ({
-          id: section.id,
-          name: section.name,
-          imageUrls: section.imageUrls,
-          index: section.index,
-          products: productsBySeccion[section.id] ?? [],
-        }),
-      ),
+      sections: menu.sections.map((section) => ({
+        id: section.id,
+        name: section.name,
+        imageUrls: [],
+        index: section.index,
+        products: productsBySeccion[section.id] ?? [],
+      })),
     }));
-
-    return result;
   }
 
   public async findBusinessesWithDiscountedProducts() {
@@ -187,7 +184,9 @@ export class MenuService implements IMenuService {
       if (discountedProducts.length === 0) return [];
 
       // 2️⃣ Buscar secciones y menús relacionados (usando los IDs de secciones)
-      const seccionIds = [...new Set(discountedProducts.map(p => p.seccionId))];
+      const seccionIds = [
+        ...new Set(discountedProducts.map((p) => p.seccionId)),
+      ];
 
       const secciones = await tx.seccion.findMany({
         where: { id: { in: seccionIds }, isDeleted: false },
@@ -199,7 +198,7 @@ export class MenuService implements IMenuService {
         },
       });
 
-      const menuIds = [...new Set(secciones.map(s => s.menuId))];
+      const menuIds = [...new Set(secciones.map((s) => s.menuId))];
 
       const menus = await tx.menu.findMany({
         where: { id: { in: menuIds }, isDeleted: false },
@@ -210,7 +209,7 @@ export class MenuService implements IMenuService {
         },
       });
 
-      const businessIds = [...new Set(menus.map(m => m.businessId))];
+      const businessIds = [...new Set(menus.map((m) => m.businessId))];
 
       const businesses = await tx.business.findMany({
         where: { id: { in: businessIds }, isDeleted: false },
@@ -244,27 +243,28 @@ export class MenuService implements IMenuService {
       }
 
       for (const seccion of secciones) {
-        const menu = menus.find(m => m.id === seccion.menuId);
+        const menu = menus.find((m) => m.id === seccion.menuId);
         if (!menu) continue;
 
         const business = businessMap[menu.businessId];
         if (!business) continue;
 
-        const menuObj = business.menus.find(m => m.id === menu.id);
+        const menuObj = business.menus.find((m) => m.id === menu.id);
         if (!menuObj) continue;
 
         menuObj.sections.push({
           id: seccion.id,
           name: seccion.name,
           index: seccion.index,
-          products: discountedProducts.filter(p => p.seccionId === seccion.id),
+          products: discountedProducts.filter(
+            (p) => p.seccionId === seccion.id,
+          ),
         });
       }
 
       return Object.values(businessMap);
     });
   }
-
 
   // READ ONE
   public async findOne(id: string) {

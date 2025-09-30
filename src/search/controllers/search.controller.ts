@@ -7,8 +7,6 @@ import {
   Body,
   Logger,
   ValidationPipe,
-  HttpCode,
-  HttpStatus,
   Inject,
 } from '@nestjs/common';
 import { SearchBusinessDto } from '../dtos/request/search-business.dto';

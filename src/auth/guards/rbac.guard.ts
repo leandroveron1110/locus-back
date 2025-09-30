@@ -65,12 +65,14 @@ export class RBACGuard implements CanActivate {
       this.reflector.getAllAndOverride<AccessStrategyEnum>(
         ACCESS_STRATEGY_KEY,
         [context.getHandler(), context.getClass()],
-      ) || AccessStrategyEnum.ROLE_OR_ANY_PERMISSION;
-
-    if (!requiredRoles && !requiredPermissions) return true;
+      ) || AccessStrategyEnum.ONLY_ROLE;
 
     const request = context.switchToHttp().getRequest();
     const user: JwtPayload = request.user;
+
+    if (!requiredRoles && !requiredPermissions) {
+      return user.rol === UserRole.ADMIN;
+    }
 
     // Superusuario -> bypass total
     if (user.rol === UserRole.ADMIN) return true;

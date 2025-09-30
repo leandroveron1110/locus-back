@@ -104,16 +104,16 @@ export class FollowService implements IFollowService {
     const result = await this.prisma.$queryRaw<
       Array<{ isFollowing: boolean; count: number }>
     >(Prisma.sql`
-  SELECT 
-    COUNT(*) FILTER (WHERE "businessId" = ${businessId}) AS count,
-    EXISTS (
-      SELECT 1 
-      FROM "BusinessFollower" 
-      WHERE "businessId" = ${businessId} AND "userId" = ${userId}
-    ) AS "isFollowing"
-  FROM "BusinessFollower"
-  WHERE "businessId" = ${businessId};
-`);
+            SELECT 
+              COUNT(*) FILTER (WHERE "businessId" = ${businessId}) AS count,
+              EXISTS (
+                SELECT 1 
+                FROM "BusinessFollower" 
+                WHERE "businessId" = ${businessId} AND "userId" = ${userId}
+              ) AS "isFollowing"
+            FROM "BusinessFollower"
+            WHERE "businessId" = ${businessId};
+    `);
     if (result && result.length > 0) {
       return {
         count: Number(result[0].count),

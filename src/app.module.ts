@@ -67,11 +67,11 @@ import { RBACGuard } from './auth/guards/rbac.guard'; // Importa el nuevo RBACGu
     IsBusinessIdExistsConstraint,
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard, // Este guard se ejecuta primero
+      useClass: JwtAuthGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: RBACGuard, // Este guard se ejecuta después
+      useClass: RBACGuard,
     },
   ],
 })

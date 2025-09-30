@@ -32,6 +32,10 @@ import {
   IOrderUpdateService,
   IOrderDeleteService,
 } from '../interfaces/order-service.interface';
+import { Permissions } from 'src/auth/decorators/permissions.decorator';
+import { AccessStrategy } from 'src/auth/decorators/access-strategy.decorator';
+import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
+import { OrderPermissions, ProductPermissions } from 'src/common/enums/rolees-permissions';
 
 @Controller('orders')
 export class OrderController {
@@ -84,6 +88,8 @@ export class OrderController {
 
   @Get('business/:businessId')
   @Roles(UserRole.OWNER)
+  @Permissions(OrderPermissions.VIEW_ORDERS, ProductPermissions.EDIT_PRODUCT)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   getOrdersByBusiness(@Param('businessId') businessId: string) {
     return this.orderQueryService.findOrdersByBusiness(businessId);
   }
