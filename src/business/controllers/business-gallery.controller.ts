@@ -87,6 +87,7 @@ export class BusinessGalleryController {
   }
 
   @Patch(':imageId')
+  @Roles(UserRole.OWNER)
   @UseInterceptors(FileInterceptor('file'))
   async updateGalleryImage(
     @Param('businessId') businessId: string,

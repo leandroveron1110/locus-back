@@ -52,7 +52,6 @@ export class SeccionController {
   }
 
   @Patch(':id')
-  // Solo dueños o empleados con el permiso de gestionar productos pueden actualizar secciones
   @Roles(UserRole.OWNER)
   @Permissions(ProductPermissions.MANAGE_PRODUCTS)
   async update(
@@ -63,7 +62,6 @@ export class SeccionController {
   }
 
   @Delete(':id')
-  // Solo dueños o empleados con el permiso de gestionar productos pueden eliminar secciones
   @Roles(UserRole.OWNER)
   @Permissions(ProductPermissions.MANAGE_PRODUCTS)
   async delete(@Param('id') id: string) {

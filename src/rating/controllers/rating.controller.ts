@@ -9,6 +9,7 @@ export class RatingController {
   constructor(private readonly ratingService: RatingService) {}
 
   @Post()
+  @Public()
   create(@Body() createRatingDto: CreateRatingDto) {
     return this.ratingService.rate(createRatingDto, createRatingDto.userId);
   }

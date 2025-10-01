@@ -132,12 +132,6 @@ export class MenuService implements IMenuService {
       {},
     );
 
-    for (const product of products) {
-      const id = product.seccionId;
-      if (!productsBySeccion[id]) productsBySeccion[id] = [];
-      productsBySeccion[id].push(product);
-    }
-
     // Construir DTO completo
     return menus.map((menu) => ({
       id: menu.id,

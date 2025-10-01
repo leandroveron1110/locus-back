@@ -13,6 +13,8 @@ import { MenuCreateDto, MenuUpdateDto } from '../dtos/request/menu.request.dto';
 import { IMenuService } from '../interfaces/menu-service.interface';
 import { TOKENS } from 'src/common/constants/tokens';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('menus')
 export class MenuController {
@@ -23,6 +25,7 @@ export class MenuController {
 
   // Crear menú
   @Post()
+  @Roles(UserRole.OWNER)
   async create(@Body() dto: MenuCreateDto) {
     return await this.menuService.createMenu(dto);
   }
@@ -59,12 +62,14 @@ export class MenuController {
 
   // Actualizar un menú
   @Put(':id')
+  @Roles(UserRole.OWNER)
   async update(@Param('id') id: string, @Body() dto: MenuUpdateDto) {
     return this.menuService.updateMenu(id, dto);
   }
 
   // Eliminar un menú
   @Delete(':id')
+  @Roles(UserRole.OWNER)
   async remove(@Param('id') id: string) {
     return this.menuService.deleteMenu(id);
   }

@@ -19,6 +19,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IBusinessLogoService } from '../interfaces/business-logo-service.interface';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 // DTO para la actualización de metadatos del logo (sin el archivo)
 // Puedes crear un archivo separado si es más complejo
@@ -40,6 +42,7 @@ export class BusinessLogoController {
   @Post()
   @UseInterceptors(FileInterceptor('file')) // 'file' es el nombre del campo en el formulario multipart
   @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.OWNER)
   async uploadLogo(
     @Param('businessId') businessId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -60,6 +63,7 @@ export class BusinessLogoController {
   }
 
   @Patch()
+  @Roles(UserRole.OWNER)
   @UseInterceptors(FileInterceptor('file'))
   async updateLogo(
     @Param('businessId') businessId: string,
@@ -75,6 +79,7 @@ export class BusinessLogoController {
   }
 
   @Delete()
+  @Roles(UserRole.OWNER)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeLogo(@Param('businessId') businessId: string): Promise<void> {
     await this.businessLogoService.removeBusinessLogo(businessId);

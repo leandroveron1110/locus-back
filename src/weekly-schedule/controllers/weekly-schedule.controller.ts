@@ -16,6 +16,8 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { IWeeklyScheduleService } from '../interface/weekly-schedule-service.interface';
 import { WeeklyScheduleStructure } from '../types/WeeklySchedule';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('weekly-schedules') // Prefijo de ruta
 export class WeeklyScheduleController {
@@ -24,10 +26,6 @@ export class WeeklyScheduleController {
     private readonly weeklyScheduleService: IWeeklyScheduleService,
   ) {}
 
-  /**
-   * Obtiene el horario semanal completo de un negocio.
-   * GET /weekly-schedules/:idBusiness
-   */
   @Get(':idBusiness')
   @Public()
   async getWeeklySchedule(@Param('idBusiness') idBusiness: string) {
@@ -42,12 +40,9 @@ export class WeeklyScheduleController {
     return schedule;
   }
 
-  /**
-   * Reemplaza (establece) el horario semanal completo de un negocio.
-   * POST /weekly-schedules/:idBusiness
-   */
   @Post(':idBusiness')
-  @HttpCode(204) // No Content, ya que la respuesta no necesita cuerpo
+  @HttpCode(204)
+  @Roles(UserRole.OWNER)
   async setWeeklySchedule(
     @Param('idBusiness') idBusiness: string,
     @Body() body: WeeklyScheduleStructure, // Aquí puedes usar un DTO más específico si lo necesitas
@@ -59,12 +54,9 @@ export class WeeklyScheduleController {
     }
   }
 
-  /**
-   * Actualiza los horarios de un día específico.
-   * PUT /weekly-schedules/:idBusiness/daily/:day
-   */
   @Put(':idBusiness/daily/:day')
   @HttpCode(204)
+  @Roles(UserRole.OWNER)
   async updateDailySchedule(
     @Param('idBusiness') idBusiness: string,
     @Param('day') day: string,
@@ -81,12 +73,9 @@ export class WeeklyScheduleController {
     }
   }
 
-  /**
-   * Añade un nuevo rango de tiempo a un día específico.
-   * POST /weekly-schedules/:idBusiness/daily/:day
-   */
   @Post(':idBusiness/daily/:day')
   @HttpCode(204)
+  @Roles(UserRole.OWNER)
   async addTimeRangeToDay(
     @Param('idBusiness') idBusiness: string,
     @Param('day') day: string,
@@ -103,12 +92,10 @@ export class WeeklyScheduleController {
     }
   }
 
-  /**
-   * Elimina un rango de tiempo específico de un día.
-   * DELETE /weekly-schedules/:idBusiness/daily/:day
-   */
+
   @Delete(':idBusiness/daily/:day')
   @HttpCode(204)
+  @Roles(UserRole.OWNER)
   async removeTimeRangeFromDay(
     @Param('idBusiness') idBusiness: string,
     @Param('day') day: string,
@@ -125,12 +112,9 @@ export class WeeklyScheduleController {
     }
   }
 
-  /**
-   * Elimina el horario de un día completo.
-   * DELETE /weekly-schedules/:idBusiness/:day
-   */
   @Delete(':idBusiness/:day')
   @HttpCode(204)
+  @Roles(UserRole.OWNER)
   async deleteDailySchedule(
     @Param('idBusiness') idBusiness: string,
     @Param('day') day: string,

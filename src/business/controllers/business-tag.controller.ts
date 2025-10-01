@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import { IBusinessTagService } from '../interfaces/business-tag.interface'; // Asegúrate de la ruta
 import { TOKENS } from 'src/common/constants/tokens'; // Asegúrate de la ruta
-import { BusinessTagDetails } from '../services/business-tag.service'; // Importa la interfaz/tipo de retorno del servicio
 import { UuidParam } from 'src/common/pipes/uuid-param.pipe';
 import { IsArray, IsUUID } from 'class-validator';
 import { BusinessTagResponseDto } from '../dto/Response/business-tag-response.dto';

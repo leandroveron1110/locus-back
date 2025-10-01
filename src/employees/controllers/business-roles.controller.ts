@@ -15,13 +15,13 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Post()
-  @Public()
+  @Roles(UserRole.OWNER)
   createRole(@Body() dto: CreateBusinessRoleDto) {
     return this.rolesService.createRole(dto);
   }
 
   @Patch(":roleId")
-  @Public()
+  @Roles(UserRole.OWNER)
   updateRole(@Param("roleId") roleId: string, @Body() dto: UpdateBusinessRoleDto) {
     return this.rolesService.updateRole(roleId, dto);
   }
@@ -34,7 +34,7 @@ export class RolesController {
   }
 
   @Get(":roleId")
-  @Public()
+  @Roles(UserRole.OWNER)
   getRole(@Param("roleId") roleId: string) {
     return this.rolesService.getRoleById(roleId);
   }
