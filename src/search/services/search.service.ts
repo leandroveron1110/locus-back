@@ -122,7 +122,7 @@ export class SearchService implements ISearchService {
     });
 
 
-    const data = this.formatBusinesses(businesses, false);
+    const data = this.formatBusinesses(businesses, true);
     return { data };
   }
 
