@@ -112,9 +112,7 @@ export class BusinessController {
   }
 
   @Patch(':id')
-  // @Roles(UserRole.OWNER)
-  // @Permissions(BusinessPermissions.EDIT_BUSINESS)
-  // @AccessStrategy(AccessStrategyEnum.ROLE_OR_ALL_PERMISSIONS)
+  @Roles(UserRole.OWNER)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateBusinessDto: UpdateBusinessDto,
