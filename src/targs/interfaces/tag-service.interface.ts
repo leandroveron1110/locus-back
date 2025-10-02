@@ -1,11 +1,12 @@
 import { Tag } from '@prisma/client';
 import { CreateTagDto } from '../dto/Request/create-tag.dto';
 import { UpdateTagDto } from '../dto/Request/update-tag.dto';
+import { TagResponseDto } from '../dto/Response/tag-response.dto';
 
 export interface ITagService {
   create(createTagDto: CreateTagDto): Promise<Tag>;
   createAll(createTagDto: CreateTagDto[]): Promise<Tag[]>;
-  findAll(): Promise<Tag[]>;
+  findAll(): Promise<TagResponseDto[]>;
   findOne(id: string): Promise<Tag>;
   update(id: string, updateTagDto: UpdateTagDto): Promise<Tag>;
   remove(id: string): Promise<Tag>;

@@ -6,19 +6,4 @@ export class CategoryResponseDto {
 
   @Expose()
   name: string;
-
-  @Expose()
-  iconUrl?: string;
-
-  @Expose()
-  description?: string;
-
-  @Expose()
-  active: boolean;
-
-  @Expose()
-  createdAt: Date;
-
-  @Expose()
-  updatedAt: Date;
 }

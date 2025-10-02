@@ -7,6 +7,7 @@ import {
 } from '../dto/Response/business-response.dto';
 import { UpdateBusinessDto } from '../dto/Request/update-business.dto';
 import { ModulesConfig } from '../dto/Request/modules-config.schema.dto';
+import { BusinessOgResponseDto } from '../dto/Response/Business-og-response.dto';
 
 // export interface IBusinessService {
 //   create(dto: CreateBusinessDto): Promise<BusinessResponseDto>;
@@ -83,4 +84,7 @@ export interface IBusinessQueryService {
   getModulesConfigByBusinessId(businessId: string): Promise<ModulesConfig>;
 
   findManyByIds(businessIds: string[]): Promise<any[]>;
+
+  findOgData(businessId: string): Promise<BusinessOgResponseDto | null>; // 👈 Nuevo método
+
 }

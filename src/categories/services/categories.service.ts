@@ -47,11 +47,12 @@ export class CategoryService implements ICategoryService {
     }
   }
 
-  async findAll(): Promise<Category[]> {
+  async findAll(): Promise<{id: string, name: string}[]> {
     // Por lo general, se listan solo las categorías activas para el frontend
     return this.prisma.category.findMany({
-      where: { active: true },
-      orderBy: { name: 'asc' }, // Ordenar alfabéticamente por nombre
+      where: { active: true, isDeleted: false },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
     });
   }
 

@@ -6,13 +6,4 @@ export class TagResponseDto {
 
   @Expose()
   name: string;
-
-  @Expose()
-  active: boolean;
-
-  @Expose()
-  createdAt: Date;
-
-  @Expose()
-  updatedAt: Date;
 }

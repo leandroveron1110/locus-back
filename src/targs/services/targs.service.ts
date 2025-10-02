@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTagDto } from '../dto/Request/create-tag.dto';
 import { UpdateTagDto } from '../dto/Request/update-tag.dto';
 import { ITagService } from '../interfaces/tag-service.interface';
+import { TagResponseDto } from '../dto/Response/tag-response.dto';
 
 @Injectable()
 export class TagService implements ITagService {
@@ -48,10 +49,11 @@ async createAll(createTagDto: CreateTagDto[]): Promise<Tag[]> {
 }
 
 
-  async findAll(): Promise<Tag[]> {
+  async findAll(): Promise<TagResponseDto[]> {
     // Listamos solo los tags activos, ya que son los que normalmente se muestran en el frontend
     return this.prisma.tag.findMany({
-      where: { active: true },
+      where: { active: true, isDeleted: false },
+      select: { id: true, name: true },
       orderBy: { name: 'asc' }, // Ordenar alfabéticamente por nombre
     });
   }

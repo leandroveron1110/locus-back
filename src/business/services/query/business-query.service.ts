@@ -8,6 +8,7 @@ import {
   ModulesConfigSchema,
   ModulesConfig,
 } from 'src/business/dto/Request/modules-config.schema.dto';
+import { BusinessOgResponseDto } from 'src/business/dto/Response/Business-og-response.dto';
 import {
   BusinessPreviewDto,
   BusinessProfileResponseDto,
@@ -134,4 +135,28 @@ export class BusinessQueryService implements IBusinessQueryService {
       description: b.shortDescription,
     }));
   }
+
+  async findOgData(businessId: string): Promise<BusinessOgResponseDto | null> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        name: true,
+        shortDescription: true,
+        logoUrl: true,
+      },
+    });
+
+    if (!business) {
+      throw new NotFoundException(
+        `Negocio con ID "${businessId}" no encontrado`,
+      );
+    }
+
+    return {
+      name: business.name,
+      description: business.shortDescription,
+      imageUrl: business.logoUrl ? business.logoUrl :  null, // imageUrl será 'string' o 'null'
+    } as BusinessOgResponseDto;
+  }
+  // ...
 }

@@ -23,6 +23,8 @@ import { CategoryResponseDto } from '../dto/Response/category-response.dto';
 
 import { TOKENS } from 'src/common/constants/tokens';
 import { ICategoryService } from '../interfaces/Category.interface';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @UseInterceptors(ClassSerializerInterceptor) // Transforma las respuestas automáticamente usando @Expose
 @Controller('categories') // Prefijo para todas las rutas: /categories
@@ -31,10 +33,8 @@ export class CategoryController {
     @Inject(TOKENS.ICategoryService)
     private readonly categoryService: ICategoryService) {}
 
-  // --- Rutas para ADMINISTRADORES (Crear, Actualizar, Desactivar Categorías) ---
-
   @Post()
-  @HttpCode(HttpStatus.CREATED) // Código 201 para creación exitosa
+  @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
   ): Promise<CategoryResponseDto> {
@@ -43,7 +43,7 @@ export class CategoryController {
   }
 
   @Post('all')
-  @HttpCode(HttpStatus.CREATED) // Código 201 para creación exitosa
+  @HttpCode(HttpStatus.CREATED)
   async createAll(
     @Body() createCategoryDto: CreateCategoryDto[],
   ): Promise<CategoryResponseDto[]> {
@@ -64,23 +64,21 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT) // Código 204 para eliminación/desactivación exitosa (sin contenido de respuesta)
+  @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string): Promise<void> {
     // El servicio maneja la lógica de desactivación (soft delete)
     await this.categoryService.remove(id);
   }
 
-  // --- Rutas de lectura (Consulta de Categorías) ---
-  // Estas rutas suelen ser públicas o accesibles por la mayoría de los roles
-  // para permitir la navegación y filtrado de negocios.
-
   @Get()
+  @Public()
   async findAll(): Promise<CategoryResponseDto[]> {
     const categories = await this.categoryService.findAll();
     return plainToInstance(CategoryResponseDto, categories);
   }
 
   @Get(':id')
+  @Public()
   async findOne(@Param('id') id: string): Promise<CategoryResponseDto> {
     const category = await this.categoryService.findOne(id);
     if (!category) {

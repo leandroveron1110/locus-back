@@ -21,6 +21,7 @@ import { TagResponseDto } from '../dto/Response/tag-response.dto';
 import { CreateTagDto } from '../dto/Request/create-tag.dto';
 import { TOKENS } from 'src/common/constants/tokens';
 import { ITagService } from '../interfaces/tag-service.interface';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('tags') // Prefijo para todas las rutas: /tags
@@ -30,11 +31,8 @@ export class TagController {
     private readonly tagService: ITagService,
   ) {}
 
-  // --- Rutas para ADMINISTRADORES (Crear, Actualizar, Desactivar Tags) ---
 
   @Post()
-  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  // @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createTagDto: CreateTagDto): Promise<TagResponseDto> {
     const tag = await this.tagService.create(createTagDto);
@@ -42,8 +40,6 @@ export class TagController {
   }
 
   @Post('all')
-  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  // @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   async createAll(
     @Body() createTagDto: CreateTagDto[],
@@ -53,8 +49,6 @@ export class TagController {
   }
 
   @Patch(':id')
-  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  // @Roles(UserRole.ADMIN)
   async update(
     @Param('id') id: string,
     @Body() updateTagDto: UpdateTagDto,
@@ -64,27 +58,20 @@ export class TagController {
   }
 
   @Delete(':id')
-  // @UseGuards(JwtAuthGuard, RolesGuard) // Requiere autenticación JWT y rol ADMIN
-  // @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT) // 204 No Content para eliminación/desactivación exitosa
   async remove(@Param('id') id: string): Promise<void> {
     await this.tagService.remove(id);
   }
-
-  // --- Rutas de lectura (Consulta de Tags) ---
-  // Estas rutas suelen ser públicas o accesibles por la mayoría de los roles.
-
+  
   @Get()
-  // Pública por defecto. Si se requiere autenticación, descomentar la siguiente línea:
-  // @UseGuards(JwtAuthGuard)
+  @Public()
   async findAll(): Promise<TagResponseDto[]> {
     const tags = await this.tagService.findAll();
     return plainToInstance(TagResponseDto, tags);
   }
 
   @Get(':id')
-  // Pública por defecto. Si se requiere autenticación, descomentar la siguiente línea:
-  // @UseGuards(JwtAuthGuard)
+  @Public()
   async findOne(@Param('id') id: string): Promise<TagResponseDto> {
     const tag = await this.tagService.findOne(id);
     if (!tag) {

@@ -21,13 +21,20 @@ import { BusinessResponseDto } from '../dto/Response/business-response.dto';
 import { FindAllBusinessesDto } from '../dto/Request/find-all-businesses.dto';
 import { Prisma, UserRole } from '@prisma/client';
 import { TOKENS } from 'src/common/constants/tokens';
-import { IBusinessCommandService, IBusinessQueryService } from '../interfaces/business.interface';
+import {
+  IBusinessCommandService,
+  IBusinessQueryService,
+} from '../interfaces/business.interface';
 import { ModulesConfigSchema } from '../dto/Request/modules-config.schema.dto';
 import { GetBusinessesDto } from '../dto/Request/business-ids.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
-import { BusinessPermissions, EmployeePermissions, ProductPermissions } from 'src/common/enums/rolees-permissions';
+import {
+  BusinessPermissions,
+  EmployeePermissions,
+  ProductPermissions,
+} from 'src/common/enums/rolees-permissions';
 import { AccessStrategy } from 'src/auth/decorators/access-strategy.decorator';
 import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
 
@@ -44,7 +51,7 @@ export class BusinessController {
     @Inject(TOKENS.IBusinessCommandService)
     private readonly businessCommandService: IBusinessCommandService,
     @Inject(TOKENS.IBusinessQueryService)
-    private readonly businessQueryService: IBusinessQueryService 
+    private readonly businessQueryService: IBusinessQueryService,
   ) {}
 
   @Post()
@@ -66,7 +73,9 @@ export class BusinessController {
       ? (JSON.parse(queryParams.where) as Prisma.BusinessWhereInput)
       : undefined;
     const orderBy = queryParams.orderBy
-      ? (JSON.parse(queryParams.orderBy) as Prisma.BusinessOrderByWithRelationInput)
+      ? (JSON.parse(
+          queryParams.orderBy,
+        ) as Prisma.BusinessOrderByWithRelationInput)
       : undefined;
 
     return this.businessQueryService.findAll({
@@ -93,8 +102,15 @@ export class BusinessController {
   ): Promise<any> {
     return this.businessQueryService.findForOrder(businessId);
   }
-  
-  
+
+  @Get('business/og-data/:businessId')
+  @Public()
+  async findOgData(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+  ): Promise<any> {
+    return this.businessQueryService.findOgData(businessId);
+  }
+
   @Patch(':id')
   // @Roles(UserRole.OWNER)
   // @Permissions(BusinessPermissions.EDIT_BUSINESS)
@@ -127,12 +143,18 @@ export class BusinessController {
     if (!parsed.success) {
       throw new BadRequestException('modulesConfig inválido');
     }
-    return this.businessCommandService.updateModulesConfig(businessId, parsed.data);
+    return this.businessCommandService.updateModulesConfig(
+      businessId,
+      parsed.data,
+    );
   }
 
   @Post('businesses/ids/')
   @Roles(UserRole.OWNER)
-  @Permissions(BusinessPermissions.VIEW_DASHBOARD, BusinessPermissions.EDIT_BUSINESS)
+  @Permissions(
+    BusinessPermissions.VIEW_DASHBOARD,
+    BusinessPermissions.EDIT_BUSINESS,
+  )
   @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   async getBusinesses(@Body() body: GetBusinessesDto) {
     return await this.businessQueryService.findManyByIds(body.ids);
