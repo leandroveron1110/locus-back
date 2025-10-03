@@ -133,6 +133,46 @@ export class MenuProductService implements IMenuProductService {
     return MenuProductDto.fromPrismaMany(products);
   }
 
+  // En su servicio (e.g., MenuProductService)
+async findPaginatedBySeccionId(
+  seccionId: string,
+  limit: number,
+  offset: number, 
+): Promise<MenuProductDto[]> {
+  // 1. Validaciones básicas (opcional)
+  if (limit <= 0 || offset < 0) {
+    throw new Error('Limit debe ser positivo y offset no negativo.');
+  }
+
+  // 2. Ejecutar la consulta paginada
+  const products = await this.prisma.menuProduct.findMany({
+    // Condición: Solo productos de la sección dada
+    where: {
+      seccionId: seccionId,
+    },
+    // Paginación:
+    take: limit, // 'LIMIT' en SQL
+    skip: offset, // 'OFFSET' en SQL
+    
+    // Inclusiones: Mantenemos la carga completa de opciones y grupos
+    include: {
+      optionGroups: {
+        include: {
+          options: true,
+        },
+      },
+    },
+    
+    // Ordenamiento
+    orderBy: {
+      name: 'asc',
+    },
+  });
+
+  // 3. Transformación y retorno
+  return MenuProductDto.fromPrismaMany(products);
+}
+
   async getMenuProductsByIds(ids: string[]): Promise<MenuProductDto[]> {
     const products = await this.prisma.menuProduct.findMany({
       where: {

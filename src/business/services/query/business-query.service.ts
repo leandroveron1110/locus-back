@@ -158,5 +158,4 @@ export class BusinessQueryService implements IBusinessQueryService {
       imageUrl: business.logoUrl ? business.logoUrl :  null, // imageUrl será 'string' o 'null'
     } as BusinessOgResponseDto;
   }
-  // ...
 }

@@ -14,7 +14,15 @@ export interface IMenuProductService {
 
   findProducDetaillById(productId: string): Promise<MenuProductDto>;
 
-  findAllBySeccionIdsForBusiness(seccionIds: string[]): Promise<MenuProductDto[]>
+  findAllBySeccionIdsForBusiness(
+    seccionIds: string[],
+  ): Promise<MenuProductDto[]>;
+
+  findPaginatedBySeccionId(
+    seccionId: string,
+    limit: number,
+    offset: number,
+  ): Promise<MenuProductDto[]>;
 
   findAllBySeccion(seccionId: string): Promise<MenuProduct[]>;
 

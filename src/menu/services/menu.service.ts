@@ -57,7 +57,6 @@ export class MenuService implements IMenuService {
         sections: {
           select: {
             id: true,
-            imageUrls: true,
             index: true,
             name: true,
           },
@@ -92,9 +91,8 @@ export class MenuService implements IMenuService {
         (section): MenuSectionWithProductsDto => ({
           id: section.id,
           name: section.name,
-          imageUrls: section.imageUrls,
           index: section.index,
-          products: productsBySeccion[section.id] ?? [],
+          products: []
         }),
       ),
     }));
