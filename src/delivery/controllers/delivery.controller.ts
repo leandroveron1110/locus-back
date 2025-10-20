@@ -76,7 +76,7 @@ export class DeliveryController {
   
   @Post('orders/:orderId/assign-company/:deliveryId')
   // Solo aquellos con el permiso adecuado pueden asignar un repartidor a una orden
-  // @Permissions(PermissionsEnum.DELIVER_ORDER)
+  @Roles(UserRole.OWNER)
   assignCompany(
     @Param('orderId') orderId: string,
     @Param('deliveryId') deliveryId: string,

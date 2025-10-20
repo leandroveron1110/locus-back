@@ -24,7 +24,8 @@ export interface IOrderCreationService {
  */
 export interface IOrderQueryService {
   findAll(): Promise<Order[]>;
-  findOne(id: string): Promise<OrderResponseDto>;
+  checkOne(orderId: string): Promise<void>;
+  findOne(orderId: string): Promise<OrderResponseDto>;
   findOrdersByBusiness(businessId: string): Promise<any[]>;
   findOrdersByUserId(userId: string): Promise<any[]>;
   findOrdersByDeliveyId(deliveryId: string): Promise<any[]>;

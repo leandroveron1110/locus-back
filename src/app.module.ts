@@ -30,6 +30,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RBACGuard } from './auth/guards/rbac.guard'; // Importa el nuevo RBACGuard
+import { LoggingModule } from './logging/logging.module';
 
 
 @Module({
@@ -60,6 +61,7 @@ import { RBACGuard } from './auth/guards/rbac.guard'; // Importa el nuevo RBACGu
     BusinessPaymentMethodsModule,
     DeliveryZonesModule,
     EmployeesModule,
+    LoggingModule,
   ],
   controllers: [AppController],
   providers: [

@@ -130,7 +130,6 @@ export class OrderController {
       paymentHolderName?: string;
     },
   ): Promise<PaymentMethodType> {
-    console.log(status)
     return this.orderUpdateService.updatePayment(id, status);
   }
 

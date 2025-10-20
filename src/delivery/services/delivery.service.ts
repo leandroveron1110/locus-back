@@ -5,7 +5,7 @@ import {
   UpdateDeliveryCompanyDto,
 } from '../dtos/request/delivery-company.dto';
 import { IDeliveryService } from '../interfaces/delivery-service.interface';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, UserRole } from '@prisma/client';
 import { TOKENS } from 'src/common/constants/tokens';
 import { IOrderGateway } from 'src/order/interfaces/order-gateway.interface';
 import { IOrderQueryService } from 'src/order/interfaces/order-service.interface';
@@ -22,7 +22,14 @@ export class DeliveryService implements IDeliveryService{
 
   // ----------- Compañías -----------
   async createCompany(data: CreateDeliveryCompanyDto) {
-    return this.prisma.deliveryCompany.create({ data });
+    data.isActive = true;
+    const owner = await this.prisma.user.findUnique({where: {id: data.ownerId}, select: {id: true}});
+    if(owner) {
+      return await this.prisma.deliveryCompany.create({ data });
+    }
+
+    throw new NotFoundException(`No se encontro el Owner con el ID: ${data.ownerId}`)
+
   }
 
   async findAllCompanies() {

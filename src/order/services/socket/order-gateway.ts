@@ -8,10 +8,10 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethodType, PaymentStatus } from '@prisma/client';
 import { OrderResponseDto } from 'src/order/dtos/response/order-response.dto';
 import { IOrderGateway } from 'src/order/interfaces/order-gateway.interface';
+import { LoggingService } from 'src/logging/logging.service';
 
 @WebSocketGateway({
   cors: {
@@ -26,8 +26,12 @@ export class OrderGateway
     OnGatewayDisconnect,
     IOrderGateway
 {
-  private logger: Logger = new Logger('OrderGateway');
   server: Server;
+
+  constructor(private readonly logger: LoggingService) {
+    this.logger.setContext(OrderGateway.name);
+    this.logger.setService('OrderModule');
+  }
 
   afterInit(server: Server) {
     this.server = server;
@@ -42,40 +46,43 @@ export class OrderGateway
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
+  // ----------------------------------------------------------------
+  // 🎯 Gestión de roles
+  // ----------------------------------------------------------------
+
   /**
-   * Un cliente, negocio o delivery se une según su rol
-   * Ej:
+   * Un cliente, negocio o delivery se une según su rol.
+   * Ejemplo:
    * socket.emit('join_role', { role: 'user', id: '123' })
-   * socket.emit('join_role', { role: 'business', id: '10' })
-   * socket.emit('join_role', { role: 'delivery' })
    */
   @SubscribeMessage('join_role')
   handleJoinRole(
-    @MessageBody()
-    data: { role: 'user' | 'business' | 'delivery'; id?: string },
+    @MessageBody() data: { role: 'user' | 'business' | 'delivery'; id?: string },
     @ConnectedSocket() client: Socket,
   ) {
-    if (data.role === 'user' && data.id) {
-      client.join(`user-${data.id}`);
-      this.logger.log(`Client ${client.id} joined user room user-${data.id}`);
-    } else if (data.role === 'business' && data.id) {
-      client.join(`business-${data.id}`);
-      this.logger.log(
-        `Client ${client.id} joined business room business-${data.id}`,
-      );
-    } else if (data.role === 'delivery' && data.id) {
-      client.join(`delivery-${data.id}`);
-      this.logger.log(`Client ${client.id} joined delivery room`);
-    } else {
-      this.logger.warn(
-        `Client ${client.id} tried to join with invalid role or missing id`,
-      );
+    const { role, id } = data;
+
+    if (!role || !id) {
+      this.logger.warn('Invalid role or missing id', {
+        clientId: client.id,
+        data,
+      });
+      return;
     }
+
+    const roomName = `${role}-${id}`;
+    client.join(roomName);
+
+    this.logger.log(`Client joined role room`, {
+      clientId: client.id,
+      role,
+      room: roomName,
+    });
   }
 
   /**
-   * Unirse a una sala de orden específica
-   * Ej:
+   * Unirse a una sala de orden específica.
+   * Ejemplo:
    * socket.emit('join_order', { orderId: 'abc123' })
    */
   @SubscribeMessage('join_order')
@@ -83,73 +90,113 @@ export class OrderGateway
     @MessageBody() data: { orderId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    client.join(`order-${data.orderId}`);
-    this.logger.log(
-      `Client ${client.id} joined order room order-${data.orderId}`,
-    );
-  }
-
-  emitOrderAssignedToDelivery(order: OrderResponseDto) {
-    if (order.deliveryCompanyId) {
-      this.server
-        .to(`delivery-${order.deliveryCompanyId}`)
-        .emit('newOrderAssigned', order);
+    if (!data.orderId) {
+      this.logger.warn('Invalid order join attempt', { clientId: client.id });
+      return;
     }
+
+    const room = `order-${data.orderId}`;
+    client.join(room);
+
+    this.logger.log('Client joined order room', {
+      clientId: client.id,
+      room,
+      orderId: data.orderId,
+    });
   }
 
-  /**
-   * Emitir evento cuando se crea una nueva orden
-   */
-  public emitNewOrder(order: OrderResponseDto) {
-    // Notificar al negocio
-    this.server.to(`business-${order.businessId}`).emit('new_order', order);
-    // Notificar al cliente
-    this.server.to(`user-${order.userId}`).emit('order_created', order);
+  // ----------------------------------------------------------------
+  // 🚚 Emisiones de eventos
+  // ----------------------------------------------------------------
+
+  /** Cuando una orden se asigna a una empresa de delivery */
+  emitOrderAssignedToDelivery(order: OrderResponseDto) {
+    if (!order.deliveryCompanyId) return;
+
+    const room = `delivery-${order.deliveryCompanyId}`;
+    this.server.to(room).emit('newOrderAssigned', order);
+
+    this.logger.log('New order assigned to delivery company', {
+      deliveryCompanyId: order.deliveryCompanyId,
+      orderId: order.id,
+    });
   }
 
-  /**
-   * Emitir evento cuando se actualiza el estado de una orden
-   */
-  public emitOrderStatusUpdated(
+  /** Cuando se crea una nueva orden */
+  emitNewOrder(order: OrderResponseDto) {
+    const businessRoom = `business-${order.businessId}`;
+    const userRoom = `user-${order.userId}`;
+
+    const shouldNotifyBusiness =
+      order.paymentType === PaymentMethodType.CASH ||
+      (order.paymentType === PaymentMethodType.TRANSFER &&
+        order.paymentStatus !== PaymentStatus.PENDING);
+
+    if (shouldNotifyBusiness) {
+      this.server.to(businessRoom).emit('new_order', order);
+      this.logger.log('New order sent to business', {
+        businessId: order.businessId,
+        orderId: order.id,
+      });
+    }
+
+    if(!shouldNotifyBusiness) {
+      this.server.to(userRoom).emit('order_created', order);
+      this.logger.log('New order created for user', {
+        userId: order.userId,
+        orderId: order.id,
+      });
+
+    }
+
+  }
+
+  /** Cuando se actualiza el estado de una orden */
+  emitOrderStatusUpdated(
     orderId: string,
-    status: string,
+    status: OrderStatus,
     userId: string,
     businessId: string,
-    deliveryCompanyId?: string | null,
+    deliveryCompanyId?: string,
   ) {
-    // Notificar al cliente
-    this.server
-      .to(`user-${userId}`)
-      .emit('order_status_updated', { orderId, status });
+    const payload = { orderId, status };
 
-    // Notificar al negocio
-    this.server
-      .to(`business-${businessId}`)
-      .emit('order_status_updated', { orderId, status });
+    this.server.to(`user-${userId}`).emit('order_status_updated', payload);
+    this.server.to(`business-${businessId}`).emit('order_status_updated', payload);
 
-    // Si el estado es listo_para_delivery, notificar a delivery
-    if (status === OrderStatus.READY_FOR_DELIVERY_PICKUP && deliveryCompanyId) {
+    if (deliveryCompanyId) {
       this.server
         .to(`delivery-${deliveryCompanyId}`)
-        .emit('order_ready_for_delivery', { orderId, businessId });
+        .emit('order_ready_for_delivery', payload);
     }
+
+    this.logger.log('Order status updated', {
+      orderId,
+      status,
+      userId,
+      businessId,
+      deliveryCompanyId,
+    });
   }
 
-  public emitPaymentUpdated(
+  /** Cuando se actualiza el pago */
+  emitPaymentUpdated(
     orderId: string,
-    paymentStatus: string,
+    paymentStatus: PaymentStatus,
     paymentReceiptUrl: string,
     userId: string,
     businessId: string,
   ) {
-    const payload = {
-      orderId,
-      paymentStatus,
-      paymentReceiptUrl,
-    };
+    const payload = { orderId, paymentStatus, paymentReceiptUrl };
 
-    // Notificar al cliente y al negocio
     this.server.to(`user-${userId}`).emit('payment_updated', payload);
     this.server.to(`business-${businessId}`).emit('payment_updated', payload);
+
+    this.logger.log('Payment updated', {
+      orderId,
+      paymentStatus,
+      userId,
+      businessId,
+    });
   }
 }

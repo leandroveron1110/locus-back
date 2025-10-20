@@ -36,6 +36,7 @@ export class OrderValidationService implements IOrderValidationService {
     const productIds = dto.items.map((item) => item.menuProductId);
     const products =
       await this.menuProductService.getMenuProductsByIds(productIds);
+
     const productMap = new Map(products.map((p) => [p.id, p]));
 
     for (const item of dto.items) {
