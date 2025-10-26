@@ -35,7 +35,41 @@ import {
 import { Permissions } from 'src/auth/decorators/permissions.decorator';
 import { AccessStrategy } from 'src/auth/decorators/access-strategy.decorator';
 import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
-import { OrderPermissions, ProductPermissions } from 'src/common/enums/rolees-permissions';
+import {
+  OrderPermissions,
+  ProductPermissions,
+} from 'src/common/enums/rolees-permissions';
+import {
+  IsArray,
+  IsDateString,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+import { OrderResponseDto } from '../dtos/response/order-response.dto';
+import { SyncResult } from '../services/querys/order-query.service';
+import { SyncNotificationResponse } from '../dtos/response/sync-notification-orders.dto.';
+import { SyncNotificationOrdersDto } from '../dtos/request/sync-notification-orders.dto';
+
+class GetNewOrdersNotificationDto {
+  @IsArray()
+  @IsUUID('all', { each: true }) // Valida que cada ID sea un UUID válido
+  businessIds: string[];
+}
+export class SyncOrdersDto {
+  @IsNotEmpty({ message: 'El businessId no puede estar vacío.' })
+  @IsString({ message: 'El businessId debe ser una cadena de texto válida.' })
+  public businessId: string;
+
+  // 💡 Opcional: El frontend lo enviará solo si ya tiene una marca de tiempo
+  @IsOptional()
+  @IsDateString(
+    { strict: true },
+    { message: 'lastSyncTime debe ser un ISO 8601 válido.' },
+  )
+  public lastSyncTime?: string;
+}
 
 @Controller('orders')
 export class OrderController {
@@ -92,6 +126,49 @@ export class OrderController {
   @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   getOrdersByBusiness(@Param('businessId') businessId: string) {
     return this.orderQueryService.findOrdersByBusiness(businessId);
+  }
+
+  @Post('sync/business')
+  @HttpCode(200)
+  @Roles(UserRole.OWNER)
+  @Permissions(OrderPermissions.VIEW_ORDERS, ProductPermissions.EDIT_PRODUCT)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
+  async syncOrders(@Body() body: SyncOrdersDto): Promise<SyncResult> {
+    // Devolvemos el tipo SyncResult
+
+    const { businessId, lastSyncTime } = body;
+
+    // Llamada al nuevo servicio implementado
+    return this.orderQueryService.syncOrdersByBusinessId(
+      businessId,
+      lastSyncTime,
+    );
+  }
+
+  @Post('notifications/sync') // 💡 Endpoint: POST /notifications/sync
+  @Roles(UserRole.OWNER)
+  @Permissions(OrderPermissions.VIEW_ORDERS)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
+  async syncNotifications(
+    @Body() body: Record<string, string | undefined>,
+  ): Promise<SyncNotificationResponse> {
+    console.log(body)
+    if (!body) {
+      return { newOrders: [] };
+    }
+
+    return this.orderQueryService.syncNotificationNewsOrders(body);
+  }
+
+  @Post('notifications/new')
+  @Roles(UserRole.OWNER)
+  @Permissions(OrderPermissions.VIEW_ORDERS)
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
+  async getNewOrdersForNotifications(
+    @Body() body: GetNewOrdersNotificationDto,
+  ): Promise<OrderResponseDto[]> {
+    const { businessIds } = body;
+    return this.orderQueryService.findNotificationNewsOrders(businessIds);
   }
 
   @Get('user/:userId')

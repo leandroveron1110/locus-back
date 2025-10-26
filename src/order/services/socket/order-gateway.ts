@@ -57,7 +57,8 @@ export class OrderGateway
    */
   @SubscribeMessage('join_role')
   handleJoinRole(
-    @MessageBody() data: { role: 'user' | 'business' | 'delivery'; id?: string },
+    @MessageBody()
+    data: { role: 'user' | 'business' | 'delivery'; id?: string },
     @ConnectedSocket() client: Socket,
   ) {
     const { role, id } = data;
@@ -80,11 +81,6 @@ export class OrderGateway
     });
   }
 
-  /**
-   * Unirse a una sala de orden específica.
-   * Ejemplo:
-   * socket.emit('join_order', { orderId: 'abc123' })
-   */
   @SubscribeMessage('join_order')
   handleJoinOrder(
     @MessageBody() data: { orderId: string },
@@ -104,10 +100,6 @@ export class OrderGateway
       orderId: data.orderId,
     });
   }
-
-  // ----------------------------------------------------------------
-  // 🚚 Emisiones de eventos
-  // ----------------------------------------------------------------
 
   /** Cuando una orden se asigna a una empresa de delivery */
   emitOrderAssignedToDelivery(order: OrderResponseDto) {
@@ -140,15 +132,36 @@ export class OrderGateway
       });
     }
 
-    if(!shouldNotifyBusiness) {
+    if (!shouldNotifyBusiness) {
       this.server.to(userRoom).emit('order_created', order);
       this.logger.log('New order created for user', {
         userId: order.userId,
         orderId: order.id,
       });
-
     }
+  }
 
+  emitNewOrderNotification(order: OrderResponseDto) {
+    const businessRoom = `business-${order.businessId}`;
+
+    const shouldNotifyBusiness =
+      order.paymentType === PaymentMethodType.CASH ||
+      (order.paymentType === PaymentMethodType.TRANSFER &&
+        order.paymentStatus !== PaymentStatus.PENDING);
+
+    if (shouldNotifyBusiness) {
+      this.server.to(businessRoom).emit('new_order_notification', {
+        orderId: order.id,
+        customerName: order.user?.fullName ?? 'Cliente',
+        total: order.total,
+        createdAt: order.createdAt,
+      });
+
+      this.logger.log('New order notification sent to business', {
+        businessId: order.businessId,
+        orderId: order.id,
+      });
+    }
   }
 
   /** Cuando se actualiza el estado de una orden */
@@ -162,7 +175,9 @@ export class OrderGateway
     const payload = { orderId, status };
 
     this.server.to(`user-${userId}`).emit('order_status_updated', payload);
-    this.server.to(`business-${businessId}`).emit('order_status_updated', payload);
+    this.server
+      .to(`business-${businessId}`)
+      .emit('order_status_updated', payload);
 
     if (deliveryCompanyId) {
       this.server

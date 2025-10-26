@@ -97,6 +97,7 @@ export class OrderCommandService
     if (updatedOrder.paymentStatus == PaymentStatus.IN_PROGRESS) {
       const fullOrder = await this.orderQueryService.findOne(updatedOrder.id);
       this.orderGateway.emitNewOrder(fullOrder);
+      this.orderGateway.emitNewOrderNotification(fullOrder)
       this.logging.log('Orden en progreso. Evento emitido (New Order).', {
         orderId,
       });
@@ -213,6 +214,7 @@ export class OrderCommandService
       // Nota: Si usaste 'include' en el paso 2, podrías usar directamente el 'createdOrder'
       const fullOrder = await this.orderQueryService.findOne(createdOrder.id);
       this.orderGateway.emitNewOrder(fullOrder);
+      this.orderGateway.emitNewOrderNotification(fullOrder)
       this.logging.log('Evento de nueva orden emitido.', {
         orderId: fullOrder.id,
       });
@@ -345,6 +347,7 @@ export class OrderCommandService
       if (paymentStatus == PaymentStatus.IN_PROGRESS) {
         const fullOrder = await this.orderQueryService.findOne(updatedOrder.id);
         this.orderGateway.emitNewOrder(fullOrder);
+        this.orderGateway.emitNewOrderNotification(fullOrder);
         this.logging.log('Orden en progreso. Evento emitido (New Order).', {
           orderId,
         });

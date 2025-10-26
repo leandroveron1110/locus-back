@@ -21,6 +21,8 @@ export interface IOrderGateway {
 
   emitNewOrder(order: OrderResponseDto): void;
 
+  emitNewOrderNotification(order: OrderResponseDto): void;
+
   emitOrderStatusUpdated(
     orderId: string,
     status: string,

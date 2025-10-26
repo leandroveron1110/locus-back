@@ -1,10 +1,10 @@
-import { Injectable, LoggerService, Logger } from '@nestjs/common';
+import { Injectable, LoggerService, Logger, Scope } from '@nestjs/common';
 
 /**
  * Servicio centralizado de logs con formato estructurado (JSON).
  * Reutilizable por toda la aplicación.
  */
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class LoggingService implements LoggerService {
   private readonly logger = new Logger(LoggingService.name);
   private context = 'App';

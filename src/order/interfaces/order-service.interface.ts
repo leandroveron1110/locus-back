@@ -10,6 +10,8 @@ import {
   UpdateOrderDTO,
 } from '../dtos/request/order.dto';
 import { OrderResponseDto } from '../dtos/response/order-response.dto';
+import { SyncResult } from '../services/querys/order-query.service';
+import { SyncNotificationResponse } from '../dtos/response/sync-notification-orders.dto.';
 
 /**
  * Interfaz solo para creación de órdenes
@@ -29,6 +31,14 @@ export interface IOrderQueryService {
   findOrdersByBusiness(businessId: string): Promise<any[]>;
   findOrdersByUserId(userId: string): Promise<any[]>;
   findOrdersByDeliveyId(deliveryId: string): Promise<any[]>;
+  findNotificationNewsOrders(businessIds: string[]): Promise<any[]>;
+  syncOrdersByBusinessId(
+    businessId: string,
+    lastSyncTime?: string,
+  ): Promise<SyncResult>;
+  syncNotificationNewsOrders(
+    syncTimes: Record<string, string | undefined>,
+  ): Promise<SyncNotificationResponse>;
 }
 
 /**
