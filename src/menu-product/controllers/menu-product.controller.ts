@@ -38,7 +38,6 @@ export class MenuProductController {
   ) {}
 
   @Post()
-  // Solo los dueños o aquellos con el permiso para gestionar productos pueden crear uno.
   @Roles(UserRole.OWNER)
   @Permissions(
     ProductPermissions.MANAGE_PRODUCTS,

@@ -13,12 +13,15 @@ import {
   CreateOptionGroupDto,
   UpdateOptionGroupDto,
 } from '../dtos/request/option-group-request.dto';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('option-groups')
 export class OptionGroupController {
   constructor(private readonly service: OptionGroupService) {}
 
   @Post()
+  @Roles(UserRole.OWNER)
   create(@Body() dto: CreateOptionGroupDto) {
     return this.service.create(dto);
   }
@@ -34,16 +37,19 @@ export class OptionGroupController {
   }
 
   @Get(':id')
+  @Roles(UserRole.OWNER)
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }
 
   @Patch(':id')
+  @Roles(UserRole.OWNER)
   async update(@Param('id') id: string, @Body() dto: Partial<UpdateOptionGroupDto>) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
+  @Roles(UserRole.OWNER)
   remove(@Param('id') id: string) {
     return this.service.remove(id);
   }
