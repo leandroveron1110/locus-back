@@ -1,3 +1,4 @@
+import { OrderStatus } from '@prisma/client';
 import { Socket, Server } from 'socket.io';
 import { OrderResponseDto } from 'src/order/dtos/response/order-response.dto';
 
@@ -22,6 +23,14 @@ export interface IOrderGateway {
   emitNewOrder(order: OrderResponseDto): void;
 
   emitNewOrderNotification(order: OrderResponseDto): void;
+
+  emitUserNotification(order: {
+      id: string,
+      userId: string,
+      total: string,
+      status: OrderStatus,
+      createdAt: string
+    }): void;
 
   emitOrderStatusUpdated(
     orderId: string,

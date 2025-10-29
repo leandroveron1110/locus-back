@@ -12,6 +12,10 @@ import { OrderStatus, PaymentMethodType, PaymentStatus } from '@prisma/client';
 import { OrderResponseDto } from 'src/order/dtos/response/order-response.dto';
 import { IOrderGateway } from 'src/order/interfaces/order-gateway.interface';
 import { LoggingService } from 'src/logging/logging.service';
+import {
+  INotification,
+  NotificationPriority,
+} from 'src/common/lib/notification.factory';
 
 @WebSocketGateway({
   cors: {
@@ -160,6 +164,89 @@ export class OrderGateway
       this.logger.log('New order notification sent to business', {
         businessId: order.businessId,
         orderId: order.id,
+      });
+    }
+  }
+
+  // NOTA: Asume que OrderStatus y NotificationPriority están definidos en otro lugar
+  // import { OrderStatus, NotificationPriority, INotification } from '...';
+
+  emitUserNotification(order: {
+    id: string;
+    userId: string;
+    total: string;
+    status: OrderStatus;
+    createdAt: string;
+  }) {
+    const userRoom = `user-${order.userId}`;
+    const shortOrderId = `#${order.id.slice(0, 6).toUpperCase()}`; // ID corto en mayúsculas
+
+    let title: string = '';
+    let message: string = '';
+    let priority: NotificationPriority = 'LOW'; // Prioridad base
+    let shouldNotify: boolean = true; // Renombrado de isSwitchCase a shouldNotify
+
+    switch (order.status) {
+      case OrderStatus.READY_FOR_CUSTOMER_PICKUP:
+        title = '¡Listo para recoger!';
+        message = `Tu pedido ${shortOrderId} te está esperando. ¡Pasa por aquí cuando quieras!`;
+        priority = 'HIGH';
+        break;
+
+      case OrderStatus.OUT_FOR_DELIVERY:
+        title = '¡Tu pedido está en camino!';
+        message = `El repartidor va en camino con tu pedido ${shortOrderId}.`;
+        priority = 'MEDIUM';
+        break;
+
+      case OrderStatus.DELIVERED:
+        title = '¡Pedido entregado! ✅';
+        message = `Tu pedido ${shortOrderId} ha sido completado. ¡Esperamos que lo disfrutes!`;
+        priority = 'LOW';
+        break;
+
+      case OrderStatus.CANCELLED_BY_BUSINESS:
+        title = 'Pedido CANCELADO';
+        message = `Lamentamos informarte que el negocio tuvo que cancelar tu pedido ${shortOrderId}. Revisa los detalles.`;
+        priority = 'HIGH';
+        break;
+
+      case OrderStatus.CANCELLED_BY_DELIVERY:
+        title = 'Pedido CANCELADO';
+        message = `Hubo un problema con el delivery. Tu pedido ${shortOrderId} fue cancelado por el repartidor.`;
+        priority = 'HIGH';
+        break;
+
+      // Si hay más estados, se añadirían aquí (ej: REFUNDED)
+      default:
+        // No notificar para estados no críticos/no definidos
+        shouldNotify = false;
+        break;
+    }
+
+    // Se verifica 'shouldNotify' (antes 'isSwitchCase') para emitir solo cuando sea necesario.
+    // La prioridad 'priority' ya ha sido ajustada dentro del switch.
+    if (shouldNotify) {
+      // 🧠 Crear notificación tipada y coherente
+      const notification: INotification = {
+        id: crypto.randomUUID(),
+        category: 'ORDER',
+        type: 'ORDER_STATUS',
+        title,
+        message,
+        timestamp: new Date().toISOString(),
+        recipientId: order.userId,
+        // Usamos la prioridad establecida en el switch
+        priority: priority,
+      };
+
+      // 🚀 Emitir la notificación al socket del usuario
+      this.server.to(userRoom).emit('user_order_notification', notification);
+
+      this.logger.log('User order notification sent', {
+        userId: order.userId,
+        orderId: order.id,
+        status: order.status,
       });
     }
   }

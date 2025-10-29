@@ -11,7 +11,10 @@ import {
 } from '../dtos/request/order.dto';
 import { OrderResponseDto } from '../dtos/response/order-response.dto';
 import { SyncResult } from '../services/querys/order-query.service';
-import { SyncNotificationResponse } from '../dtos/response/sync-notification-orders.dto.';
+import {
+  SyncNotificationResponse,
+  SyncNotificationUserResponse,
+} from '../dtos/response/sync-notification-orders.dto.';
 
 /**
  * Interfaz solo para creación de órdenes
@@ -36,9 +39,17 @@ export interface IOrderQueryService {
     businessId: string,
     lastSyncTime?: string,
   ): Promise<SyncResult>;
+  syncOrdersByUserId(
+    id: string,
+    lastSyncTime?: string,
+  ): Promise<SyncResult>;
   syncNotificationNewsOrders(
     syncTimes: Record<string, string | undefined>,
   ): Promise<SyncNotificationResponse>;
+  syncNotificationsUser(
+    userId: string,
+    lastSyncTime: string | undefined,
+  ): Promise<SyncNotificationUserResponse>;
 }
 
 /**

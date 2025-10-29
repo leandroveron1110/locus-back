@@ -1,3 +1,5 @@
+import { INotification } from "src/common/lib/notification.factory";
+
 interface IOrderPending {
   id: string;
   businessId: string;
@@ -8,4 +10,8 @@ interface IOrderPending {
 
 export interface SyncNotificationResponse {
   newOrders: IOrderPending[];
+}
+
+export interface SyncNotificationUserResponse {
+  notification: INotification[]
 }

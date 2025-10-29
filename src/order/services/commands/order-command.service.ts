@@ -258,6 +258,14 @@ export class OrderCommandService
         updatedOrder.deliveryCompanyId,
       );
 
+      this.orderGateway.emitUserNotification({
+        id: updatedOrder.id,
+        status: updatedOrder.status,
+        total: `${updatedOrder.total}`,
+        userId: updatedOrder.userId,
+        createdAt: `${updatedOrder.createdAt}`
+      })
+
       this.logging.log(
         'Estado de orden actualizado exitosamente y evento emitido.',
         {
