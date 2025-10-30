@@ -139,7 +139,7 @@ export class OrderController {
 
   @Post('sync/user')
   @HttpCode(200)
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.CLIENT, UserRole.OWNER)
   @Permissions(OrderPermissions.VIEW_ORDERS, ProductPermissions.EDIT_PRODUCT)
   @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   async syncOrdersUser(@Body() body: SyncOrdersDto): Promise<SyncResult> {
