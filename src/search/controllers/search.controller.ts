@@ -14,15 +14,18 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { ISearchService } from '../interfaces/search-service.interface';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { GetBusinessesDto } from 'src/business/dto/Request/business-ids.dto';
+import { LoggingService } from 'src/logging/logging.service';
 
 @Controller('search')
 export class SearchController {
-  private readonly logger = new Logger(SearchController.name);
-
   constructor(
     @Inject(TOKENS.ISearchService)
-    private readonly searchService: ISearchService, // Solo inyecta SearchService
-  ) {}
+    private readonly searchService: ISearchService,
+    private logger: LoggingService,
+  ) {
+    this.logger.setContext(SearchController.name);
+    this.logger.setService('SearchModule');
+  }
 
   @Get('businesses')
   @Public()

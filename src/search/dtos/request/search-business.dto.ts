@@ -1,31 +1,53 @@
 // src/search/dto/search-business.dto.ts
-import { IsOptional, IsString, IsNumber, IsArray, IsBoolean, IsDecimal, Min, Max, IsIn, ValidateIf, IsInt } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsOptional,
+  IsString,
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsDateString,
+} from 'class-validator';
 
 export class SearchBusinessDto {
-  @IsOptional() @IsString()
-  query?: string
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
+  query?: string;
+  @IsOptional()
+  @IsString()
   name?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   city?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   province?: string;
 
-  @IsOptional() @IsArray()
+  @IsOptional()
+  @IsArray()
   categories?: string[];
 
-  @IsOptional() @IsArray()
+  @IsOptional()
+  @IsArray()
   tags?: string[];
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   page?: number;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   limit?: number;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   openNow?: boolean;
+
+  @IsOptional()
+  @IsDateString(
+    { strict: true },
+    { message: 'lastSyncTime debe ser un ISO 8601 válido.' },
+  )
+  lastSyncTime?: string;
 }

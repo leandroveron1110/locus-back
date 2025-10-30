@@ -41,6 +41,7 @@ export interface IOrderQueryService {
   ): Promise<SyncResult>;
   syncOrdersByUserId(
     id: string,
+    hours?: number,
     lastSyncTime?: string,
   ): Promise<SyncResult>;
   syncNotificationNewsOrders(

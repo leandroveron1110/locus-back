@@ -33,7 +33,7 @@ export class AddressesController {
   }
 
   @Get('user/:userId')
-  @Roles(UserRole.CLIENT)
+  @Roles(UserRole.CLIENT, UserRole.OWNER)
   getByUser(@Param('userId') userId: string) {
     return this.service.findAllByUser(userId);
   }

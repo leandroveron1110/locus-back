@@ -1,5 +1,3 @@
-import { SearchableBusiness } from '@prisma/client';
-import { CreateSearchableBusinessDto } from '../dtos/request/create-searchable-business.dto';
 import { SearchBusinessDto } from '../dtos/request/search-business.dto';
 
 export interface ISearchService {
@@ -20,7 +18,7 @@ export interface SearchResultBusiness {
   address?: string;
   city?: string;
   province?: string;
-  description?: string; // Podría ser shortDescription o fullDescription
+  description?: string;
   latitude?: number;
   longitude?: number;
   logoUrl?: string;
@@ -31,5 +29,4 @@ export interface SearchResultBusiness {
   status?: string;
   isOpenNow?: boolean;
   followersCount: number;
-  // Puedes añadir más campos si los necesitas en la UI de búsqueda
 }

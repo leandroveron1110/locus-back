@@ -58,6 +58,9 @@ export class SyncOrdersDto {
   @IsString({ message: 'El id debe ser una cadena de texto válida.' })
   public id: string;
 
+  @IsOptional()
+  public hours: number;
+
   // 💡 Opcional: El frontend lo enviará solo si ya tiene una marca de tiempo
   @IsOptional()
   @IsDateString(
@@ -140,8 +143,8 @@ export class OrderController {
   @Permissions(OrderPermissions.VIEW_ORDERS, ProductPermissions.EDIT_PRODUCT)
   @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   async syncOrdersUser(@Body() body: SyncOrdersDto): Promise<SyncResult> {
-    const { id, lastSyncTime } = body;
-    return this.orderQueryService.syncOrdersByUserId(id, lastSyncTime);
+    const { id, lastSyncTime, hours } = body;
+    return this.orderQueryService.syncOrdersByUserId(id, hours, lastSyncTime);
   }
 
   @Post('notifications/sync') // 💡 Endpoint: POST /notifications/sync

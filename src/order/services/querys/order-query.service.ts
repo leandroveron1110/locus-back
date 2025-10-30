@@ -2,14 +2,20 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStatus, PaymentMethodType, PaymentStatus } from '@prisma/client';
 import NewDate from 'src/common/validators/date';
 import { LoggingService } from 'src/logging/logging.service';
-import { SyncNotificationResponse, SyncNotificationUserResponse } from 'src/order/dtos/response/sync-notification-orders.dto.';
+import {
+  SyncNotificationResponse,
+  SyncNotificationUserResponse,
+} from 'src/order/dtos/response/sync-notification-orders.dto.';
 import {
   OrderResponseDto,
   OrderResponseDtoMapper,
 } from 'src/order/dtos/response/order-response.dto';
 import { IOrderQueryService } from 'src/order/interfaces/order-service.interface';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { INotification, NotificationPriority } from 'src/common/lib/notification.factory';
+import {
+  INotification,
+  NotificationPriority,
+} from 'src/common/lib/notification.factory';
 
 export interface SyncResult {
   newOrUpdatedOrders: OrderResponseDto[];
@@ -68,9 +74,12 @@ export class OrderQueryService implements IOrderQueryService {
     // 4. Mapear y Retornar
     const dtoList = newOrUpdatedOrders.map(OrderResponseDtoMapper.fromPrisma);
 
-    this.logger.log(`Fetched ${dtoList.length} new/updated [Business] orders for sync`, {
-      businessId,
-    });
+    this.logger.log(
+      `Fetched ${dtoList.length} new/updated [Business] orders for sync`,
+      {
+        businessId,
+      },
+    );
 
     return {
       newOrUpdatedOrders: dtoList,
@@ -80,44 +89,66 @@ export class OrderQueryService implements IOrderQueryService {
 
   async syncOrdersByUserId(
     userId: string,
+    hours: number = 24,
     lastSyncTime?: string,
   ): Promise<SyncResult> {
     this.logger.debug('Starting incremental sync for user', {
       userId,
       lastSyncTime,
+      hours,
     });
 
-    let whereClause: any = { userId };
-    // let latestTimestamp: Date;
+    // Calcular fecha límite dinámica
+    const now = new Date();
+    const timeLimit = new Date(now.getTime() - hours * 60 * 60 * 1000);
 
-    // 1. Lógica de Filtro Incremental (si hay lastSyncTime)
+    // Base del where
+    let whereClause: any = {
+      userId,
+      OR: [{ createdAt: { gt: timeLimit } }, { updatedAt: { gt: timeLimit } }],
+    };
+
+    // Si existe un lastSyncTime, lo usamos como referencia adicional
     if (lastSyncTime) {
       const syncDate = new Date(lastSyncTime);
 
-      // Filtra: Creadas DESPUÉS O Actualizadas DESPUÉS del lastSyncTime
+      // Traer órdenes más recientes que el lastSyncTime,
+      // pero solo dentro del rango de horas solicitado
       whereClause = {
-        ...whereClause,
-        OR: [{ createdAt: { gt: syncDate } }, { updatedAt: { gt: syncDate } }],
+        userId,
+        AND: [
+          {
+            OR: [
+              { createdAt: { gt: syncDate } },
+              { updatedAt: { gt: syncDate } },
+            ],
+          },
+          {
+            OR: [
+              { createdAt: { gt: timeLimit } },
+              { updatedAt: { gt: timeLimit } },
+            ],
+          },
+        ],
       };
     }
 
-    // 2. Consulta de Órdenes
+    // Consulta
     const newOrUpdatedOrders = await this.prisma.order.findMany({
       where: whereClause,
-      include: this.commonIncludes, // Reutiliza los includes comunes
-      orderBy: { updatedAt: 'desc' }, // Ordenar por la actualización más reciente
+      include: this.commonIncludes,
+      orderBy: { updatedAt: 'desc' },
     });
 
-    // 4. Mapear y Retornar
     const dtoList = newOrUpdatedOrders.map(OrderResponseDtoMapper.fromPrisma);
 
-    this.logger.log(`Fetched ${dtoList.length} new/updated [User] orders for sync`, {
-      userId,
-    });
+    this.logger.log(
+      `Fetched ${dtoList.length} new/updated [User] orders from last ${hours}h`,
+      { userId },
+    );
 
     return {
       newOrUpdatedOrders: dtoList,
-      // latestTimestamp: latestTimestamp.toISOString(),
     };
   }
 
@@ -300,134 +331,136 @@ export class OrderQueryService implements IOrderQueryService {
     };
   }
 
- // En tu archivo NotificationService o donde esté el método
-// ... (imports y definición de OrderStatus, INotification, NotificationPriority, etc.)
-// ... (constantes OrderStatus y PRIORITY_CONFIG deben ser accesibles)
+  async syncNotificationsUser(
+    userId: string,
+    lastSyncTime?: string,
+    hours: number = 24,
+  ): Promise<SyncNotificationUserResponse> {
+    this.logger.debug('Starting incremental sync for notification orders', {
+      userId,
+      lastSyncTime,
+      hours,
+    });
 
-async syncNotificationsUser(
-  userId: string,
-  lastSyncTime: string | undefined,
-): Promise<SyncNotificationUserResponse> {
-  this.logger.debug('Starting incremental sync for notification orders', {
-    userId, // Incluye el userId en el log
-    lastSyncTime,
-  });
-
-  if (!userId) { // Mejor chequeo que length === 0
-    return { notification: [] };
-  }
-
-  const syncDate = lastSyncTime ? new Date(lastSyncTime) : undefined;
-  
-  // 1. Definir los estados que disparan una notificación al usuario
-  const notificationStatuses = [
-    OrderStatus.READY_FOR_CUSTOMER_PICKUP,
-    OrderStatus.OUT_FOR_DELIVERY,
-    OrderStatus.DELIVERED,
-    OrderStatus.CANCELLED_BY_BUSINESS,
-    OrderStatus.CANCELLED_BY_DELIVERY,
-  ];
-
-  // 2. Construir la cláusula de filtro de estado (Order Status)
-  // Usamos 'in' para simplificar la lista de OR's para los estados
-  const statusFilter = {
-    status: {
-        in: notificationStatuses,
+    if (!userId) {
+      return { notification: [] };
     }
-  };
 
-  // 3. Construir la cláusula de tiempo (timeFilter)
-  let timeFilter: object = {};
-  if (syncDate) {
-    // Filtro: Creada O Actualizada DESPUÉS del lastSyncTime
-    timeFilter = {
+    // 1️⃣ Calcular el límite de tiempo dinámico (últimas N horas)
+    const now = new Date();
+    const timeLimit = new Date(now.getTime() - hours * 60 * 60 * 1000);
+
+    // 2️⃣ Definir estados que generan notificaciones
+    const notificationStatuses = [
+      OrderStatus.READY_FOR_CUSTOMER_PICKUP,
+      OrderStatus.OUT_FOR_DELIVERY,
+      OrderStatus.DELIVERED,
+      OrderStatus.CANCELLED_BY_BUSINESS,
+      OrderStatus.CANCELLED_BY_DELIVERY,
+    ];
+
+    // 3️⃣ Filtros de estado y tiempo
+    const statusFilter = {
+      status: { in: notificationStatuses },
+    };
+
+    const syncDate = lastSyncTime ? new Date(lastSyncTime) : undefined;
+
+    // Si hay lastSyncTime, tomamos el más reciente entre syncDate y timeLimit
+    // Así nunca se buscan pedidos más viejos que el rango de horas definido
+    const effectiveStartDate =
+      syncDate && syncDate > timeLimit ? syncDate : timeLimit;
+
+    const timeFilter = {
       OR: [
-        { createdAt: { gt: syncDate } },
-        { updatedAt: { gt: syncDate } },
+        { createdAt: { gt: effectiveStartDate } },
+        { updatedAt: { gt: effectiveStartDate } },
       ],
     };
-  }
-  
-  // 4. Construir el filtro WHERE final (AND de todos los componentes)
-  const finalWhere = {
-    userId: userId, // Debe coincidir con el usuario
-    ...statusFilter, // El estado debe estar en la lista
-    ...timeFilter,   // Y debe haber sido creado/actualizado después del syncTime
-  };
-  
-  // 5. Ejecutar la consulta
-  const orders = await this.prisma.order.findMany({
-    where: finalWhere, // ⬅️ Usamos la estructura AND
-    select: {
-      id: true,
-      userId: true,
-      status: true,
-      createdAt: true,
-      updatedAt: true,
-      total: true,
-      // Opcional: Podrías necesitar el nombre del negocio o el ID del negocio aquí
-    },
-    orderBy: { updatedAt: 'desc' }, // Mejor ordenar por 'updatedAt' para el timestamp de control
-  });
 
-  this.logger.log(`Fetched USER ${orders.length} new/updated notification orders`);
+    // 4️⃣ Construcción del WHERE final
+    const finalWhere = {
+      userId,
+      ...statusFilter,
+      ...timeFilter,
+    };
 
-  const notifications: INotification[] = orders.map((order) => {
-    // Aquí tu lógica de mapeo de estados a notificaciones, que está correcta
-    let title: string = '';
-    let message: string = '';
-    let priority: NotificationPriority = 'LOW';
-    const shortOrderId = `#${order.id.slice(0, 6).toUpperCase()}`; 
+    // 5️⃣ Consulta
+    const orders = await this.prisma.order.findMany({
+      where: finalWhere,
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        total: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
 
-    switch (order.status) {
-        case OrderStatus.READY_FOR_CUSTOMER_PICKUP:
+    this.logger.log(
+      `Fetched USER ${orders.length} new/updated notification orders (last ${hours}h)`,
+    );
+
+    // 6️⃣ Mapear las órdenes a notificaciones
+    const notifications: INotification[] = orders
+      .map((order) => {
+        let title = '';
+        let message = '';
+        let priority: NotificationPriority = 'LOW';
+        const shortOrderId = `#${order.id.slice(0, 6).toUpperCase()}`;
+
+        switch (order.status) {
+          case OrderStatus.READY_FOR_CUSTOMER_PICKUP:
             title = '¡Listo para recoger!';
             message = `Tu pedido ${shortOrderId} te está esperando. ¡Pasa por aquí cuando quieras!`;
             priority = 'HIGH';
             break;
-        // ... (resto de tus cases) ...
-        case OrderStatus.OUT_FOR_DELIVERY:
+
+          case OrderStatus.OUT_FOR_DELIVERY:
             title = '¡Tu pedido está en camino!';
             message = `El repartidor va en camino con tu pedido ${shortOrderId}.`;
             priority = 'MEDIUM';
             break;
-        case OrderStatus.DELIVERED:
+
+          case OrderStatus.DELIVERED:
             title = '¡Pedido entregado! ✅';
             message = `Tu pedido ${shortOrderId} ha sido completado. ¡Esperamos que lo disfrutes!`;
             priority = 'LOW';
             break;
-        case OrderStatus.CANCELLED_BY_BUSINESS:
+
+          case OrderStatus.CANCELLED_BY_BUSINESS:
             title = 'Pedido CANCELADO';
             message = `Lamentamos informarte que el negocio tuvo que cancelar tu pedido ${shortOrderId}. Revisa los detalles.`;
             priority = 'HIGH';
             break;
-        case OrderStatus.CANCELLED_BY_DELIVERY:
+
+          case OrderStatus.CANCELLED_BY_DELIVERY:
             title = 'Pedido CANCELADO';
             message = `Hubo un problema con el delivery. Tu pedido ${shortOrderId} fue cancelado por el repartidor.`;
             priority = 'HIGH';
             break;
-        default:
-            return null as unknown as INotification; // Filtraremos esto después
-    }
 
-    return {
-        id: order.id, // Es mejor usar el ID de la orden como ID de notificación
-        category: 'ORDER',
-        type: 'ORDER_STATUS',
-        title,
-        message,
-        timestamp: order.updatedAt.toISOString(), 
-        recipientId: order.userId,
-        priority: priority,
-    } as INotification;
-  })
-  .filter(n => n.title !== ''); // Filtra cualquier orden que no haya sido mapeada (default case)
+          default:
+            return null;
+        }
 
+        return {
+          id: order.id,
+          category: 'ORDER',
+          type: 'ORDER_STATUS',
+          title,
+          message,
+          timestamp: order.updatedAt.toISOString(),
+          recipientId: order.userId,
+          priority,
+        } as INotification;
+      })
+      .filter(Boolean) as INotification[];
 
-  return {
-    notification: notifications,
-  };
-}
+    return { notification: notifications };
+  }
 
   private async findOrdersWithIncludes(where: object, lastHours = 24) {
     const dateFilter = {

@@ -10,6 +10,7 @@ import { SearchableCategoryService } from './services/searchable-category-crud.s
 import { SearchableTagCrudService } from './services/searchable-tag-crud.service';
 import { SearchableBusinessCategoryController } from './controllers/searchable-business-category.controller';
 import { SearchableBusinessScheduleController } from './controllers/search-business-weekly-schedule.controller';
+import { LoggingModule } from 'src/logging/logging.module';
 
 @Module({
   controllers: [
@@ -48,5 +49,6 @@ import { SearchableBusinessScheduleController } from './controllers/search-busin
     TOKENS.ISearchableWeeklyScheduleCrudService,
     TOKENS.ISearchableTagCrudService,
   ],
+  imports: [LoggingModule]
 })
 export class SearchModule {}

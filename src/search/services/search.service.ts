@@ -18,95 +18,288 @@ export class SearchService implements ISearchService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async searchBusinesses(dto: SearchBusinessDto): Promise<{
-    data: SearchResultBusiness[];
-    total: number;
-    skip: number;
-    take: number;
-  }> {
-    const {
-      page = 1,
-      limit = 20,
-      openNow = true,
-      query,
-      city,
-      province,
-      categories,
-      tags,
-    } = dto;
-    const skip = (page - 1) * limit;
-    const take = limit;
+async searchBusinesses(dto: SearchBusinessDto): Promise<{
+  data: SearchResultBusiness[];
+  total: number;
+  skip: number;
+  take: number;
+}> {
+  const {
+    page = 1,
+    limit = 20,
+    openNow = true,
+    query,
+    city,
+    province,
+    categories,
+    tags,
+    lastSyncTime,
+  } = dto;
 
-    // Si hay búsqueda con query => usamos SQL crudo para categorías/tags parciales
+  const skip = (page - 1) * limit;
+  const take = limit;
+
+  // ---------------------------------------------
+  // 🟣 Caso 1: hay lastSyncTime → búsqueda incremental
+  // ---------------------------------------------
+  if (lastSyncTime) {
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    let rawQuery = `
+      SELECT 
+        id,
+        nombre AS "name",
+        descripcion_corta AS "shortDescription",
+        descripcion_completa AS "fullDescription",
+        direccion AS "address",
+        ciudad AS "city",
+        provincia AS "province",
+        nombres_categorias AS "categoryNames",
+        nombres_tags AS "tagNames",
+        latitud AS "latitude",
+        longitud AS "longitude",
+        promedio_calificacion AS "averageRating",
+        cantidad_calificaciones AS "reviewCount",
+        estado AS "status",
+        url_logo AS "logoUrl",
+        horarios,
+        modulos_config AS "modulesConfig",
+        fecha_creacion_original AS "createdAt",
+        fecha_ultima_sincronizacion AS "updatedAt",
+        cantidad_seguidores AS "followersCount"
+      FROM "negocios_busqueda"
+      WHERE "fecha_ultima_sincronizacion" > $${paramIndex}
+    `;
+
+    params.push(new Date(lastSyncTime));
+    paramIndex++;
+
+    // Si hay query → aplicamos búsqueda textual
     if (query) {
-      const rawQuery = `
-        SELECT 
-          id,
-          nombre AS "name",
-          descripcion_corta AS "shortDescription",
-          descripcion_completa AS "fullDescription",
-          direccion AS "address",
-          ciudad AS "city",
-          provincia AS "province",
-          nombres_categorias AS "categoryNames",
-          nombres_tags AS "tagNames",
-          latitud AS "latitude",
-          longitud AS "longitude",
-          promedio_calificacion AS "averageRating",
-          cantidad_calificaciones AS "reviewCount",
-          estado AS "status",
-          url_logo AS "logoUrl",
-          horarios,
-          modulos_config AS "modulesConfig",
-          fecha_creacion_original AS "createdAt",
-          fecha_ultima_sincronizacion AS "updatedAt",
-          cantidad_seguidores AS "followersCount"
-        FROM "negocios_busqueda"
-        WHERE
-          "nombre" ILIKE '%' || $1 || '%'
-          OR "descripcion_corta" ILIKE '%' || $1 || '%'
-          OR "descripcion_completa" ILIKE '%' || $1 || '%'
-          OR "direccion" ILIKE '%' || $1 || '%'
-          OR "ciudad" ILIKE '%' || $1 || '%'
-          OR "provincia" ILIKE '%' || $1 || '%'
+      rawQuery += `
+        AND (
+          "nombre" ILIKE '%' || $${paramIndex} || '%'
+          OR "descripcion_corta" ILIKE '%' || $${paramIndex} || '%'
+          OR "descripcion_completa" ILIKE '%' || $${paramIndex} || '%'
+          OR "direccion" ILIKE '%' || $${paramIndex} || '%'
+          OR "ciudad" ILIKE '%' || $${paramIndex} || '%'
+          OR "provincia" ILIKE '%' || $${paramIndex} || '%'
           OR EXISTS (
-            SELECT 1
-            FROM unnest("nombres_categorias") AS c
-            WHERE c ILIKE '%' || $1 || '%'
+            SELECT 1 FROM unnest("nombres_categorias") AS c
+            WHERE c ILIKE '%' || $${paramIndex} || '%'
           )
           OR EXISTS (
-            SELECT 1
-            FROM unnest("nombres_tags") AS t
-            WHERE t ILIKE '%' || $1 || '%'
+            SELECT 1 FROM unnest("nombres_tags") AS t
+            WHERE t ILIKE '%' || $${paramIndex} || '%'
           )
+        )
       `;
-
-      const allBusinesses: SearchableBusiness[] =
-        await this.prisma.$queryRawUnsafe(rawQuery, query);
-
-      const total = allBusinesses.length;
-      const paginated = allBusinesses.slice(skip, skip + take);
-      const data = this.formatBusinesses(paginated, openNow);
-
-      return { data, total, skip, take };
+      params.push(query);
+      paramIndex++;
     }
 
-    // Si no hay query => usamos Prisma normal (más optimizado para filtros exactos)
-    const where = this.buildWhere(dto, true);
+    // Filtros adicionales
+    if (city) {
+      rawQuery += ` AND "ciudad" ILIKE '%' || $${paramIndex} || '%'`;
+      params.push(city);
+      paramIndex++;
+    }
+    if (province) {
+      rawQuery += ` AND "provincia" ILIKE '%' || $${paramIndex} || '%'`;
+      params.push(province);
+      paramIndex++;
+    }
+    if (categories?.length) {
+      rawQuery += ` AND "nombres_categorias" && $${paramIndex}`;
+      params.push(categories);
+      paramIndex++;
+    }
+    if (tags?.length) {
+      rawQuery += ` AND "nombres_tags" && $${paramIndex}`;
+      params.push(tags);
+      paramIndex++;
+    }
 
-    const [total, businesses] = await Promise.all([
-      this.prisma.searchableBusiness.count({ where }),
-      this.prisma.searchableBusiness.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: 'desc' },
-      }),
-    ]);
+    // Orden + paginación
+    rawQuery += ` ORDER BY "fecha_ultima_sincronizacion" DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(take, skip);
 
+    const businesses: SearchableBusiness[] =
+      await this.prisma.$queryRawUnsafe(rawQuery, ...params);
+
+    const total = businesses.length;
     const data = this.formatBusinesses(businesses, openNow);
     return { data, total, skip, take };
   }
+
+  // ---------------------------------------------
+  // 🟡 Caso 2: búsqueda normal (sin lastSyncTime)
+  // ---------------------------------------------
+  if (query) {
+    const rawQuery = `
+      SELECT 
+        id,
+        nombre AS "name",
+        descripcion_corta AS "shortDescription",
+        descripcion_completa AS "fullDescription",
+        direccion AS "address",
+        ciudad AS "city",
+        provincia AS "province",
+        nombres_categorias AS "categoryNames",
+        nombres_tags AS "tagNames",
+        latitud AS "latitude",
+        longitud AS "longitude",
+        promedio_calificacion AS "averageRating",
+        cantidad_calificaciones AS "reviewCount",
+        estado AS "status",
+        url_logo AS "logoUrl",
+        horarios,
+        modulos_config AS "modulesConfig",
+        fecha_creacion_original AS "createdAt",
+        fecha_ultima_sincronizacion AS "updatedAt",
+        cantidad_seguidores AS "followersCount"
+      FROM "negocios_busqueda"
+      WHERE
+        "nombre" ILIKE '%' || $1 || '%'
+        OR "descripcion_corta" ILIKE '%' || $1 || '%'
+        OR "descripcion_completa" ILIKE '%' || $1 || '%'
+        OR "direccion" ILIKE '%' || $1 || '%'
+        OR "ciudad" ILIKE '%' || $1 || '%'
+        OR "provincia" ILIKE '%' || $1 || '%'
+        OR EXISTS (
+          SELECT 1
+          FROM unnest("nombres_categorias") AS c
+          WHERE c ILIKE '%' || $1 || '%'
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM unnest("nombres_tags") AS t
+          WHERE t ILIKE '%' || $1 || '%'
+        )
+      ORDER BY "promedio_calificacion" DESC
+      LIMIT $2 OFFSET $3
+    `;
+
+    const allBusinesses: SearchableBusiness[] =
+      await this.prisma.$queryRawUnsafe(rawQuery, query, take, skip);
+
+    const total = allBusinesses.length;
+    const data = this.formatBusinesses(allBusinesses, openNow);
+    return { data, total, skip, take };
+  }
+
+  // ---------------------------------------------
+  // 🟢 Caso 3: sin query, sin lastSyncTime → filtros exactos
+  // ---------------------------------------------
+  const where = this.buildWhere(dto, true);
+
+  const [total, businesses] = await Promise.all([
+    this.prisma.searchableBusiness.count({ where }),
+    this.prisma.searchableBusiness.findMany({
+      where,
+      skip,
+      take,
+      orderBy: { createdAt: 'desc' },
+    }),
+  ]);
+
+  const data = this.formatBusinesses(businesses, openNow);
+  return { data, total, skip, take };
+}
+
+
+
+  // async searchBusinesses(dto: SearchBusinessDto): Promise<{
+  //   data: SearchResultBusiness[];
+  //   total: number;
+  //   skip: number;
+  //   take: number;
+  // }> {
+  //   const {
+  //     page = 1,
+  //     limit = 20,
+  //     openNow = true,
+  //     query,
+  //     city,
+  //     province,
+  //     categories,
+  //     tags,
+  //     lastSyncTime
+  //   } = dto;
+  //   const skip = (page - 1) * limit;
+  //   const take = limit;
+
+  //   // Si hay búsqueda con query => usamos SQL crudo para categorías/tags parciales
+  //   if (query) {
+  //     const rawQuery = `
+  //       SELECT 
+  //         id,
+  //         nombre AS "name",
+  //         descripcion_corta AS "shortDescription",
+  //         descripcion_completa AS "fullDescription",
+  //         direccion AS "address",
+  //         ciudad AS "city",
+  //         provincia AS "province",
+  //         nombres_categorias AS "categoryNames",
+  //         nombres_tags AS "tagNames",
+  //         latitud AS "latitude",
+  //         longitud AS "longitude",
+  //         promedio_calificacion AS "averageRating",
+  //         cantidad_calificaciones AS "reviewCount",
+  //         estado AS "status",
+  //         url_logo AS "logoUrl",
+  //         horarios,
+  //         modulos_config AS "modulesConfig",
+  //         fecha_creacion_original AS "createdAt",
+  //         fecha_ultima_sincronizacion AS "updatedAt",
+  //         cantidad_seguidores AS "followersCount"
+  //       FROM "negocios_busqueda"
+  //       WHERE
+  //         "nombre" ILIKE '%' || $1 || '%'
+  //         OR "descripcion_corta" ILIKE '%' || $1 || '%'
+  //         OR "descripcion_completa" ILIKE '%' || $1 || '%'
+  //         OR "direccion" ILIKE '%' || $1 || '%'
+  //         OR "ciudad" ILIKE '%' || $1 || '%'
+  //         OR "provincia" ILIKE '%' || $1 || '%'
+  //         OR EXISTS (
+  //           SELECT 1
+  //           FROM unnest("nombres_categorias") AS c
+  //           WHERE c ILIKE '%' || $1 || '%'
+  //         )
+  //         OR EXISTS (
+  //           SELECT 1
+  //           FROM unnest("nombres_tags") AS t
+  //           WHERE t ILIKE '%' || $1 || '%'
+  //         )
+  //     `;
+
+  //     const allBusinesses: SearchableBusiness[] =
+  //       await this.prisma.$queryRawUnsafe(rawQuery, query);
+
+  //     const total = allBusinesses.length;
+  //     const paginated = allBusinesses.slice(skip, skip + take);
+  //     const data = this.formatBusinesses(paginated, openNow);
+
+  //     return { data, total, skip, take };
+  //   }
+
+  //   // Si no hay query => usamos Prisma normal (más optimizado para filtros exactos)
+  //   const where = this.buildWhere(dto, true);
+
+  //   const [total, businesses] = await Promise.all([
+  //     this.prisma.searchableBusiness.count({ where }),
+  //     this.prisma.searchableBusiness.findMany({
+  //       where,
+  //       skip,
+  //       take,
+  //       orderBy: { createdAt: 'desc' },
+  //     }),
+  //   ]);
+
+  //   const data = this.formatBusinesses(businesses, openNow);
+  //   return { data, total, skip, take };
+  // }
 
 
   async searchBusinessesIds(ids: string[]): Promise<{
