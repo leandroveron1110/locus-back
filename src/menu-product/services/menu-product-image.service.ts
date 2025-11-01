@@ -13,16 +13,7 @@ import { IImageService } from 'src/image/interfaces/image-service.interface';
 import { MenuProductValidation } from '../validations/menu-product-validator.service';
 import { LinkMenuProductImageDto } from '../dtos/request/menu-product-image-request.dto';
 import { ImageType } from '@prisma/client';
-
-
-
-/**
- * Subir nuevos archivos y vincular la url
- * eliminar el archivo y la vinculacion
- * 
- * vicular con un archivo general
- * desbincular sin eliminar el archivo general
- */
+import { LoggingService } from 'src/logging/logging.service';
 
 @Injectable()
 export class MenuProductImageService extends BaseImageManager {
@@ -30,83 +21,125 @@ export class MenuProductImageService extends BaseImageManager {
     @Inject(TOKENS.IImageService)
     protected readonly imageService: IImageService,
     protected readonly prisma: PrismaService,
-    private readonly menuProductValidator: MenuProductValidation,
-    uploadsService: UploadsService,
+    protected readonly menuProductValidator: MenuProductValidation,
+    protected readonly uploadsService: UploadsService,
+    protected readonly logger: LoggingService,
   ) {
-    super(imageService, uploadsService, prisma);
+    super(imageService, uploadsService, prisma, logger);
+
+    this.logger.setContext('MenuProductModule');
+    this.logger.setService(this.constructor.name);
   }
 
   /**
-   * Metodos que trabajan con nueva imagen
+   * 📤 Subir y asignar una imagen a un producto del menú
    */
-
   async uploadAndAssignImage(
     menuProductId: string,
     file: Express.Multer.File,
   ): Promise<ImageResponseDto> {
+    this.logger.debug('Starting upload for menu product image', {
+      menuProductId,
+      fileName: file.originalname
+    });
 
-    // validamos que exista el producto
     await this.menuProductValidator.checkOne(menuProductId);
 
-    // subimos la imagen a cloud
-    const newImage = await this.uploadAndPersistImage(
-      file,
-      ImageType.MENU_PRODUCT,
-      `menu-products/${menuProductId}`,
-      true,
-    );
-
     try {
-
-      // vinculamos la url al product
-      await this.linkImageToEntity(menuProductId, newImage);
-    } catch (error) {
-      await this.removeImageAndMetadata(
-        newImage.id,
-        newImage.publicId,
-        menuProductId,
-      ).catch((e) =>
-        this.logger.error(
-          `Failed rollback for image ${newImage.id}: ${e.message}`,
-        ),
+      const newImage = await this.uploadAndPersistImage(
+        file,
+        ImageType.MENU_PRODUCT,
+        `menu-products/${menuProductId}`,
+        false,
+        "",
+        "",
+        "",
+        []
       );
+
+      await this.linkImageToEntity(menuProductId, newImage);
+
+      this.logger.log('Menu product image uploaded and linked successfully', {
+        menuProductId,
+        imageId: newImage.id,
+        imageUrl: newImage.url,
+      });
+
+      return newImage;
+    } catch (error) {
+      this.logger.error('Failed to upload or assign menu product image', {
+        menuProductId,
+        error: error.message,
+        stack: error.stack,
+      });
+
+      // Rollback si algo falla
+      try {
+        await this.removeImageAndMetadata(
+          file.filename,
+          file.originalname,
+          menuProductId,
+        );
+      } catch (rollbackError) {
+        this.logger.error('Rollback failed for menu product image', {
+          menuProductId,
+          rollbackError: rollbackError.message,
+        });
+      }
+
       throw error;
     }
-
-    return newImage;
   }
 
-  protected async linkImageToEntity(
+  /**
+   * 🔗 Vincula una imagen existente al producto del menú
+   */
+  async linkImageToEntity(
     menuProductId: string,
-    image: ImageResponseDto,
+    image: { id: string; url: string },
   ): Promise<void> {
-    // buscamos el product con la imageId
+    this.logger.debug('Linking image to menu product', {
+      menuProductId,
+      imageId: image.id,
+    });
+
     const product = await this.prisma.menuProduct.findUnique({
       where: { id: menuProductId },
       select: { imageId: true },
     });
 
     if (!product) {
+      this.logger.warn('Menu product not found when linking image', {
+        menuProductId,
+      });
       throw new NotFoundException(
         `MenuProduct with ID "${menuProductId}" not found.`,
       );
     }
 
-    // obtenemos al imageId  anterior
     const oldImageId = product.imageId;
 
     try {
-      // actualizamos menu-product con en nuevo imageId y imageUrl
       await this.prisma.menuProduct.update({
         where: { id: menuProductId },
         data: { imageId: image.id, imageUrl: image.url },
       });
 
-      // si olImageI existe y es igual al image.id, eliminamos el archivo
+      this.logger.log('Image linked to menu product successfully', {
+        menuProductId,
+        newImageId: image.id,
+        oldImageId,
+      });
+
       if (oldImageId && oldImageId !== image.id) {
         await this.cleanupOldImage(oldImageId);
       }
     } catch (error) {
+      this.logger.error('Failed to link image to menu product', {
+        menuProductId,
+        imageId: image.id,
+        error: error.message,
+      });
       throw new BadRequestException(
         `Could not assign image to menu product: ${error.message}`,
       );
@@ -114,36 +147,46 @@ export class MenuProductImageService extends BaseImageManager {
   }
 
   /**
-   * Metodo para eliminar una imagen
-   * solo si la imagen es personalizada
+   * 🧹 Limpieza de imágenes antiguas (solo si son personalizadas)
    */
   private async cleanupOldImage(oldImageId: string): Promise<void> {
+    this.logger.debug('Cleaning up old image', { oldImageId });
+
     try {
       const oldImage = await this.imageService.findOne(oldImageId);
       if (!oldImage) return;
 
-      // 🛑 Solo eliminamos si es personalizada
-      if (!oldImage.isCustomizedImage) return;
+      if (oldImage.isCustomizedImage) {
+        this.logger.debug('Old image is customized, skipping delete', {
+          oldImageId,
+        });
+        return;
+      }
 
-      // eliminalos la imagen de la talba image
       await this.imageService.remove(oldImageId);
-      // metodo para eliminar el archivo img
       await this.uploadsService.deleteFile(oldImage.publicId).catch(() => {});
+      this.logger.log('Old image cleaned up successfully', { oldImageId });
     } catch (error) {
-      this.logger.error(
-        `Error cleaning up old image ${oldImageId}: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error('Error cleaning up old image', {
+        oldImageId,
+        error: error.message,
+        stack: error.stack,
+      });
     }
   }
 
   /**
-   * Metodo para debincular/eliminar una imagen
+   * ❌ Desvincula una imagen del producto
    */
   protected async unlinkImageFromEntity(
     menuProductId: string,
     imageId: string,
   ): Promise<void> {
+    this.logger.debug('Unlinking image from menu product', {
+      menuProductId,
+      imageId,
+    });
+
     const product = await this.prisma.menuProduct.findUnique({
       where: { id: menuProductId },
       select: { imageId: true },
@@ -161,15 +204,23 @@ export class MenuProductImageService extends BaseImageManager {
       where: { id: menuProductId },
       data: { imageId: null, imageUrl: null },
     });
+
+    this.logger.log('Image unlinked successfully', { menuProductId, imageId });
   }
 
+  /**
+   * 🗑️ Elimina la imagen de un producto
+   */
   async removeProductImage(menuProductId: string): Promise<void> {
+    this.logger.debug('Removing product image', { menuProductId });
+
     const product = await this.prisma.menuProduct.findUnique({
       where: { id: menuProductId },
       select: { imageId: true },
     });
 
     if (!product || !product.imageId) {
+      this.logger.warn('Product has no image to remove', { menuProductId });
       throw new NotFoundException(
         `MenuProduct "${menuProductId}" doesn't have an image to remove.`,
       );
@@ -178,13 +229,20 @@ export class MenuProductImageService extends BaseImageManager {
     await this.unlinkImageFromEntity(menuProductId, product.imageId);
   }
 
-
+  /**
+   * 🔁 Actualiza la imagen de un producto
+   */
   async updateEntityImage(
     menuProductId: string,
     imageId: string,
     file: Express.Multer.File | undefined,
     updateDto: any,
   ): Promise<ImageResponseDto> {
+    this.logger.debug('Updating entity image', {
+      menuProductId,
+      imageId,
+    });
+
     const product = await this.prisma.menuProduct.findUnique({
       where: { id: menuProductId },
       select: { imageId: true },
@@ -206,26 +264,26 @@ export class MenuProductImageService extends BaseImageManager {
     }
   }
 
-  // ✅ Método para vincular una imagen ya existente (de catálogo)
+  /**
+   * 🔗 Vincula una imagen ya existente (por catálogo)
+   */
   async linkImageToMenuProduct(dto: LinkMenuProductImageDto): Promise<void> {
     const { menuProductId, imageId } = dto;
+    this.logger.debug('Linking existing catalog image to product', {
+      menuProductId,
+      imageId,
+    });
 
     const product = await this.prisma.menuProduct.findUnique({
       where: { id: menuProductId },
       select: { imageId: true },
     });
-
-    if (!product) {
-      throw new NotFoundException('Producto no encontrado');
-    }
+    if (!product) throw new NotFoundException('Producto no encontrado');
 
     const image = await this.prisma.image.findUnique({
       where: { id: imageId },
     });
-
-    if (!image) {
-      throw new NotFoundException('Imagen no encontrada');
-    }
+    if (!image) throw new NotFoundException('Imagen no encontrada');
 
     if (product.imageId && product.imageId !== image.id) {
       await this.cleanupOldImage(product.imageId);
@@ -233,10 +291,12 @@ export class MenuProductImageService extends BaseImageManager {
 
     await this.prisma.menuProduct.update({
       where: { id: menuProductId },
-      data: {
-        imageId: image.id,
-        imageUrl: image.url,
-      },
+      data: { imageId: image.id, imageUrl: image.url },
+    });
+
+    this.logger.log('Existing image linked to menu product successfully', {
+      menuProductId,
+      imageId,
     });
   }
 }

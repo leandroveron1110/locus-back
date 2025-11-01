@@ -16,6 +16,7 @@ import { IImageService } from 'src/image/interfaces/image-service.interface';
 import { ImageDto } from 'src/business/interfaces/image.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 import { ImageType } from '@prisma/client';
+import { LoggingService } from 'src/logging/logging.service';
 
 @Injectable()
 export class BusinessGalleryService
@@ -28,9 +29,11 @@ export class BusinessGalleryService
     protected readonly prisma: PrismaService,
     @Inject(TOKENS.IBusinessValidator)
     private readonly businessValidator: IExistenceValidator,
-    uploadsService: UploadsService,
+    protected uploadsService: UploadsService,
+    protected readonly logger: LoggingService, // ✅ inyectado
+    
   ) {
-    super(imageService, uploadsService, prisma);
+    super(imageService, uploadsService, prisma, logger);
   }
 
   // Subimos la imagen y la guardamos en galeria
@@ -48,7 +51,11 @@ export class BusinessGalleryService
         file,
         ImageType.GALLERY,
         `businesses/${businessId}/gallery`,
-        true,
+        false,
+        "",
+        "",
+        "",
+        []
       ),
     ]);
 

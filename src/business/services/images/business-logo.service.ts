@@ -14,6 +14,7 @@ import { IImageService } from 'src/image/interfaces/image-service.interface';
 import { IExistenceValidator } from 'src/common/interfaces/existence-validator.interface';
 import { ImageType } from '@prisma/client';
 import { ISearchableBusinessCrudService } from 'src/search/interfaces/searchable-business-crud-service.interface';
+import { LoggingService } from 'src/logging/logging.service';
 
 @Injectable()
 export class BusinessLogoService extends BaseImageManager {
@@ -26,8 +27,13 @@ export class BusinessLogoService extends BaseImageManager {
     uploadsService: UploadsService,
     @Inject(TOKENS.ISearchableBusinessCrudService)
     private searchableBusinessCrudService: ISearchableBusinessCrudService,
+    protected readonly logger: LoggingService, // ✅ inyectado
+    
+
   ) {
-    super(imageService, uploadsService, prisma);
+    super(imageService, uploadsService, prisma, logger);
+    this.logger.setContext('Business');
+    this.logger.setService(this.constructor.name);
   }
 
   /**
@@ -95,7 +101,11 @@ export class BusinessLogoService extends BaseImageManager {
       file,
       ImageType.AVATAR,
       `businesses/${businessId}/logos`,
-      true,
+      false,
+      "",
+      "",
+      "",
+      []
     );
 
     try {

@@ -30,6 +30,10 @@ export class ImageService implements IImageService {
     imageType: ImageType,
     folderPath: string,
     isCustomizedImage: boolean,
+    name: string,
+    altText: string,
+    description: string,
+    tags: string[]
   ): Promise<ImageResponseDto> {
     this.logger.log(
       `[BaseImageManager] Starting upload and persist for image type: ${imageType} in folder: ${folderPath}.`,
@@ -57,7 +61,7 @@ export class ImageService implements IImageService {
       );
     }
 
-    const imageMetadataToCreate = {
+    const imageMetadataToCreate: CreateImageDto = {
       url: uploadResult.url,
       publicId: uploadResult.publicId,
       format: uploadResult.format,
@@ -68,6 +72,10 @@ export class ImageService implements IImageService {
       folder: uploadResult.folder,
       isCustomizedImage: isCustomizedImage,
       type: imageType,
+      altText,
+      description,
+      name,
+      tags
     };
 
     let newImage: ImageResponseDto;
@@ -100,20 +108,20 @@ export class ImageService implements IImageService {
   }
 
   // sube imagen de uso general
-  async uploadAndAssignImage(
-    file: Express.Multer.File,
-    type: ImageType,
-  ): Promise<ImageResponseDto> {
-    // subimos la imagen a cloud
-    const newImage = await this.uploadAndPersistImage(
-      file,
-      type,
-      `default/`,
-      false,
-    );
+  // async uploadAndAssignImage(
+  //   file: Express.Multer.File,
+  //   type: ImageType,
+  // ): Promise<ImageResponseDto> {
+  //   // subimos la imagen a cloud
+  //   const newImage = await this.uploadAndPersistImage(
+  //     file,
+  //     type,
+  //     `default/`,
+  //     false,
+  //   );
 
-    return newImage;
-  }
+  //   return newImage;
+  // }
 
   /**
    * Crea una nueva entrada de metadatos de imagen en la base de datos.

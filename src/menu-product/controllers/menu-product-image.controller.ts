@@ -18,14 +18,16 @@ import { MenuProductImageService } from '../services/menu-product-image.service'
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
 import { LinkMenuProductImageDto } from '../dtos/request/menu-product-image-request.dto';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('menu-product-images')
 export class MenuProductImageController {
   constructor(private readonly service: MenuProductImageService) {}
 
-
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
+  @Roles(UserRole.OWNER)
   async uploadImage(
     @Query('menuProductId') menuProductId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -37,6 +39,7 @@ export class MenuProductImageController {
   }
 
   @Delete()
+  @Roles(UserRole.OWNER)
   async removeImage(
     @Param('menuProductId') menuProductId: string,
   ): Promise<void> {
@@ -45,6 +48,7 @@ export class MenuProductImageController {
 
   @Patch(':imageId')
   @UseInterceptors(FileInterceptor('file'))
+  @Roles(UserRole.OWNER)
   async updateImage(
     @Param('menuProductId') menuProductId: string,
     @Param('imageId') imageId: string,
@@ -55,9 +59,8 @@ export class MenuProductImageController {
   }
 
   @Post('link')
-  async linkExistingImage(
-    @Body() dto: LinkMenuProductImageDto,
-  ): Promise<void> {
+  @Roles(UserRole.OWNER)
+  async linkExistingImage(@Body() dto: LinkMenuProductImageDto): Promise<void> {
     return this.service.linkImageToMenuProduct(dto);
   }
 }

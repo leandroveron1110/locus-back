@@ -31,6 +31,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RBACGuard } from './auth/guards/rbac.guard'; // Importa el nuevo RBACGuard
 import { LoggingModule } from './logging/logging.module';
+import { UploadsImageGlobalModule } from './uploads-image-global/uploads-image-global.module';
 
 
 @Module({
@@ -62,6 +63,7 @@ import { LoggingModule } from './logging/logging.module';
     DeliveryZonesModule,
     EmployeesModule,
     LoggingModule,
+    UploadsImageGlobalModule,
   ],
   controllers: [AppController],
   providers: [

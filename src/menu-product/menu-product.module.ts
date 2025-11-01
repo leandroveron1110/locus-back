@@ -13,6 +13,7 @@ import { MenuProductImageController } from './controllers/menu-product-image.con
 import { UploadsModule } from 'src/uploads/uploads.module';
 import { ImageModule } from 'src/image/image.module';
 import { MenuProductValidation } from './validations/menu-product-validator.service';
+import { LoggingModule } from 'src/logging/logging.module';
 
 @Module({
   controllers: [
@@ -36,7 +37,8 @@ import { MenuProductValidation } from './validations/menu-product-validator.serv
   imports: [
     forwardRef(() =>MenuModule),
     UploadsModule,
-    ImageModule
+    ImageModule,
+    LoggingModule
   ]
 })
 export class MenuProductModule {}

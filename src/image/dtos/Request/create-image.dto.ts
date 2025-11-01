@@ -1,5 +1,13 @@
 // src/modules/image/dtos/Request/create-image.dto.ts
-import { IsString, IsUrl, IsOptional, IsInt, IsNumber, IsBoolean, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsUrl,
+  IsOptional,
+  IsInt,
+  IsNumber,
+  IsBoolean,
+  IsEnum,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ImageType } from '@prisma/client';
 
@@ -7,6 +15,17 @@ export class CreateImageDto {
   @IsString()
   @IsUrl()
   url: string; // URL de la imagen (ej. de Cloudinary)
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  altText: string;
+
+  @IsString()
+  description: string;
+
+  tags: string[];
 
   @IsString()
   publicId: string; // ID público en el proveedor de almacenamiento (ej. Cloudinary public_id)
@@ -39,7 +58,7 @@ export class CreateImageDto {
   folder?: string;
 
   @IsBoolean()
-  isCustomizedImage: boolean
+  isCustomizedImage: boolean;
 
   @IsEnum(ImageType)
   type: ImageType;

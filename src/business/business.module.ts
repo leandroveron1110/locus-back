@@ -22,6 +22,7 @@ import { FollowModule } from 'src/follow/follow.module';
 import { SearchModule } from 'src/search/search.module';
 import { BusinessCommandService } from './services/commands/business-command.service';
 import { BusinessQueryService } from './services/query/business-query.service';
+import { LoggingModule } from 'src/logging/logging.module';
 
 @Module({
   controllers: [
@@ -71,7 +72,8 @@ import { BusinessQueryService } from './services/query/business-query.service';
     forwardRef(() =>WeeklyScheduleModule),
     forwardRef(() => ImageModule),
     UploadsModule,
-    SearchModule
+    SearchModule,
+    LoggingModule
   ],
   exports: [
     TOKENS.IBusinessCommandService,

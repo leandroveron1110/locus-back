@@ -1,16 +1,20 @@
 // src/modules/uploads/providers/cloudinary-storage.provider.ts
-import { Injectable, Logger, BadRequestException } from '@nestjs/common'; // Importamos BadRequestException
+
+import { Injectable } from '@nestjs/common'; 
 import { v2 as cloudinary } from 'cloudinary';
 import {
   IStorageProvider,
   UploadResult,
 } from '../interfaces/storage-provider.interface';
+import { LoggingService } from 'src/logging/logging.service';
 
 @Injectable()
 export class CloudinaryStorageProvider implements IStorageProvider {
-  private readonly logger = new Logger(CloudinaryStorageProvider.name);
-
-  constructor() {
+  constructor(
+    private readonly logger: LoggingService // Asumo que el LoggingService está disponible
+  ) {
+    this.logger.setService(CloudinaryStorageProvider.name)
+    this.logger.setContext("Uploads");
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
@@ -18,6 +22,12 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     });
   }
 
+  /**
+   * 📤 Sube un archivo (buffer) a Cloudinary.
+   * * NOTA: Se espera que el 'fileBuffer' ya haya sido procesado (ej. a WebP) 
+   * y que 'contentType' refleje el formato final (ej. 'image/webp').
+   * Se elimina la validación de tipo de archivo y la opción 'format: webp'.
+   */
   async uploadFile(
     fileBuffer: Buffer,
     originalFileName: string,
@@ -25,27 +35,17 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     contentType: string,
   ): Promise<UploadResult> {
     this.logger.log(
-      `Attempting to upload file "${originalFileName}" to Cloudinary folder "${folderPath}"`,
+      `Attempting to upload file "${originalFileName}" (${contentType}) to Cloudinary folder "${folderPath}"`,
     );
-
-    // *** VERIFICACIÓN NUEVA: Asegurarse de que el archivo sea una imagen ***
-    if (!contentType.startsWith('image/')) {
-      this.logger.error(
-        `Attempted to upload a non-image file with contentType: ${contentType}. File: ${originalFileName}`,
-      );
-      throw new BadRequestException(
-        'Solo se permiten subir archivos de imagen.',
-      );
-    }
 
     return new Promise((resolve, reject) => {
       cloudinary.uploader
         .upload_stream(
           {
             folder: folderPath,
-            resource_type: 'image', // Forzamos 'image' ya que validamos arriba
+            resource_type: 'image', // Forzamos 'image' ya que el UploadsService valida que sea una imagen
             public_id: `${originalFileName.split('.')[0]}_${Date.now()}`,
-            format: 'webp',
+            // 🛑 'format' y cualquier otra opción de transformación se elimina
           },
           (error, result) => {
             if (error) {
@@ -81,12 +81,15 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     });
   }
 
+  /**
+   * 🗑️ Elimina un archivo de Cloudinary usando su publicId.
+   */
   async deleteFile(publicId: string): Promise<void> {
     this.logger.log(
       `Attempting to delete file from Cloudinary with publicId: ${publicId}`,
     );
     try {
-      // Al eliminar, asumimos que es una imagen ya que solo permitimos subir imágenes
+      // Se asume 'image' ya que es lo que maneja este servicio
       const result = await cloudinary.uploader.destroy(publicId, {
         resource_type: 'image',
       });

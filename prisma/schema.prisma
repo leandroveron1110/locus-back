@@ -117,6 +117,10 @@ model Category {
 // Almacena los metadatos de TODAS las imágenes de la aplicación, sin importar su uso específico.
 model Image {
   id           String  @id @default(uuid()) @map("id") // ID único global de la imagen. Otros modelos lo referencian.
+  name         String   @map("nombre")                       // <-- Título / nombre legible
+  altText      String?  @map("alt")                           // <-- Texto alt (accesibilidad)
+  description  String?  @map("descripcion")
+  tags         String[] @map("etiquetas")
   url          String  @map("url") // URL completa de la imagen (ej. de Cloudinary, S3, etc.).
   publicId     String  @unique @map("public_id") // ID único del archivo en el proveedor de almacenamiento (ej. Cloudinary). Crucial para gestionar el archivo remoto.
   format       String? @map("formato") // Formato del archivo (ej. 'jpg', 'png', 'webp').
@@ -142,7 +146,10 @@ model Image {
   // optionImages      OptionImage[]      @relation("OptionImages")
   MenuProduct       MenuProduct[]   @relation("MenuProductImage")
 
-  @@map("imagenes") // Nombre de la tabla en la base de datos.
+  @@index([isCustomizedImage, type])
+  @@index([folder])
+  @@index([name])
+  @@map("imagenes")
 }
 
 // --- TABLA INTERMEDIA: Para Galería de Negocios ---
