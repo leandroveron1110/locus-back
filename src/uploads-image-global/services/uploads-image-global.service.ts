@@ -3,6 +3,7 @@ import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
 import { ImageType } from '@prisma/client';
 import { UploadGlobalImageCommandHandler } from './cqrs/command/UploadGlobalImageCommandHandler';
 import { FindGlobalImagesQueryHandler } from './cqrs/query/FindGlobalImagesQueryHandler';
+import { FindGlobalImagesQueryDto } from '../dto/request/search-global-image.dto';
 
 @Injectable()
 export class UploadsImageGlobalService {
@@ -40,17 +41,8 @@ export class UploadsImageGlobalService {
     return this.commandHandler.removeGlobalImage(imageId);
   }
 
-  findAllGlobalImages(): Promise<
-    {
-      id: string;
-      name: string;
-      altText: string | null;
-      description: string | null;
-      tags: string[];
-      url: string;
-    }[]
-  > {
+  findAllGlobalImages(queryDto: FindGlobalImagesQueryDto) {
     // Delega al Query Handler
-    return this.queryHandler.execute();
+    return this.queryHandler.execute(queryDto);
   }
 }

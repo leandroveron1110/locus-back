@@ -8,7 +8,8 @@ import {
   Body,
   ParseUUIDPipe,
   BadRequestException,
-  Get, // Si usas guardias de autenticación/autorización
+  Get,
+  Query, // Si usas guardias de autenticación/autorización
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ImageResponseDto } from 'src/image/dtos/Response/image-response.dto';
@@ -16,6 +17,7 @@ import { ImageType } from '@prisma/client';
 import { UploadsImageGlobalService } from '../services/uploads-image-global.service';
 import { CreateGlobalImageDto } from '../dto/request/create-global-image.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { FindGlobalImagesQueryDto } from '../dto/request/search-global-image.dto';
 
 @Controller('uploads/global')
 export class UploadsImageGlobalController {
@@ -32,14 +34,14 @@ export class UploadsImageGlobalController {
     if (!file) {
       throw new BadRequestException('Image file is required.');
     }
-    
-      if (typeof body.tags === 'string') {
-    try {
-      body.tags = JSON.parse(body.tags);
-    } catch (error) {
-      throw new BadRequestException('tags must be a valid JSON array');
+
+    if (typeof body.tags === 'string') {
+      try {
+        body.tags = JSON.parse(body.tags);
+      } catch (error) {
+        throw new BadRequestException('tags must be a valid JSON array');
+      }
     }
-  }
 
     // Aquí convertimos la cadena ImageType a Enum si es necesario, o lo validamos
     const imageType: ImageType = body.imageType || ImageType.GENERAL;
@@ -60,8 +62,8 @@ export class UploadsImageGlobalController {
 
   @Get()
   @Public()
-  async findAllGlobalImages() {
-    return this.globalImageService.findAllGlobalImages();
+  async findAllGlobalImages(@Query() queryDto: FindGlobalImagesQueryDto) {
+    return this.globalImageService.findAllGlobalImages(queryDto);
   }
 
   @Delete(':imageId')
