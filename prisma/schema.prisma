@@ -116,19 +116,19 @@ model Category {
 // Este modelo está diseñado para ser el núcleo de un futuro microservicio de imágenes.
 // Almacena los metadatos de TODAS las imágenes de la aplicación, sin importar su uso específico.
 model Image {
-  id           String  @id @default(uuid()) @map("id") // ID único global de la imagen. Otros modelos lo referencian.
-  name         String   @map("nombre")                       // <-- Título / nombre legible
-  altText      String?  @map("alt")                           // <-- Texto alt (accesibilidad)
+  id           String   @id @default(uuid()) @map("id") // ID único global de la imagen. Otros modelos lo referencian.
+  name         String   @map("nombre") // <-- Título / nombre legible
+  altText      String?  @map("alt") // <-- Texto alt (accesibilidad)
   description  String?  @map("descripcion")
   tags         String[] @map("etiquetas")
-  url          String  @map("url") // URL completa de la imagen (ej. de Cloudinary, S3, etc.).
-  publicId     String  @unique @map("public_id") // ID único del archivo en el proveedor de almacenamiento (ej. Cloudinary). Crucial para gestionar el archivo remoto.
-  format       String? @map("formato") // Formato del archivo (ej. 'jpg', 'png', 'webp').
-  resourceType String  @default("image") @map("tipo_recurso") // Tipo de recurso (ej. 'image', 'video', 'raw'). Por defecto 'image'.
-  width        Int?    @map("ancho") // Ancho en píxeles.
-  height       Int?    @map("alto") // Alto en píxeles.
-  bytes        BigInt? @map("bytes") // Tamaño del archivo en bytes.
-  folder       String? @map("carpeta") // Carpeta lógica usada en el proveedor de almacenamiento (ej. 'logos', 'productos').
+  url          String   @map("url") // URL completa de la imagen (ej. de Cloudinary, S3, etc.).
+  publicId     String   @unique @map("public_id") // ID único del archivo en el proveedor de almacenamiento (ej. Cloudinary). Crucial para gestionar el archivo remoto.
+  format       String?  @map("formato") // Formato del archivo (ej. 'jpg', 'png', 'webp').
+  resourceType String   @default("image") @map("tipo_recurso") // Tipo de recurso (ej. 'image', 'video', 'raw'). Por defecto 'image'.
+  width        Int?     @map("ancho") // Ancho en píxeles.
+  height       Int?     @map("alto") // Alto en píxeles.
+  bytes        BigInt?  @map("bytes") // Tamaño del archivo en bytes.
+  folder       String?  @map("carpeta") // Carpeta lógica usada en el proveedor de almacenamiento (ej. 'logos', 'productos').
 
   isCustomizedImage Boolean   @default(false) @map("es_imagen_personalizada")
   type              ImageType @default(GENERAL)
@@ -306,7 +306,7 @@ model Business {
 
   currentStatus Status? @relation(fields: [statusId], references: [id], name: "BusinessStatus")
 
-  horarios Json?   @map("horarios")
+  horarios         Json?              @map("horarios")
   ratings          Rating[]
   offeredServices  OfferedService[]
   businessFollower BusinessFollower[]
@@ -344,81 +344,74 @@ model BusinessPaymentMethod {
   @@map("metodos_pago_negocio")
 }
 
-
-
-
-
 model BusinessRole {
-  id          String            @id @default(uuid())
+  id          String             @id @default(uuid())
   businessId  String
-  name        String            // Nombre dinámico: "Manager", "Cajero", "Encargado de Stock"
-  permissions PermissionEnum[]  // Lista de permisos asociados a este rol
+  name        String // Nombre dinámico: "Manager", "Cajero", "Encargado de Stock"
+  permissions PermissionEnum[] // Lista de permisos asociados a este rol
   employees   BusinessEmployee[]
 }
 
 model BusinessEmployee {
-  id         String   @id @default(uuid())
+  id         String                     @id @default(uuid())
   userId     String
   businessId String
   roleId     String?
-  role       BusinessRole? @relation(fields: [roleId], references: [id])
+  role       BusinessRole?              @relation(fields: [roleId], references: [id])
   overrides  BusinessEmployeeOverride[]
 
-  business   Business @relation(fields: [businessId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  business Business @relation(fields: [businessId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
 
   @@unique([businessId, userId])
 }
 
-
 model BusinessEmployeeOverride {
-  id         String   @id @default(uuid())
+  id         String           @id @default(uuid())
   employeeId String
   permission PermissionEnum
   allowed    Boolean // true = habilita extra, false = revoca el permiso del rol
   employee   BusinessEmployee @relation(fields: [employeeId], references: [id])
 }
+
 enum PermissionEnum {
   // -------------------------
   // Permisos para empleados
   // -------------------------
-  CREATE_EMPLOYEE       // Permite crear empleados en el negocio.
-  EDIT_EMPLOYEE         // Permite editar información de empleados.
-  DELETE_EMPLOYEE       // Permite eliminar empleados.
+  CREATE_EMPLOYEE // Permite crear empleados en el negocio.
+  EDIT_EMPLOYEE // Permite editar información de empleados.
+  DELETE_EMPLOYEE // Permite eliminar empleados.
 
   // -------------------------
   // Permisos para productos
   // -------------------------
-  CREATE_PRODUCT        // Permite crear nuevos productos.
-  EDIT_PRODUCT          // Permite editar productos existentes.
-  DELETE_PRODUCT        // Permite eliminar productos.
-  MANAGE_PRODUCTS       // Permite gestionar todo lo relacionado a productos.
+  CREATE_PRODUCT // Permite crear nuevos productos.
+  EDIT_PRODUCT // Permite editar productos existentes.
+  DELETE_PRODUCT // Permite eliminar productos.
+  MANAGE_PRODUCTS // Permite gestionar todo lo relacionado a productos.
 
   // -------------------------
   // Permisos para el negocio
   // -------------------------
-  CREATE_BUSINESS       // Permite crear un negocio.
-  EDIT_BUSINESS         // Permite editar los datos del negocio.
-  DELETE_BUSINESS       // Permite eliminar el negocio.
-  VIEW_DASHBOARD        // Permite ver el panel de control del negocio.
-  CLOSE_CASH_REGISTER   // Permite realizar el cierre de caja.
-  VIEW_REPORTS          // Permite ver reportes de ventas y finanzas.
+  CREATE_BUSINESS // Permite crear un negocio.
+  EDIT_BUSINESS // Permite editar los datos del negocio.
+  DELETE_BUSINESS // Permite eliminar el negocio.
+  VIEW_DASHBOARD // Permite ver el panel de control del negocio.
+  CLOSE_CASH_REGISTER // Permite realizar el cierre de caja.
+  VIEW_REPORTS // Permite ver reportes de ventas y finanzas.
   MANAGE_DELIVERY_ZONES // Permite configurar zonas de entrega y tarifas.
 
   // -------------------------
   // Permisos para pedidos
   // -------------------------
-  VIEW_ORDERS           // Permite ver la lista de pedidos y su estado.
-  CREATE_ORDER          // Permite crear un pedido manual.
-  EDIT_ORDER            // Permite editar un pedido existente.
-  CANCEL_ORDER          // Permite cancelar un pedido.
-  PROCESS_ORDER         // Permite cambiar el estado de un pedido a "en preparación".
-  DELIVER_ORDER         // Permite asignar un pedido a un repartidor y marcarlo como enviado.
-  COMPLETE_ORDER        // Permite marcar un pedido como entregado.
+  VIEW_ORDERS // Permite ver la lista de pedidos y su estado.
+  CREATE_ORDER // Permite crear un pedido manual.
+  EDIT_ORDER // Permite editar un pedido existente.
+  CANCEL_ORDER // Permite cancelar un pedido.
+  PROCESS_ORDER // Permite cambiar el estado de un pedido a "en preparación".
+  DELIVER_ORDER // Permite asignar un pedido a un repartidor y marcarlo como enviado.
+  COMPLETE_ORDER // Permite marcar un pedido como entregado.
 }
-
-
-
 
 // -------------------------------------
 // Empleados de cadeterías
@@ -748,8 +741,8 @@ model Order {
   businessPhone            String  @map("negocio_telefono")
   businessAddress          String  @map("negocio_direccion")
   businessObservations     String? @map("negocio_observaciones")
-  businessAddresslatitude  Decimal @map("negocio_direccion_latitud") @default(0) @db.Decimal(10, 7)
-  businessAddresslongitude Decimal @map("negocio_direccion_longitud") @default(0) @db.Decimal(10, 7)
+  businessAddresslatitude  Decimal @default(0) @map("negocio_direccion_latitud") @db.Decimal(10, 7)
+  businessAddresslongitude Decimal @default(0) @map("negocio_direccion_longitud") @db.Decimal(10, 7)
 
   // -- Snapshot reducido de delivery
   deliveryCompanyName  String?  @map("cadeteria_nombre")
@@ -859,6 +852,71 @@ model OrderOption {
   quantity          Int
 }
 
+enum NotificationCategory {
+  ORDER
+  PRODUCT
+  PROMOTION
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Notification {
+  id        String                @id @default(uuid())
+  category  NotificationCategory
+  type      String
+  title     String
+  message   String
+  timestamp DateTime              @default(now())
+  isRead    Boolean               @default(false)
+  link      String?
+  priority  NotificationPriority? @default(MEDIUM)
+
+  targetEntityId   String
+  targetEntityType String @default("USER")
+
+  // 1. Índice principal para Historial/Lectura (Consulta más frecuente)
+  @@index([targetEntityId, targetEntityType, isRead, timestamp(sort: Desc)])
+  // 2. Índice secundario para Conteo Rápido (Badge)
+  @@index([targetEntityId, targetEntityType, isRead])
+}
+
+// 1. La tabla del DISPOSITIVO (¡Limpia!)
+model PushSubscription {
+  id String @id @default(uuid())
+
+  // Endpoint es UNICO para el dispositivo, sin referencias a entidades aquí
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  // Relación: Un dispositivo está suscrito a N entidades (targets)
+  targets PushSubscriptionTarget[]
+}
+
+// 2. La tabla de ASOCIACIÓN (UNE dispositivo con entidad)
+model PushSubscriptionTarget {
+  id String @id @default(uuid())
+
+  // Referencia a la Suscripción (Dispositivo)
+  subscriptionId String
+  subscription   PushSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  // Identificador Polimórfico de la Entidad (User ID, Business ID, etc.)
+  targetEntityId   String
+  targetEntityType String // Puede ser 'USER' o 'BUSINESS'
+
+  // Restricción: Un dispositivo solo puede suscribirse una vez a una entidad
+  @@unique([subscriptionId, targetEntityId, targetEntityType])
+  // Índice: Búsqueda rápida por entidad (el envío de notificaciones)
+  @@index([targetEntityId, targetEntityType])
+}
+
 // Enums
 
 enum DeliveryType {
@@ -868,7 +926,6 @@ enum DeliveryType {
   EXTERNAL_DELIVERY // Se usa una cadetería externa
 }
 
-/// Estados generales que puede tener una orden
 enum OrderStatus {
   // 1. Creación y pago
   PENDING /// Pedido creado (sin pago y sin confirmar)

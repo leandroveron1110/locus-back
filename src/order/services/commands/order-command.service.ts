@@ -13,6 +13,8 @@ import {
   OrderOrigin,
   PaymentMethodType,
   Order,
+  NotificationPriority,
+  DeliveryType,
 } from '@prisma/client';
 import {
   CreateOrderDto,
@@ -29,6 +31,8 @@ import {
 import { IOrderGateway } from 'src/order/interfaces/order-gateway.interface';
 import { TOKENS } from 'src/common/constants/tokens';
 import { LoggingService } from 'src/logging/logging.service';
+import { NotificationCommandService } from 'src/notification/service/notification.command.service';
+import { TargetEntityType } from 'src/notification/dto/request/create-notification.dto';
 
 @Injectable()
 export class OrderCommandService
@@ -43,6 +47,7 @@ export class OrderCommandService
     @Inject(TOKENS.IOrderQueryService)
     private readonly orderQueryService: IOrderQueryService,
     private logging: LoggingService,
+    private notificationCommanService: NotificationCommandService,
   ) {
     this.logging.setContext(OrderCommandService.name);
     this.logging.setService('OrderModule');
@@ -97,7 +102,7 @@ export class OrderCommandService
     if (updatedOrder.paymentStatus == PaymentStatus.IN_PROGRESS) {
       const fullOrder = await this.orderQueryService.findOne(updatedOrder.id);
       this.orderGateway.emitNewOrder(fullOrder);
-      this.orderGateway.emitNewOrderNotification(fullOrder)
+      this.orderGateway.emitNewOrderNotification(fullOrder);
       this.logging.log('Orden en progreso. Evento emitido (New Order).', {
         orderId,
       });
@@ -214,7 +219,76 @@ export class OrderCommandService
       // Nota: Si usaste 'include' en el paso 2, podrías usar directamente el 'createdOrder'
       const fullOrder = await this.orderQueryService.findOne(createdOrder.id);
       this.orderGateway.emitNewOrder(fullOrder);
-      this.orderGateway.emitNewOrderNotification(fullOrder)
+      this.orderGateway.emitNewOrderNotification(fullOrder);
+
+      const shortOrderId = `#${fullOrder.id.slice(0, 6).toUpperCase()}`; // ID corto en mayúsculas
+
+      // Lógica de mapeo (debe estar definida en algún lugar cerca o importada)
+      // 1. Mapeo del método de pago (función reutilizable)
+      const getPaymentTypeLabel = (paymentType: PaymentMethodType): string => {
+        switch (paymentType) {
+          case 'CASH':
+            return 'Efectivo';
+          case 'TRANSFER':
+            return 'Transferencia';
+          case 'DELIVERY':
+            return 'Pago al Recibir';
+          default:
+            return 'Desconocido';
+        }
+      };
+
+      // 2. 🟢 Mapeo del tipo de envío (NUEVA FUNCIÓN)
+      type DeliveryType =
+        | 'DELIVERY'
+        | 'PICKUP'
+        | 'IN_HOUSE_DELIVERY'
+        | 'EXTERNAL_DELIVERY';
+
+      const getDeliveryTypeLabel = (deliveryType: DeliveryType): string => {
+        switch (deliveryType) {
+          case 'PICKUP':
+            return 'Retira en local';
+          case 'DELIVERY':
+          case 'IN_HOUSE_DELIVERY':
+            return 'Envío propio';
+          case 'EXTERNAL_DELIVERY':
+            return 'Envío externo';
+          default:
+            return 'Envío desconocido';
+        }
+      };
+
+      // --- LÓGICA DENTRO DEL CÓDIGO DE NOTIFICACIÓN ---
+
+      // Mapeo de valores
+      const paymentType: PaymentMethodType = fullOrder.paymentType;
+      const typeEnvio: DeliveryType = fullOrder.deliveryType;
+
+      const paymentTypeLabel = getPaymentTypeLabel(paymentType);
+      const deliveryTypeLabel = getDeliveryTypeLabel(typeEnvio); 
+
+      const message = `🚨 NUEVA ORDEN
+      ${shortOrderId} ${fullOrder.user.fullName.toLocaleUpperCase()}
+      Total: $${fullOrder.total} ${paymentTypeLabel}
+      Entrega: ${deliveryTypeLabel}`; 
+
+
+      this.notificationCommanService.create({
+        category: 'ORDER',
+        type: 'ORDER_STATUS',
+        title: 'Nueva Orden',
+        message,
+        targetEntityId: fullOrder.businessId,
+        priority: NotificationPriority.HIGH,
+        targetEntityType: TargetEntityType.BUSINESS,
+      });
+
+      this.logging.log('Business order notification sent', {
+        targetEntityId: fullOrder.businessId,
+        orderId: fullOrder.id,
+        status: fullOrder.status,
+      });
       this.logging.log('Evento de nueva orden emitido.', {
         orderId: fullOrder.id,
       });
@@ -258,13 +332,13 @@ export class OrderCommandService
         updatedOrder.deliveryCompanyId,
       );
 
-      this.orderGateway.emitUserNotification({
+      this.emitUserNotification({
         id: updatedOrder.id,
         status: updatedOrder.status,
         total: `${updatedOrder.total}`,
-        userId: updatedOrder.userId,
-        createdAt: `${updatedOrder.createdAt}`
-      })
+        targetEntityId: updatedOrder.userId,
+        targetEntityType: TargetEntityType.USER,
+      });
 
       this.logging.log(
         'Estado de orden actualizado exitosamente y evento emitido.',
@@ -410,5 +484,76 @@ export class OrderCommandService
 
   async remove(id: string) {
     return this.prisma.order.delete({ where: { id } });
+  }
+
+  private emitUserNotification(order: {
+    id: string;
+    targetEntityId: string;
+    total: string;
+    status: OrderStatus;
+    targetEntityType: TargetEntityType;
+  }) {
+    const shortOrderId = `#${order.id.slice(0, 6).toUpperCase()}`; // ID corto en mayúsculas
+
+    let title: string = '';
+    let message: string = '';
+    let priority: NotificationPriority = 'LOW'; // Prioridad base
+    let shouldNotify: boolean = true; // Renombrado de isSwitchCase a shouldNotify
+
+    switch (order.status) {
+      case OrderStatus.READY_FOR_CUSTOMER_PICKUP:
+        title = '¡Listo para recoger!';
+        message = `Tu pedido ${shortOrderId} te está esperando. ¡Pasa por aquí cuando quieras!`;
+        priority = 'HIGH';
+        break;
+
+      case OrderStatus.OUT_FOR_DELIVERY:
+        title = '¡Tu pedido está en camino!';
+        message = `El repartidor va en camino con tu pedido ${shortOrderId}.`;
+        priority = 'MEDIUM';
+        break;
+
+      case OrderStatus.DELIVERED:
+        title = '¡Pedido entregado! ✅';
+        message = `Tu pedido ${shortOrderId} ha sido completado. ¡Esperamos que lo disfrutes!`;
+        priority = 'LOW';
+        break;
+
+      case OrderStatus.CANCELLED_BY_BUSINESS:
+        title = 'Pedido CANCELADO';
+        message = `Lamentamos informarte que el negocio tuvo que cancelar tu pedido ${shortOrderId}. Revisa los detalles.`;
+        priority = 'HIGH';
+        break;
+
+      case OrderStatus.CANCELLED_BY_DELIVERY:
+        title = 'Pedido CANCELADO';
+        message = `Hubo un problema con el delivery. Tu pedido ${shortOrderId} fue cancelado por el repartidor.`;
+        priority = 'HIGH';
+        break;
+
+      // Si hay más estados, se añadirían aquí (ej: REFUNDED)
+      default:
+        // No notificar para estados no críticos/no definidos
+        shouldNotify = false;
+        break;
+    }
+
+    if (shouldNotify) {
+      this.notificationCommanService.create({
+        category: 'ORDER',
+        type: 'ORDER_STATUS',
+        title,
+        message,
+        targetEntityId: order.targetEntityId,
+        priority: priority,
+        targetEntityType: order.targetEntityType,
+      });
+
+      this.logging.log('User order notification sent', {
+        targetEntityId: order.targetEntityId,
+        orderId: order.id,
+        status: order.status,
+      });
+    }
   }
 }

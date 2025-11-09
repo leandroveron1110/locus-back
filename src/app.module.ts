@@ -32,6 +32,8 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RBACGuard } from './auth/guards/rbac.guard'; // Importa el nuevo RBACGuard
 import { LoggingModule } from './logging/logging.module';
 import { UploadsImageGlobalModule } from './uploads-image-global/uploads-image-global.module';
+import { PushModule } from './push/push.module';
+import { NotificationModule } from './notification/notification.module';
 
 
 @Module({
@@ -64,6 +66,8 @@ import { UploadsImageGlobalModule } from './uploads-image-global/uploads-image-g
     EmployeesModule,
     LoggingModule,
     UploadsImageGlobalModule,
+    PushModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [

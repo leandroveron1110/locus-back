@@ -9,6 +9,7 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { OrderCommandService } from './services/commands/order-command.service';
 import { OrderQueryService } from './services/querys/order-query.service';
 import { LoggingModule } from 'src/logging/logging.module';
+import { NotificationModule } from 'src/notification/notification.module';
 
 @Module({
   controllers: [OrderController],
@@ -39,7 +40,7 @@ import { LoggingModule } from 'src/logging/logging.module';
       useClass: OrderValidationService,
     },
   ],
-  imports: [BusinessModule, MenuModule, MenuProductModule, LoggingModule],
+  imports: [BusinessModule, MenuModule, MenuProductModule, LoggingModule, NotificationModule],
   exports: [TOKENS.IOrderQueryService, TOKENS.IOrderGateway],
 })
 export class OrderModule {}

@@ -23,6 +23,7 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.5",
@@ -33,6 +34,7 @@
     "@prisma/client": "^6.10.1",
     "@turf/boolean-point-in-polygon": "^7.2.0",
     "@turf/helpers": "^7.2.0",
+    "@types/web-push": "^3.6.4",
     "bcryptjs": "^3.0.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
@@ -48,6 +50,7 @@
     "socket.io": "^4.8.1",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0",
+    "web-push": "^3.6.7",
     "zod": "^4.0.14"
   },
   "devDependencies": {
