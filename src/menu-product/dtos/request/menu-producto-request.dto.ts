@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
 
 export class CreateMenuProductDto {
   @IsString()
@@ -104,6 +105,19 @@ export class CreateMenuProductDto {
   @IsUUID()
   @IsNotEmpty()
   ownerId: string;
+
+  // --- Configuración general de formas de pago ---
+  @IsBoolean({ message: 'acceptsCash debe ser un valor booleano.' })
+  @Type(() => Boolean)
+  acceptsCash: boolean = true;
+
+  @IsBoolean({ message: 'acceptsTransfer debe ser un valor booleano.' })
+  @Type(() => Boolean)
+  acceptsTransfer: boolean = true;
+
+  @IsBoolean({ message: 'acceptsQr debe ser un valor booleano.' })
+  @Type(() => Boolean)
+  acceptsQr: boolean = false;
 }
 
 export class UpdateMenuProduct extends PartialType(CreateMenuProductDto) {}

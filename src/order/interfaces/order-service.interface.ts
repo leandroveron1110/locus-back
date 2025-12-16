@@ -5,9 +5,7 @@ import {
   PaymentStatus,
 } from '@prisma/client';
 import {
-  CreateOrderDto,
   CreateOrderFullDTO,
-  UpdateOrderDTO,
 } from '../dtos/request/order.dto';
 import { OrderResponseDto } from '../dtos/response/order-response.dto';
 import { SyncResult } from '../services/querys/order-query.service';
@@ -20,7 +18,7 @@ import {
  * Interfaz solo para creación de órdenes
  */
 export interface IOrderCreationService {
-  create(createOrderDto: CreateOrderDto): Promise<Order>;
+  // create(createOrderDto: CreateOrderDto): Promise<Order>;
   createFullOrder(dto: CreateOrderFullDTO): Promise<Order>;
 }
 
@@ -57,7 +55,6 @@ export interface IOrderQueryService {
  * Interfaz para actualización de órdenes
  */
 export interface IOrderUpdateService {
-  update(id: string, updateOrderDto: UpdateOrderDTO): Promise<Order>;
   updateStatus(
     id: string,
     updateOrderStatus: OrderStatus,

@@ -29,6 +29,9 @@ export class MenuProductDto {
   available: boolean;
   stock: number;
   preparationTime: number | null;
+  acceptsCash: boolean;
+  acceptsTransfer: boolean;
+  acceptsQr: boolean;
 
   static fromPrisma(
     product: MenuProduct & { optionGroups: any[]},
@@ -57,6 +60,9 @@ export class MenuProductDto {
     dto.available = product.available;
     dto.stock = product.stock;
     dto.preparationTime = product.preparationTime;
+    dto.acceptsCash = product.acceptsCash;
+    dto.acceptsQr = product.acceptsQr;
+    dto.acceptsTransfer = product.acceptsTransfer;
     
     return dto;
   }

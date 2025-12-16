@@ -74,65 +74,6 @@ export class DeliveryZonesService {
     });
   }
 
-  async calculatePrice(
-    companyId: string,
-    lat: number,
-    lng: number,
-  ): Promise<PriceResult> {
-    const customerPoint = point([lng, lat]);
-
-    const companyName = await this.prisma.deliveryCompany.findUnique({where: {id: companyId}, select: {name: true}});
-
-    if(!companyName) {
-      throw new Error(`Cadeteria no encontrada`)
-    }
-
-    const zones = await this.prisma.deliveryZone.findMany({
-      where: {
-        deliveryCompanyId: companyId,
-        isActive: true,
-      },
-    });
-
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(
-      now.getMinutes(),
-    ).padStart(2, '0')}`;
-
-    for (const zone of zones) {
-      const geometry = zone.geometry as GeoJsonPolygon;
-
-      if (geometry && geometry.type === 'Polygon' && geometry.coordinates) {
-        const zonePolygon = polygon(geometry.coordinates);
-
-        if (booleanPointInPolygon(customerPoint, zonePolygon)) {
-          // Si tiene límite de horario, verificamos
-          if (zone.hasTimeLimit && zone.startTime && zone.endTime) {
-            const isWithinSchedule =
-              currentTime >= zone.startTime && currentTime <= zone.endTime;
-
-            if (!isWithinSchedule) {
-              return {
-                price: null,
-                message: `Fuera de horario de trabajo para la zona "${zone.name}". Horario: ${zone.startTime} - ${zone.endTime}`,
-              };
-            }
-          }
-
-          return {
-            price: Number(zone.price),
-            message: `Dentro de la zona "${zone.name}"`,
-          };
-        }
-      }
-    }
-
-    return {
-      price: null,
-      message: `La cadetería "${companyName.name}" no cubre esta zona. Por favor elija otra ubicación o cadetería.` 
-    };
-  }
-
   async getZonesByDeliberyCompany(companyId: string) {
     const zones = await this.prisma.deliveryZone.findMany({
       where: {

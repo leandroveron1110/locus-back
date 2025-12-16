@@ -1,13 +1,27 @@
-import { Controller, Post, Body, Get, Param, Put, Delete, Patch } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  Put,
+  Delete,
+  Patch,
+} from '@nestjs/common';
 import { DeliveryZonesService } from '../services/delivery-zones.service';
 import { CreateDeliveryZoneDto } from '../dtos/request/delivery-zone.dto';
 import { UpdateDeliveryZoneDto } from '../dtos/request/update-delivery-zone.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { DeliveryZonesQueryService } from '../services/delivery-zones-query.service';
+import { DeliveryOptionsDto } from '../dtos/request/delivery-options.dto';
 
 @Controller('delivery-zones')
 export class DeliveryZonesController {
-  constructor(private readonly deliveryZonesService: DeliveryZonesService) {}
+  constructor(
+    private readonly deliveryZonesService: DeliveryZonesService,
+    private readonly deliveryZonesQueryService: DeliveryZonesQueryService,
+  ) {}
 
   // Endpoint para que la compañía de delivery cree una nueva zona.
   // Ejemplo de body: { "name": "Zona Norte", "price": 1000, "companyId": "uuid-company", "geometry": { "type": "Polygon", "coordinates": [[...]] } }
@@ -22,7 +36,10 @@ export class DeliveryZonesController {
   // Ejemplo de body: { "name": "Zona Norte (Actualizada)", "price": 1100 }
   @Patch(':id')
   @Roles(UserRole.OWNER)
-  async update(@Param('id') id: string, @Body() updateZoneDto: UpdateDeliveryZoneDto) {
+  async update(
+    @Param('id') id: string,
+    @Body() updateZoneDto: UpdateDeliveryZoneDto,
+  ) {
     return this.deliveryZonesService.update(id, updateZoneDto);
   }
 
@@ -38,15 +55,28 @@ export class DeliveryZonesController {
   // Ejemplo de body: { "companyId": "uuid-company", "lat": -34.6037, "lng": -58.3816 }
   @Post('calculate-price')
   @Roles(UserRole.CLIENT, UserRole.OWNER)
-  async calculatePrice(@Body() body: { companyId: string; lat: number; lng: number }) {
-    const price = await this.deliveryZonesService.calculatePrice(
+  async calculatePrice(
+    @Body() body: { companyId: string; lat: number; lng: number },
+  ) {
+    const price = await this.deliveryZonesQueryService.calculatePrice(
       body.companyId,
       body.lat,
       body.lng,
     );
 
     return { ...price };
+  }
 
+  @Post('options')
+  @Roles(UserRole.CLIENT, UserRole.OWNER)
+  async getAvailableDeliveries(@Body() body: DeliveryOptionsDto) {
+    const companiesWithPrices =
+      await this.deliveryZonesQueryService.getAvailableCompaniesWithPrices(
+        body.lat,
+        body.lng,
+      );
+
+    return companiesWithPrices;
   }
 
   @Get('zones/:companyId')

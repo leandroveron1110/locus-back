@@ -13,9 +13,6 @@ import {
 import { validateWithZod } from 'src/common/validators/validate-with-zod';
 import {
   CreateOrderFullDTO,
-  CreateOrderSchema,
-  UpdateOrderDTO,
-  UpdateOrderSchema,
 } from '../dtos/request/order.dto';
 import {
   OrderStatus,
@@ -88,12 +85,12 @@ export class OrderController {
 
   // ================== CREACIÓN ==================
 
-  @Post()
-  @Roles(UserRole.OWNER)
-  create(@Body() createOrderDto: any) {
-    const validated = validateWithZod(CreateOrderSchema, createOrderDto);
-    return this.orderCreationService.create(validated);
-  }
+  // @Post()
+  // @Roles(UserRole.OWNER)
+  // create(@Body() createOrderDto: any) {
+  //   const validated = validateWithZod(CreateOrderSchema, createOrderDto);
+  //   return this.orderCreationService.create(validated);
+  // }
 
   @Post('full')
   @Public()
@@ -220,12 +217,6 @@ export class OrderController {
     return this.orderUpdateService.updatePaymentStatus(id, status);
   }
 
-  @Patch(':id')
-  @Roles(UserRole.OWNER)
-  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDTO) {
-    const validated = validateWithZod(UpdateOrderSchema, updateOrderDto);
-    return this.orderUpdateService.update(id, validated);
-  }
 
   // ================== ELIMINACIÓN ==================
 

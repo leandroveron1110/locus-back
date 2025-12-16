@@ -322,6 +322,11 @@ model Business {
 
   businessEmployee BusinessEmployee[]
 
+  // --- Configuración general de formas de pago ---
+  acceptsCash     Boolean  @default(true) @map("acepta_efectivo")
+  acceptsTransfer Boolean  @default(true) @map("acepta_transferencia")
+  acceptsQr       Boolean  @default(false) @map("acepta_qr")
+
   @@map("negocios")
 }
 
@@ -578,7 +583,12 @@ model MenuProduct {
   updatedAt DateTime    @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
   OrderItem OrderItem[]
 
-  @@map("menu_productos") // ⭐ AJUSTADO: Nombre de la tabla en la DB.
+  // --- Configuración general de formas de pago ---
+  acceptsCash     Boolean @default(true) @map("acepta_efectivo")
+  acceptsTransfer Boolean @default(true) @map("acepta_transferencia")
+  acceptsQr       Boolean @default(false) @map("acepta_qr")
+
+  @@map("menu_productos")
 }
 
 // ⭐ NUEVO MODELO: Para categorizar MenuProducto con etiquetas predefinidas.
@@ -705,11 +715,12 @@ model Address {
   business   Business? @relation("BusinessAddresses", fields: [businessId], references: [id])
 
   // Relaciones con órdenes
-  deliveryOrders Order[] @relation("OrderDeliveryAddress") // dirección de entrega
-  pickupOrders   Order[] @relation("OrderPickupAddress") // dirección de retiro
+  deliveryOrder Order[] @relation("OrderDeliveryAddress") // dirección de entrega
+  pickupOrder   Order[] @relation("OrderPickupAddress") // dirección de retiro
 
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
+  order    Order[]
 
   // Índices para consultas rápidas
   @@index([userId])
@@ -726,9 +737,9 @@ model Order {
   businessId        String  @map("negocio_id")
   deliveryAddressId String? @map("direccion_entrega_id") // opcional si es retiro
   pickupAddressId   String? @map("direccion_retiro_id") // opcional si es entrega
-  deliveryCompanyId String?
+  deliveryCompanyId String? // ID de la empresa de delivery/cadetería
 
-  // --- Snapshot reducido del cliente ---
+  // --------------------------- SNAPSHOTS (Mantiene la info histórica) ---------------------------
   customerName             String   @map("cliente_nombre")
   customerPhone            String   @map("cliente_telefono")
   customerAddress          String?  @map("cliente_direccion")
@@ -736,7 +747,6 @@ model Order {
   customerAddresslatitude  Decimal? @map("cliente_direccion_latitud") @db.Decimal(10, 7)
   customerAddresslongitude Decimal? @map("cliente_direccion_longitud") @db.Decimal(10, 7)
 
-  // --- Snapshot reducido del negocio ---
   businessName             String  @map("negocio_nombre")
   businessPhone            String  @map("negocio_telefono")
   businessAddress          String  @map("negocio_direccion")
@@ -744,23 +754,52 @@ model Order {
   businessAddresslatitude  Decimal @default(0) @map("negocio_direccion_latitud") @db.Decimal(10, 7)
   businessAddresslongitude Decimal @default(0) @map("negocio_direccion_longitud") @db.Decimal(10, 7)
 
-  // -- Snapshot reducido de delivery
-  deliveryCompanyName  String?  @map("cadeteria_nombre")
-  deliveryCompanyPhone String?  @map("cadeteria_telefono")
-  totalDelivery        Decimal? @map("total_delivery") @db.Decimal(10, 2)
+  deliveryCompanyName  String? @map("cadeteria_nombre")
+  deliveryCompanyPhone String? @map("cadeteria_telefono")
 
-  // --- Pagos simplificados ---
-  paymentType         PaymentMethodType @default(TRANSFER) // CASH, TRANSFER, CARD
-  paymentStatus       PaymentStatus     @default(PENDING) // PENDING, IN_PROGRESS, CONFIRMED, REJECTED
+  // --------------------------- TOTALES FINALES (HECHOS) -----------------------------------
+
+  /// Total de la ORDEN (productos/servicios, sin incluir costo de delivery).
+  total             Decimal @map("total") @db.Decimal(10, 2)
+  /// Costo total del servicio de delivery.
+  totalDeliveryCost Decimal @default(0) @map("costo_total_delivery") @db.Decimal(10, 2)
+
+  // --------------------------- DECISIONES Y ESTADOS DEL CLIENTE (HECHOS) ---------------------------
+
+  /// Método de pago eleguido por el cliente.
+  orderPaymentMethod PaymentMethodType @default(TRANSFER) @map("metodo_pago_orden")
+  /// Estado de pago de la ORDEN.
+  paymentStatus      PaymentStatus     @default(PENDING) @map("estado_pago_orden")
+
+  /// Quién paga la tarifa de envío: CLIENT o BUSINESS si es por delibery.
+  cadetPaymentPayer  CadetPaymentPayer?  @default(CLIENT) @map("quien_paga_cadete")
+  /// Método de pago que el cliente usa para pagar el envío al cadete (si aplica).
+  cadetPaymentMethod PaymentMethodType? @map("metodo_pago_cadete")
+
+  // Detalles del pago (para referencia)
   paymentReceiptUrl   String? // URL del comprobante si aplica
   paymentInstructions String? // Solo si es transferencia
   paymentHolderName   String? // Titular de la cuenta (para transferencias)
 
+  // --------------------------- DESGLOSE DE MONTOS (HECHOS) -------------------
+
+  /// Desglose de **montos que el cliente DEBE pagar** (Orden + Delivery).
+  paymentExpected Json @map("pago_esperado")
+
+  /// Desglose de **montos que el negocio/sistema ya HA RECIBIDO/CONFIRMADO** del cliente.
+  paymentReceived Json @map("pago_recibido")
+
+  // --------------------------- INTERVENCIÓN DEL CADETE (DECISIÓN/HECHO) --------------------------
+
+  /// Indica si el cadete tiene la responsabilidad de **COBRAR** el monto de la ORDEN (productos) al cliente.
+  isCadetCollectingOrder Boolean? @default(false) @map("cadete_cobra_orden")
+
+  // --------------------------- METADATA Y RELACIONES --------------------------------
+
   deliveryType DeliveryType @default(DELIVERY) @map("tipo_entrega")
   status       OrderStatus  @default(PENDING) @map("estado")
-  origin       OrderOrigin  @default(APP) @map("origen") // web, app, whatsapp, etc.
+  origin       OrderOrigin  @default(APP) @map("origen")
   isTest       Boolean      @default(false) @map("es_prueba")
-  total        Decimal      @map("total") @db.Decimal(10, 2)
   notes        String?      @map("notas")
 
   createdAt DateTime @default(now()) @map("creado_en")
@@ -772,12 +811,13 @@ model Order {
   pickupAddress   Address?         @relation("OrderPickupAddress", fields: [pickupAddressId], references: [id])
   OrderItem       OrderItem[]
   OrderDiscount   OrderDiscount[]
-  deliveryCompany DeliveryCompany? @relation("DeliveryCompanyOrders", fields: [deliveryCompanyId], references: [id])
+  deliveryCompany DeliveryCompany? @relation("DeliveryCompanyOrder", fields: [deliveryCompanyId], references: [id])
+  addresses Address[]
 
-  @@index([businessId]) // usado en findOrdersByBusiness
-  @@index([userId]) // usado en findOrdersByUserId
-  @@index([deliveryCompanyId]) // usado en findOrdersByDeliveryId
-  @@index([createdAt]) // útil para ordenar en findAll()
+  @@index([businessId])
+  @@index([userId])
+  @@index([deliveryCompanyId])
+  @@index([createdAt])
   @@map("ordenes")
 }
 
@@ -803,6 +843,7 @@ model OrderItem {
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  ordersId  String?
 
   @@map("items_orden")
 }
@@ -820,6 +861,7 @@ model OrderDiscount {
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
+  ordersId  String?
 
   @@map("descuentos_orden")
 }
@@ -982,7 +1024,7 @@ model DeliveryCompany {
   isActive Boolean        @default(true)
 
   ownerId String
-  orders  Order[] @relation("DeliveryCompanyOrders")
+  orders  Order[] @relation("DeliveryCompanyOrder")
   owner   User    @relation(fields: [ownerId], references: [id])
 
   createdAt DateTime @default(now())
@@ -1022,16 +1064,30 @@ enum OrderOrigin {
   OTHER
 }
 
+// -------------------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------------------
+
+/// Tipos de método de pago disponibles (ampliados para QR/Otros)
 enum PaymentMethodType {
-  TRANSFER
-  CASH
-  DELIVERY
+  TRANSFER /// Transferencia bancaria
+  CASH /// Pago en efectivo
+  QR /// Código QR / Link de pago
+  OTHER /// Otros métodos no listados
 }
 
-/// Estados de pago de una orden
+/// Define quién paga la tarifa del delivery al cadete/compañía
+enum CadetPaymentPayer {
+  BUSINESS /// El negocio paga la tarifa al cadete
+  CLIENT /// El cliente paga la tarifa al cadete
+}
+
+/// Estados de pago de la orden (cliente -> negocio)
 enum PaymentStatus {
-  PENDING /// Pago pendiente (cliente aún no inició)
-  IN_PROGRESS /// Pago en curso (por ejemplo, transferencia en proceso)
-  CONFIRMED /// Pago confirmado (negocio recibió el dinero)
+  IN_PROGRESS
+  PENDING /// Pago pendiente o efectivo/transferencia al recibir
+  CONFIRMED /// Pago confirmado
   REJECTED /// Pago rechazado o fallido
 }
+
+

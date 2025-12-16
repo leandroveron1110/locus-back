@@ -102,6 +102,9 @@ export class BusinessProfileResponseDto {
   longitude?: number | null;
   averageRating?: number | null;
   ratingsCount: number = 0;
+  acceptsCash: boolean;
+  acceptsTransfer: boolean;
+  acceptsQr: boolean;
 
   // Método para transformar negocio + relaciones a DTO limpio
   static fromPrismaWithRelations(params: {
@@ -137,6 +140,9 @@ export class BusinessProfileResponseDto {
     dto.averageRating =
       business.averageRating !== null ? Number(business.averageRating) : 0;
     dto.ratingsCount = business.ratingsCount ?? 0;
+    dto.acceptsCash = business.acceptsCash;
+    dto.acceptsQr = business.acceptsQr;
+    dto.acceptsTransfer = business.acceptsTransfer;
 
 
     return dto;

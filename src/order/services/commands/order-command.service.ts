@@ -17,9 +17,7 @@ import {
   DeliveryType,
 } from '@prisma/client';
 import {
-  CreateOrderDto,
   CreateOrderFullDTO,
-  UpdateOrderDTO,
 } from 'src/order/dtos/request/order.dto';
 import {
   IOrderCreationService,
@@ -56,7 +54,7 @@ export class OrderCommandService
   async updatePayment(
     orderId: string,
     data: {
-      paymentType?: PaymentMethodType;
+      orderPaymentMethod?: PaymentMethodType;
       paymentStatus?: PaymentStatus;
       paymentReceiptUrl?: string;
       paymentInstructions?: string;
@@ -71,7 +69,7 @@ export class OrderCommandService
 
     // Validaciones básicas
     if (
-      data.paymentType === PaymentMethodType.TRANSFER &&
+      data.orderPaymentMethod === PaymentMethodType.TRANSFER &&
       !data.paymentHolderName &&
       !data.paymentReceiptUrl
     ) {
@@ -79,7 +77,7 @@ export class OrderCommandService
         'Validación fallida: Nombre de titular y recibo requeridos para transferencia.',
         {
           orderId,
-          paymentType: data.paymentType,
+          orderPaymentMethod: data.orderPaymentMethod,
         },
       );
       throw new BadRequestException(
@@ -90,7 +88,7 @@ export class OrderCommandService
     const updatedOrder = await this.prisma.order.update({
       where: { id: orderId },
       data: {
-        paymentType: data.paymentType ?? order.paymentType,
+        orderPaymentMethod: data.orderPaymentMethod ?? order.paymentType,
         paymentStatus: data.paymentStatus ?? order.paymentStatus,
         paymentReceiptUrl: data.paymentReceiptUrl ?? order.paymentReceiptUrl,
         paymentInstructions:
@@ -119,21 +117,10 @@ export class OrderCommandService
     this.logging.log('Pago de orden actualizado exitosamente.', {
       orderId: updatedOrder.id,
       newPaymentStatus: updatedOrder.paymentStatus,
-      paymentType: updatedOrder.paymentType,
+      orderPaymentMethod: updatedOrder.orderPaymentMethod,
     });
 
-    return updatedOrder.paymentType;
-  }
-
-  async create(dto: CreateOrderDto) {
-    return this.prisma.order.create({
-      data: {
-        ...dto,
-        total: new Prisma.Decimal(dto.total),
-        status: OrderStatus.PENDING,
-        origin: OrderOrigin.WEB,
-      },
-    });
+    return updatedOrder.orderPaymentMethod;
   }
 
   async createFullOrder(dto: CreateOrderFullDTO): Promise<Order> {
@@ -225,14 +212,12 @@ export class OrderCommandService
 
       // Lógica de mapeo (debe estar definida en algún lugar cerca o importada)
       // 1. Mapeo del método de pago (función reutilizable)
-      const getPaymentTypeLabel = (paymentType: PaymentMethodType): string => {
-        switch (paymentType) {
+      const getPaymentTypeLabel = (orderPaymentMethod: PaymentMethodType): string => {
+        switch (orderPaymentMethod) {
           case 'CASH':
             return 'Efectivo';
           case 'TRANSFER':
             return 'Transferencia';
-          case 'DELIVERY':
-            return 'Pago al Recibir';
           default:
             return 'Desconocido';
         }
@@ -262,15 +247,15 @@ export class OrderCommandService
       // --- LÓGICA DENTRO DEL CÓDIGO DE NOTIFICACIÓN ---
 
       // Mapeo de valores
-      const paymentType: PaymentMethodType = fullOrder.paymentType;
+      const orderPaymentMethod: PaymentMethodType = fullOrder.paymentType;
       const typeEnvio: DeliveryType = fullOrder.deliveryType;
 
-      const paymentTypeLabel = getPaymentTypeLabel(paymentType);
+      const orderPaymentMethodLabel = getPaymentTypeLabel(orderPaymentMethod);
       const deliveryTypeLabel = getDeliveryTypeLabel(typeEnvio); 
 
-      const message = `🚨 NUEVA ORDEN
+      const message = `🚨 ${fullOrder.business.name}
       ${shortOrderId} ${fullOrder.user.fullName.toLocaleUpperCase()}
-      Total: $${fullOrder.total} ${paymentTypeLabel}
+      Total: $${fullOrder.total} ${orderPaymentMethodLabel}
       Entrega: ${deliveryTypeLabel}`; 
 
 
@@ -309,9 +294,6 @@ export class OrderCommandService
     }
   }
 
-  async update(id: string, dto: UpdateOrderDTO) {
-    return this.prisma.order.update({ where: { id }, data: dto });
-  }
 
   async updateStatus(id: string, status: OrderStatus) {
     try {

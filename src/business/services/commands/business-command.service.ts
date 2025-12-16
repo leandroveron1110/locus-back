@@ -64,6 +64,7 @@ export class BusinessCommandService implements IBusinessCommandService{
             latitude !== undefined ? new Prisma.Decimal(latitude) : null,
           longitude:
             longitude !== undefined ? new Prisma.Decimal(longitude) : null,
+          
         },
       });
 
