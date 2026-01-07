@@ -62,7 +62,7 @@ export interface IOrderUpdateService {
   updatePayment(
     orderId: string,
     data: {
-      paymentType?: PaymentMethodType;
+      orderPaymentMethod?: PaymentMethodType;
       paymentStatus?: PaymentStatus;
       paymentReceiptUrl?: string;
       paymentInstructions?: string;

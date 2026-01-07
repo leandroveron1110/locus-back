@@ -88,7 +88,7 @@ export class OrderCommandService
     const updatedOrder = await this.prisma.order.update({
       where: { id: orderId },
       data: {
-        orderPaymentMethod: data.orderPaymentMethod ?? order.paymentType,
+        orderPaymentMethod: data.orderPaymentMethod ?? order.orderPaymentMethod,
         paymentStatus: data.paymentStatus ?? order.paymentStatus,
         paymentReceiptUrl: data.paymentReceiptUrl ?? order.paymentReceiptUrl,
         paymentInstructions:
@@ -123,16 +123,13 @@ export class OrderCommandService
     return updatedOrder.orderPaymentMethod;
   }
 
+  // Metodo para la creacion completa de una orden
   async createFullOrder(dto: CreateOrderFullDTO): Promise<Order> {
-    this.logging.log('Iniciando creación de orden completa (Full Order).', {
-      userId: dto.userId,
-      businessId: dto.businessId,
-    }); // 👈 Log de inicio
+
     try {
+      // validacion antes de crear la orden
       await this.orderValidation.validateCreateFullOrder(dto);
-      this.logging.debug('Validación de Full Order completada.', {
-        userId: dto.userId,
-      });
+
 
       // 1. Reestructurar los datos para el formato de Nested Writes de Prisma
       const { items, pickupAddressId, deliveryAddressId, ...baseOrderData } =
@@ -149,6 +146,7 @@ export class OrderCommandService
         quantity: item.quantity,
         priceAtPurchase: item.priceAtPurchase,
         notes: item.notes,
+        productPaymentMethod: item.productPaymentMethod,
 
         // Anidación de OrderOptionGroup
         optionGroups: {
@@ -185,7 +183,8 @@ export class OrderCommandService
             pickupAddressId: pickupAddressId,
             deliveryAddressId: deliveryAddressId,
             origin: OrderOrigin.WEB, // Sobreescribe el default/opcional del DTO si es necesario
-
+            paymentExpected: {},
+            paymentReceived: {},
             // Relación anidada: Crea todos los items y sus sub-relaciones
             OrderItem: {
               create: itemsForPrisma,
@@ -206,13 +205,13 @@ export class OrderCommandService
       // Nota: Si usaste 'include' en el paso 2, podrías usar directamente el 'createdOrder'
       const fullOrder = await this.orderQueryService.findOne(createdOrder.id);
       this.orderGateway.emitNewOrder(fullOrder);
-      this.orderGateway.emitNewOrderNotification(fullOrder);
+      // this.orderGateway.emitNewOrderNotification(fullOrder);
 
       const shortOrderId = `#${fullOrder.id.slice(0, 6).toUpperCase()}`; // ID corto en mayúsculas
 
       // Lógica de mapeo (debe estar definida en algún lugar cerca o importada)
       // 1. Mapeo del método de pago (función reutilizable)
-      const getPaymentTypeLabel = (orderPaymentMethod: PaymentMethodType): string => {
+      const getorderPaymentMethodLabel = (orderPaymentMethod: PaymentMethodType): string => {
         switch (orderPaymentMethod) {
           case 'CASH':
             return 'Efectivo';
@@ -247,10 +246,10 @@ export class OrderCommandService
       // --- LÓGICA DENTRO DEL CÓDIGO DE NOTIFICACIÓN ---
 
       // Mapeo de valores
-      const orderPaymentMethod: PaymentMethodType = fullOrder.paymentType;
+      const orderPaymentMethod: PaymentMethodType = fullOrder.orderPaymentMethod;
       const typeEnvio: DeliveryType = fullOrder.deliveryType;
 
-      const orderPaymentMethodLabel = getPaymentTypeLabel(orderPaymentMethod);
+      const orderPaymentMethodLabel = getorderPaymentMethodLabel(orderPaymentMethod);
       const deliveryTypeLabel = getDeliveryTypeLabel(typeEnvio); 
 
       const message = `🚨 ${fullOrder.business.name}

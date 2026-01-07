@@ -88,7 +88,7 @@ export interface OrderResponseDto {
   createdAt: string;
   updatedAt: string;
   deliveryType: DeliveryType;
-  paymentType: PaymentMethodType;
+  orderPaymentMethod: PaymentMethodType;
   paymentStatus: PaymentStatus;
   paymentReceiptUrl?: string | null;
   paymentInstructions?: string | null;
@@ -117,7 +117,7 @@ export interface OrderResponseDto {
   pickupAddress?: AddressDto | null;
   deliveryCompany?: {
     name: string;
-    totalDelivery: number | null;
+    totalDeliveryCost: number | null;
     phone?: string | null;
   } | null;
 
@@ -145,7 +145,7 @@ export class OrderResponseDtoMapper {
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       deliveryType: order.deliveryType,
-      paymentType: order.paymentType,
+      orderPaymentMethod: order.orderPaymentMethod,
       paymentStatus: order.paymentStatus,
       paymentReceiptUrl: order.paymentReceiptUrl ?? null,
       paymentInstructions: order.paymentInstructions ?? null,
@@ -184,7 +184,7 @@ export class OrderResponseDtoMapper {
         ? {
             name: order.deliveryCompanyName,
             phone: order.deliveryCompanyPhone ?? null,
-            totalDelivery: order.totalDelivery ?? null
+            totalDeliveryCost: order.totalDeliveryCost ?? null
           }
         : null,
 
@@ -193,6 +193,7 @@ export class OrderResponseDtoMapper {
         productName: item.productName,
         productDescription: item.productDescription ?? null,
         productImageUrl: item.productImageUrl ?? null,
+        productPaymentMethod: item.productPaymentMethod,
         quantity: item.quantity,
         priceAtPurchase: Number(item.priceAtPurchase),
         notes: item.notes ?? null,

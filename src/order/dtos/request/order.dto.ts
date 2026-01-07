@@ -31,6 +31,7 @@ export const CreateOrderItemSchema = z.object({
   productName: z.string(),
   productDescription: z.string().optional(),
   productImageUrl: z.string().optional(),
+  productPaymentMethod: z.enum(PaymentMethodType),
   quantity: z.number().int(),
   priceAtPurchase: z.string().refine((val) => !isNaN(parseFloat(val)), {
     message: 'Debe ser un número decimal',
@@ -67,6 +68,15 @@ export const PaymentTarget = z.enum([
 ]);
 
 // 1. Esquema del Ítem Individual de Desglose
+/*
+ej: {
+    amount: 54000,
+    method:  "CASH",
+    itemType: "ORDER",
+    target: "BUSINESS",
+    note?: undefine
+
+ */
 export const PaymentBreakdownItemSchema = z.object({
   amount: z.number().refine(val => /^\d+(\.\d{1,2})?$/.test(val.toFixed(2)), {
     message: 'El monto debe tener hasta 2 decimales',
@@ -85,10 +95,10 @@ export const PaymentBreakdownSchema = z.array(PaymentBreakdownItemSchema)
 export const CreateOrderFullSchema = z.object({
   // --- Relaciones/IDs ---
   userId: z.uuid(), // En Prisma es String (UUID), aquí lo validamos como UUID.
-  businessId: z.string().uuid(),
-  deliveryAddressId: z.string().uuid().optional(),
-  pickupAddressId: z.string().uuid().optional(),
-  deliveryCompanyId: z.string().uuid().optional(),
+  businessId: z.uuid(),
+  deliveryAddressId: z.uuid().optional(),
+  pickupAddressId: z.uuid().optional(),
+  deliveryCompanyId: z.uuid().optional(),
 
   // --- SNAPSHOTS del cliente ---
   customerName: z.string().min(1, 'El nombre del cliente es obligatorio'),
@@ -119,16 +129,12 @@ export const CreateOrderFullSchema = z.object({
   deliveryCompanyPhone: z.string().optional(),
 
   // --- TOTALES FINALES (ajustados a los nombres de Prisma) ---
-  total: z.number().refine(val => decimal2Refine(val), {
-    message: 'El total de la orden (sin delivery) debe tener hasta 2 decimales',
-  }),
+  total: z.number().default(0),
   // Renombrado de 'totalDelivery' a 'totalDeliveryCost'
-  totalDeliveryCost: z.number().optional().refine(val => decimal2Refine(val), {
-    message: 'El costo total de delivery debe tener hasta 2 decimales',
-  }).default(0), // Se puede agregar el default(0) si se espera en el cuerpo de la petición
+  totalDeliveryCost: z.number().optional().default(0), // Se puede agregar el default(0) si se espera en el cuerpo de la petición
 
   // --- DECISIONES Y ESTADOS DEL CLIENTE (Pagos) ---
-  // Renombrado de 'paymentType' a 'orderPaymentMethod'
+  // Renombrado de 'orderPaymentMethod' a 'orderPaymentMethod'
   orderPaymentMethod: z.enum(PaymentMethodType).default(PaymentMethodType.TRANSFER),
   paymentStatus: z.enum(PaymentStatus).default(PaymentStatus.PENDING),
 
@@ -142,8 +148,8 @@ export const CreateOrderFullSchema = z.object({
   paymentHolderName: z.string().optional(),
 
   // Desglose de montos (usamos z.any() o z.record() para JSON)
-  paymentExpected: PaymentBreakdownSchema, // Asume que es un objeto/array complejo (JSON)
-  paymentReceived: PaymentBreakdownSchema, // Asume que es un objeto/array complejo (JSON)
+  // paymentExpected: PaymentBreakdownSchema, // Asume que es un objeto/array complejo (JSON)
+  // paymentReceived: PaymentBreakdownSchema, // Asume que es un objeto/array complejo (JSON)
 
   // Intervención del Cadete
   isCadetCollectingOrder: z.boolean().optional().default(false),

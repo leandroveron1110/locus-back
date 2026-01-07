@@ -124,8 +124,8 @@ export class OrderGateway
     const userRoom = `user-${order.userId}`;
 
     const shouldNotifyBusiness =
-      order.paymentType === PaymentMethodType.CASH ||
-      (order.paymentType === PaymentMethodType.TRANSFER &&
+      order.orderPaymentMethod === PaymentMethodType.CASH ||
+      (order.orderPaymentMethod === PaymentMethodType.TRANSFER &&
         order.paymentStatus !== PaymentStatus.PENDING);
 
     if (shouldNotifyBusiness) {
@@ -149,8 +149,8 @@ export class OrderGateway
     const businessRoom = `business-${order.businessId}`;
 
     const shouldNotifyBusiness =
-      order.paymentType === PaymentMethodType.CASH ||
-      (order.paymentType === PaymentMethodType.TRANSFER &&
+      order.orderPaymentMethod === PaymentMethodType.CASH ||
+      (order.orderPaymentMethod === PaymentMethodType.TRANSFER &&
         order.paymentStatus !== PaymentStatus.PENDING);
 
     if (shouldNotifyBusiness) {

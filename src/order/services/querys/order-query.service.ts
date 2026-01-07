@@ -278,9 +278,9 @@ export class OrderQueryService implements IOrderQueryService {
         businessId: businessId,
         status: 'PENDING',
         OR: [
-          { paymentType: 'CASH' },
+          { orderPaymentMethod: 'CASH' },
           {
-            paymentType: 'TRANSFER',
+            orderPaymentMethod: 'TRANSFER',
             paymentStatus: { not: 'PENDING' },
           },
         ],

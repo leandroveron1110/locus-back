@@ -837,6 +837,7 @@ model OrderItem {
   optionGroups    OrderOptionGroup[]
   notes           String?            @map("notas") // Notas específicas para este ítem (ej. "sin cebolla")
 
+  productPaymentMethod PaymentMethodType @default(TRANSFER) @map("metodo_pago_producto")
   // Relaciones
   order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuProduct MenuProduct @relation(fields: [menuProductId], references: [id])

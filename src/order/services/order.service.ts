@@ -258,7 +258,7 @@
 //   async updatePayment(
 //     orderId: string,
 //     data: {
-//       paymentType?: PaymentMethodType;
+//       orderPaymentMethod?: PaymentMethodType;
 //       paymentStatus?: PaymentStatus;
 //       paymentReceiptUrl?: string;
 //       paymentInstructions?: string;
@@ -272,7 +272,7 @@
 
 //     // Validaciones básicas
 //     if (
-//       data.paymentType === PaymentMethodType.TRANSFER &&
+//       data.orderPaymentMethod === PaymentMethodType.TRANSFER &&
 //       !data.paymentHolderName &&
 //       !data.paymentReceiptUrl
 //     ) {
@@ -284,7 +284,7 @@
 //     const updatedOrder = await this.prisma.order.update({
 //       where: { id: orderId },
 //       data: {
-//         paymentType: data.paymentType ?? order.paymentType,
+//         orderPaymentMethod: data.orderPaymentMethod ?? order.orderPaymentMethod,
 //         paymentStatus: data.paymentStatus ?? order.paymentStatus,
 //         paymentReceiptUrl: data.paymentReceiptUrl ?? order.paymentReceiptUrl,
 //         paymentInstructions:
@@ -301,7 +301,7 @@
 //       updatedOrder.businessId,
 //     );
 
-//     return updatedOrder.paymentType;
+//     return updatedOrder.orderPaymentMethod;
 //   }
 
 //   async remove(id: string): Promise<Order> {

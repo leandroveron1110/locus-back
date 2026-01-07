@@ -198,7 +198,7 @@ export class OrderController {
     @Param('id') id: string,
     @Body('status')
     status: {
-      paymentType?: PaymentMethodType;
+      orderPaymentMethod?: PaymentMethodType;
       paymentStatus?: PaymentStatus;
       paymentReceiptUrl?: string;
       paymentInstructions?: string;
