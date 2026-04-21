@@ -721,6 +721,7 @@ model Address {
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
   order    Order[]
+  zoneIndex AddressZoneIndex? // Relación 1:1 con el índice
 
   // Índices para consultas rápidas
   @@index([userId])
@@ -1032,6 +1033,7 @@ model DeliveryCompany {
   updatedAt DateTime @updatedAt
 
   DeliveryEmployee DeliveryEmployee[]
+  priceMatrices DeliveryPriceMatrix[]
 }
 
 model DeliveryZone {
@@ -1054,6 +1056,8 @@ model DeliveryZone {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  priceMatrices DeliveryPriceMatrix[]
+  addressIndices AddressZoneIndex[]
 }
 
 enum OrderOrigin {
@@ -1092,3 +1096,53 @@ enum PaymentStatus {
 }
 
 
+
+
+
+// 1. Representa las divisiones macro de la ciudad (ej: "Zona Cementerio", "Zona Plaza")
+model MacroZone {
+  id        String   @id @default(uuid())
+  name      String   @unique // "CEMENTERIO", "PLAZA"
+  geometry  Json?    // Polígono para el cálculo inicial automático
+  isActive  Boolean  @default(true)
+
+  // Relaciones
+  addressIndices AddressZoneIndex[]
+  priceMatrix    DeliveryPriceMatrix[]
+
+  @@map("macro_zones")
+}
+
+// 2. La Matriz de Precios definitiva
+// Aquí configuras: Empresa + Barrio (Destino) + Macro (Origen) = Precio
+model DeliveryPriceMatrix {
+  id                String   @id @default(uuid())
+  deliveryCompanyId String
+  deliveryZoneId    String   // ID del Barrio (Destino) - ej: San Isidro
+  macroZoneId       String   // ID de la Macro-zona (Origen) - ej: Plaza
+  price             Decimal  // El precio resultante
+
+  // Relaciones
+  company   DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id])
+  barrio    DeliveryZone    @relation(fields: [deliveryZoneId], references: [id])
+  macroZone MacroZone       @relation(fields: [macroZoneId], references: [id])
+
+  @@unique([deliveryCompanyId, deliveryZoneId, macroZoneId])
+  @@map("delivery_price_matrix")
+}
+
+// 3. El Índice de Direcciones (Cache Geográfico)
+// Esto evita usar Turf en cada pedido. Ya sabemos dónde está cada dirección.
+model AddressZoneIndex {
+  id          String   @id @default(uuid())
+  addressId   String   @unique
+  macroZoneId String?  // ¿Está en Plaza o Cementerio?
+  barrioId    String?  // ¿En qué barrio (San Isidro, Centro)?
+
+  // Relaciones
+  address   Address       @relation(fields: [addressId], references: [id])
+  macroZone MacroZone?    @relation(fields: [macroZoneId], references: [id])
+  barrio    DeliveryZone? @relation(fields: [barrioId], references: [id])
+
+  @@map("address_zone_index")
+}

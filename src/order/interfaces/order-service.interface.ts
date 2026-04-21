@@ -19,7 +19,8 @@ import {
  */
 export interface IOrderCreationService {
   // create(createOrderDto: CreateOrderDto): Promise<Order>;
-  createFullOrder(dto: CreateOrderFullDTO): Promise<Order>;
+  createFullOrder(dto: CreateOrderFullDTO): Promise<any>;
+  build(dto: unknown): Promise<Order>;
 }
 
 /**

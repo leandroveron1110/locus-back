@@ -47,7 +47,7 @@ import { BusinessOgResponseDto } from '../dto/Response/Business-og-response.dto'
 
 
 export interface IBusinessCommandService {
-  create(dto: CreateBusinessDto): Promise<BusinessResponseDto>;
+  create(dto: CreateBusinessDto): Promise<BusinessResponseDto | undefined>;
 
   update(id: string, dto: UpdateBusinessDto): Promise<any>;
 
@@ -58,7 +58,7 @@ export interface IBusinessCommandService {
   updateModulesConfig(
     businessId: string,
     modulesConfig: Prisma.JsonValue,
-  ): Promise<{ id: string; modulesConfig: Prisma.JsonValue }>;
+  ): Promise<{ id: string; modulesConfig: Prisma.JsonValue } | undefined>;
 }
 
 

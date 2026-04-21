@@ -5,6 +5,7 @@ import { DeliveryZonesQueryService } from './services/delivery-zones-query.servi
 
 @Module({
   controllers: [DeliveryZonesController],
-  providers: [DeliveryZonesService, DeliveryZonesQueryService]
+  providers: [DeliveryZonesService, DeliveryZonesQueryService],
+  exports: [DeliveryZonesQueryService],
 })
 export class DeliveryZonesModule {}

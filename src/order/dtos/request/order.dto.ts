@@ -167,9 +167,42 @@ export const CreateOrderFullSchema = z.object({
 });
 
 
+// dto optimizado para validaciones específicas (sin campos de snapshot ni detalles de pago)
+export const CreateOrderSchema = z.object({
+  userId: z.uuid(),
+  businessId: z.uuid(),
 
+  deliveryAddressId: z.uuid().optional(),
+  pickupAddressId: z.uuid().optional(),
+  deliveryCompanyId: z.uuid().optional(),
 
+  orderPaymentMethod: z.enum(PaymentMethodType),
+  deliveryType: z.enum(DeliveryType),
 
+  notes: z.string().optional(),
+
+  items: z.array(
+    z.object({
+      menuProductId: z.string(),
+      quantity: z.number().int(),
+
+      optionGroups: z.array(
+        z.object({
+          opcionGrupoId: z.string(),
+          options: z.array(
+            z.object({
+              opcionId: z.string(),
+              quantity: z.number().int(),
+            })
+          ),
+        })
+      ),
+    })
+  ),
+});
+
+export type AggregateOrderDTO = z.infer<typeof CreateOrderSchema>;
+export type CreateOrderDTO = z.infer<typeof CreateOrderFullSchema>;
 export type CreateOrderFullDTO = z.infer<typeof CreateOrderFullSchema>;
 export type CreateOrderItemDTO = z.infer<typeof CreateOrderItemSchema>;
 export type CreateOrderOptionGroupDTO = z.infer<

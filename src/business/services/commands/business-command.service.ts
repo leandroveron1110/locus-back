@@ -18,234 +18,242 @@ import { IExistenceValidator } from 'src/common/interfaces/existence-validator.i
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ISearchableBusinessCrudService } from 'src/search/interfaces/searchable-business-crud-service.interface';
 import { IUserService } from 'src/users/interfaces/User-service.interface';
+import { id } from 'zod/v4/locales';
 
 @Injectable()
-export class BusinessCommandService implements IBusinessCommandService{
+export class BusinessCommandService implements IBusinessCommandService {
   constructor(
     @Inject(TOKENS.IBusinessValidator)
     private readonly businessValidator: IExistenceValidator,
-
-    private prisma: PrismaService,
+    private readonly prisma: PrismaService,
     @Inject(TOKENS.IUserService)
-    private userService: IUserService,
+    private readonly userService: IUserService,
     @Inject(TOKENS.IBusinessCategoryService)
-    private businessCategoryService: IBusinessCategoryService,
+    private readonly businessCategoryService: IBusinessCategoryService,
     @Inject(TOKENS.ISearchableBusinessCrudService)
     private readonly searchableBusinessCrudService: ISearchableBusinessCrudService,
   ) {}
-
-  async create(
-    createBusinessDto: CreateBusinessDto,
-    // authenticatedOwnerId: string
-  ): Promise<BusinessResponseDto> {
-    const { ownerId, modulesConfig, latitude, longitude, ...data } =
-      createBusinessDto;
-
-    // 1. Validar que el `ownerId` de la request sea el mismo que el `authenticatedOwnerId`
-    // if (ownerId !== authenticatedOwnerId) {
-    //   throw new ForbiddenException('No tienes permiso para crear un negocio para otro propietario.');
-    // }
-
-    const user = await this.userService.findById(ownerId);
-    if (!user) {
-      throw new ForbiddenException(
-        `El usuario con ID "${ownerId}" no tiene el rol de PROPIETARIO para crear un negocio.`,
-      );
-    }
-
-    try {
-      const business = await this.prisma.business.create({
-        data: {
-          ...data,
-          owner: { connect: { id: ownerId } },
-          modulesConfig: (modulesConfig || {}) as Prisma.InputJsonValue, // Asegura un objeto JSON vacío si es null/undefined
-          // Convertir number (del DTO) a Prisma.Decimal para la base de datos
-          latitude:
-            latitude !== undefined ? new Prisma.Decimal(latitude) : null,
-          longitude:
-            longitude !== undefined ? new Prisma.Decimal(longitude) : null,
-          
-        },
-      });
-
-      await this.searchableBusinessCrudService.create({
-        followersCount: 0,
-        id: business.id,
-        name: business.name,
-        address: business.address,
-        city: 'Concepcion del Uruguay',
-        fullDescription: business.fullDescription || '',
-        latitude: Number(business.latitude),
-        longitude: Number(business.longitude),
-        logoUrl: business.logoUrl || undefined,
-        modulesConfig: business.modulesConfig
-          ? JSON.stringify(business.modulesConfig)
-          : undefined,
-        shortDescription: business.shortDescription || '',
-        province: 'Entre rios',
-      });
-
-      // Si necesitas transformar el resultado a un DTO de respuesta específico
-      // Asegúrate de que BusinessResponseDto pueda manejar la carga de relaciones si es necesario
-      return BusinessResponseDto.fromPrisma(business); // O BusinessResponseDto.fromPrisma(business);
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          throw new ConflictException(
-            `Ya existe un negocio con el nombre "${createBusinessDto.name}".`,
-          );
-        }
-        if (error.code === 'P2003') {
-          // Foreign key constraint failed
-          throw new BadRequestException(
-            'ID de propietario, logo o categoría inválido. Verifique que existan.',
-          );
-        }
-      }
-      throw error;
-    }
-  }
-
-  async update(id: string, updateBusinessDto: UpdateBusinessDto) {
-    const { modulesConfig, ...rest } = updateBusinessDto;
-
-    const dataToUpdate: Prisma.BusinessUpdateInput = {
-      ...rest,
-      ...(modulesConfig !== undefined && {
-        modulesConfig: modulesConfig as Prisma.InputJsonValue,
-      }),
-    };
-
-    try {
-      // 1️⃣ Actualizamos la entidad principal
-      const updatedBusiness = await this.prisma.business.update({
-        where: { id, isDeleted: false },
-        data: dataToUpdate,
-      });
-
-      // 2️⃣ Sincronizamos searchableBusiness en paralelo, no bloqueamos el return
-      await Promise.all([
-        this.searchableBusinessCrudService.update({
-          id,
-          name: updatedBusiness.name,
-          shortDescription: updatedBusiness.shortDescription || undefined,
-          fullDescription: updatedBusiness.fullDescription || undefined,
-          address: updatedBusiness.address || undefined,
-          latitude:
-            updatedBusiness.latitude !== null &&
-            updatedBusiness.latitude !== undefined
-              ? Number(updatedBusiness.latitude)
-              : undefined,
-          longitude:
-            updatedBusiness.longitude !== null &&
-            updatedBusiness.longitude !== undefined
-              ? Number(updatedBusiness.longitude)
-              : undefined,
-        }),
-      ]);
-
-      return updatedBusiness;
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          throw new NotFoundException(
-            `No se pudo actualizar el negocio con ID "${id}".`,
-          );
-        }
-        if (error.code === 'P2003') {
-          throw new NotFoundException(
-            'ID de categoría o propietario no válido para la actualización.',
-          );
-        }
-      }
-      throw error;
-    }
-  }
-
-  async updateBusiness(id: string, data: UpdateBusinessDto) {
-    const { ownerId, modulesConfig, ...businessData } = data;
-
-    await this.businessValidator.checkOne(id);
-
-    const dataToUpdate: Prisma.BusinessUpdateInput = {
-      ...businessData,
-      ...(modulesConfig !== undefined && {
-        modulesConfig: modulesConfig as Prisma.InputJsonValue,
-      }),
-    };
-
-    return this.prisma.$transaction(async (prismaTransaction) => {
-      const business = await prismaTransaction.business.update({
-        where: { id, isDeleted: false },
-        data: {
-          ...dataToUpdate,
-        },
-      });
-
-      if (!business) {
-        throw new NotFoundException(`Negocio con ID "${id}" no encontrado.`);
-      }
-
-      // Después de la actualización, si necesitas los detalles de las categorías para la respuesta
-      const associatedCategories =
-        await this.businessCategoryService.getCategoriesByBusinessId(id);
-
-      return {
-        ...business,
-        businessCategories: associatedCategories,
-      };
-    });
+  updateBusiness(id: string, dto: UpdateBusinessDto): Promise<any> {
+    throw new Error('Method not implemented.');
   }
 
   /**
-   * Elimina un negocio del core. Las entidades relacionadas (imágenes, tags, etc.)
-   * deben ser gestionadas por sus respectivos servicios (si no hay onDelete: Cascade).
+   * Formatea un texto a Title Case (Primeras letras en mayúscula)
    */
+  private toTitleCase(str: string): string {
+    if (!str) return '';
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  async create(
+    createBusinessDto: CreateBusinessDto,
+  ): Promise<BusinessResponseDto | undefined> {
+    const { ownerId, modulesConfig, latitude, longitude, address, ...data } =
+      createBusinessDto;
+
+    // Validar usuario
+    const user = await this.userService.findById(ownerId);
+    if (!user) {
+      throw new ForbiddenException(
+        `El usuario con ID "${ownerId}" no existe o no es válido.`,
+      );
+    }
+
+    const formattedAddress = this.toTitleCase(address);
+    const formattedName = this.toTitleCase(data.name);
+
+    return this.prisma.$transaction(async (tx) => {
+      try {
+        // 1. Crear Negocio
+        const business = await tx.business.create({
+          data: {
+            ...data,
+            name: formattedName,
+            address: formattedAddress,
+            owner: { connect: { id: ownerId } },
+            modulesConfig: (modulesConfig || {}) as Prisma.InputJsonValue,
+            latitude: latitude != null ? new Prisma.Decimal(latitude) : null,
+            longitude: longitude != null ? new Prisma.Decimal(longitude) : null,
+          },
+        });
+
+        // 2. Crear Dirección relacionada
+        if (latitude != null && longitude != null) {
+          await tx.address.create({
+            data: {
+              street: formattedAddress,
+              city: 'Concepción del Uruguay',
+              province: 'Entre Ríos',
+              enabled: true,
+              latitude: new Prisma.Decimal(latitude),
+              longitude: new Prisma.Decimal(longitude),
+              businessId: business.id,
+            },
+          });
+        }
+
+        // 3. Sincronizar con Motor de Búsqueda
+        await this.searchableBusinessCrudService.create({
+          id: business.id,
+          name: business.name,
+          address: business.address,
+          city: 'Concepción del Uruguay',
+          province: 'Entre Ríos',
+          latitude: Number(business.latitude),
+          longitude: Number(business.longitude),
+          logoUrl: business.logoUrl || undefined,
+          shortDescription: business.shortDescription || '',
+          fullDescription: business.fullDescription || '',
+          followersCount: 0,
+        });
+
+        return BusinessResponseDto.fromPrisma(business);
+      } catch (error) {
+        this.handlePrismaError(error, data.name);
+      }
+    });
+  }
+
+  async update(id: string, updateBusinessDto: UpdateBusinessDto) {
+    const { modulesConfig, latitude, longitude, ...rest } = updateBusinessDto;
+
+    await this.businessValidator.checkOne(id);
+
+    const formattedData = {
+      ...rest,
+      ...(rest.name && { name: this.toTitleCase(rest.name) }),
+      ...(rest.address && { address: this.toTitleCase(rest.address) }),
+      ...(modulesConfig !== undefined && {
+        modulesConfig: modulesConfig as Prisma.InputJsonValue,
+      }),
+      ...(latitude != null && { latitude: new Prisma.Decimal(latitude) }),
+      ...(longitude != null && { longitude: new Prisma.Decimal(longitude) }),
+    };
+
+    return this.prisma.$transaction(async (tx) => {
+      try {
+        // 1. Actualizar el negocio
+        const updatedBusiness = await tx.business.update({
+          where: { id, isDeleted: false },
+          data: formattedData,
+        });
+
+        // 2. Sincronizar o Crear la dirección física
+        if (latitude != null || longitude != null) {
+          const existingAddress = await tx.address.findFirst({
+            where: { businessId: id },
+          });
+
+          const addressPayload = {
+            latitude: latitude != null ? new Prisma.Decimal(latitude) : null,
+            longitude: longitude != null ? new Prisma.Decimal(longitude) : null,
+            street: this.toTitleCase(
+              rest.address || updatedBusiness.address || '',
+            ),
+            city: 'Concepción del Uruguay', // Opcional: podrías sacarlo del DTO si existiera
+            province: 'Entre Ríos',
+            enabled: true,
+          };
+
+          if (existingAddress) {
+            // Si existe, actualizamos
+            await tx.address.update({
+              where: { id: existingAddress.id },
+              data: addressPayload,
+            });
+          } else {
+            // Si NO existe, creamos la nueva dirección vinculada al negocio
+            await tx.address.create({
+              data: {
+                ...addressPayload,
+                businessId: id,
+              },
+            });
+          }
+        }
+
+        // 3. Sincronizar Motor de Búsqueda
+        await this.searchableBusinessCrudService.update({
+          id,
+          name: updatedBusiness.name,
+          address: updatedBusiness.address || undefined,
+          shortDescription: updatedBusiness.shortDescription || undefined,
+          fullDescription: updatedBusiness.fullDescription || undefined,
+          latitude: updatedBusiness.latitude
+            ? Number(updatedBusiness.latitude)
+            : undefined,
+          longitude: updatedBusiness.longitude
+            ? Number(updatedBusiness.longitude)
+            : undefined,
+        });
+
+        const categories =
+          await this.businessCategoryService.getCategoriesByBusinessId(id);
+        return { ...updatedBusiness, businessCategories: categories };
+      } catch (error) {
+        this.handlePrismaError(error, rest.name);
+      }
+    });
+  }
+
   async remove(id: string) {
     try {
       return await this.prisma.business.update({
         where: { id },
-        data: {
-          isDeleted: true,
-        },
+        data: { isDeleted: true },
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          throw new NotFoundException(
-            `Negocio con ID "${id}" no encontrado para eliminar.`,
-          );
-        }
-      }
-      throw error;
+      this.handlePrismaError(error);
     }
   }
 
   async updateModulesConfig(
     businessId: string,
     modulesConfig: Prisma.JsonValue,
-  ) {
+  ): Promise<{ id: string; modulesConfig: Prisma.JsonValue } | undefined> {
+    const result = ModulesConfigSchema.safeParse(modulesConfig);
+    if (!result.success)
+      throw new BadRequestException('Configuración de módulos inválida');
+
     try {
-      // ✅ Validamos el config con Zod
-      const result = ModulesConfigSchema.safeParse(modulesConfig);
-
-      if (!result.success) {
-        throw new BadRequestException('modulesConfig inválido');
-      }
-
-      return this.prisma.business.update({
+      const res = await this.prisma.business.update({
         where: { id: businessId, isDeleted: false },
         data: { modulesConfig: result.data },
+        select: { id: true, modulesConfig: true },
       });
+
+      return {
+        id: businessId,
+        modulesConfig: res.modulesConfig as Prisma.JsonValue,
+      };
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          throw new NotFoundException(
-            `Negocio con ID "${businessId}" no encontrado para actualizar la configuración de módulos.`,
-          );
-        }
-      }
-      throw error;
+      this.handlePrismaError(error);
     }
+  }
+
+  /**
+   * Centralizador de errores de Prisma
+   */
+  private handlePrismaError(error: any, name?: string) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          `Ya existe un recurso con el nombre "${name}".`,
+        );
+      }
+      if (error.code === 'P2025') {
+        throw new NotFoundException(`Recurso no encontrado.`);
+      }
+      if (error.code === 'P2003') {
+        throw new BadRequestException(
+          'Error de integridad: Algún ID proporcionado no existe.',
+        );
+      }
+    }
+    throw error;
   }
 }

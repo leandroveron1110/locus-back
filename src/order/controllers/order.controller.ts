@@ -102,6 +102,16 @@ export class OrderController {
     return { id: order.id };
   }
 
+  @Post('full-sync')
+  @Public()
+  @HttpCode(HttpStatus.CREATED) // Opcional, pero recomendado
+  async createOrder(
+    @Body() dto: CreateOrderFullDTO,
+  ): Promise<{ id: string }> {
+    const order = await this.orderCreationService.build(dto);
+    return { id: order.id };
+  }
+
   // ================== CONSULTAS ==================
 
   @Get()

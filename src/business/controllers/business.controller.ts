@@ -60,7 +60,7 @@ export class BusinessController {
   @AccessStrategy(AccessStrategyEnum.ROLE_OR_ALL_PERMISSIONS)
   async create(
     @Body() createBusinessDto: CreateBusinessDto,
-  ): Promise<BusinessResponseDto> {
+  ): Promise<BusinessResponseDto | undefined> {
     return this.businessCommandService.create(createBusinessDto);
   }
 

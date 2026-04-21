@@ -17,7 +17,10 @@ import {
   DeliveryType,
 } from '@prisma/client';
 import {
+  AggregateOrderDTO,
+  CreateOrderDTO,
   CreateOrderFullDTO,
+  CreateOrderSchema,
 } from 'src/order/dtos/request/order.dto';
 import {
   IOrderCreationService,
@@ -31,6 +34,9 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { LoggingService } from 'src/logging/logging.service';
 import { NotificationCommandService } from 'src/notification/service/notification.command.service';
 import { TargetEntityType } from 'src/notification/dto/request/create-notification.dto';
+import { OrderResponseDtoMapper } from 'src/order/dtos/response/order-response.dto';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { DeliveryZonesQueryService } from 'src/delivery-zones/services/delivery-zones-query.service';
 
 @Injectable()
 export class OrderCommandService
@@ -46,6 +52,8 @@ export class OrderCommandService
     private readonly orderQueryService: IOrderQueryService,
     private logging: LoggingService,
     private notificationCommanService: NotificationCommandService,
+    private deliveryZonesQueryService: DeliveryZonesQueryService,
+    private eventEmitter: EventEmitter2,
   ) {
     this.logging.setContext(OrderCommandService.name);
     this.logging.setService('OrderModule');
@@ -123,13 +131,332 @@ export class OrderCommandService
     return updatedOrder.orderPaymentMethod;
   }
 
+  private validateCreateOrderDTO(dto: unknown): AggregateOrderDTO {
+    const data = CreateOrderSchema.parse(dto);
+    if (!data.businessId || !data.userId || data.items.length === 0) {
+      throw new BadRequestException(
+        'El DTO debe incluir businessId, userId y al menos un item.',
+      );
+    }
+
+    return data;
+  }
+
+  private recolectIdsForBatchQueries(data: AggregateOrderDTO) {
+    // 2. RECOLECTAR IDS PARA BÚSQUEDA MASIVA
+    const productIds = data.items.map((i) => i.menuProductId);
+    const optionIds = data.items.flatMap((item) =>
+      item.optionGroups.flatMap((g) => g.options.map((o) => o.opcionId)),
+    );
+    const groupIds = data.items.flatMap((item) =>
+      item.optionGroups.map((g) => g.opcionGrupoId),
+    );
+
+    return { productIds, optionIds, groupIds };
+  }
+
+private async fetchOrderDependencies(
+  data: any,
+  productIds: string[],
+  groupIds: string[],
+  optionIds: string[],
+) {
+  const addressIds = [data.deliveryAddressId, data.pickupAddressId].filter(Boolean);
+
+  const result = await this.prisma.$queryRawUnsafe<any[]>(`
+    SELECT 
+      (SELECT json_build_object(
+                'id', id, 'firstName', nombre, 'lastName', apellido, 'email', email
+              ) FROM "usuarios" WHERE id = $1 AND borrado = false) as user,
+
+      (SELECT json_build_object(
+                'id', id, 'name', name, 'phone', telefono, 'address', direccion,
+                'latitude', latitud, 'longitude', longitud
+              ) FROM "negocios" WHERE id = $2 AND borrado = false) as business,
+
+      (SELECT json_agg(json_build_object(
+                'id', id, 'street', calle, 'latitude', latitud, 'longitude', longitud,
+                'businessId', negocio_id
+              )) FROM "direcciones" WHERE (negocio_id = $2) OR (id = ANY($3))) as addresses,
+
+      (SELECT json_agg(json_build_object(
+                'id', id, 'name', nombre, 'imageUrl', imagen_url, 'finalPrice', precio_final
+              )) FROM "menu_productos" WHERE id = ANY($4) AND borrado = false) as products,
+
+      (SELECT json_build_object(
+                'id', id, 'name', name, 'phone', phone
+              ) FROM "DeliveryCompany" WHERE "isActive" = true LIMIT 1) as delivery_company,
+
+      (SELECT json_agg(json_build_object(
+                'id', id, 'name', nombre
+              )) FROM "opciones_grupos" WHERE id = ANY($5) AND borrado = false) as option_groups,
+
+      (SELECT json_agg(json_build_object(
+                'id', id, 'name', nombre, 'priceFinal', precio_final, 'optionGroupId', id_grupo_opcion
+              )) FROM "opciones" WHERE id = ANY($6) AND borrado = false) as options,
+
+      -- CORRECCIÓN AQUÍ: Traemos todos los campos de validación
+      (SELECT json_agg(json_build_object(
+                'id', id, 
+                'name', name,
+                'price', price,
+                'geometry', geometry,
+                'hasTimeLimit', "hasTimeLimit",
+                'startTime', "startTime",
+                'endTime', "endTime"
+              )) 
+       FROM "DeliveryZone" 
+       WHERE "deliveryCompanyId" = (SELECT id FROM "DeliveryCompany" WHERE "isActive" = true LIMIT 1) 
+       AND "isActive" = true) as delivery_zones
+  `, 
+  data.userId, data.businessId, addressIds, productIds, groupIds, optionIds
+  );
+
+  const row = result[0] || {};
+  const rawZones = row.delivery_zones || [];
+
+  // LIMPIEZA DE DATOS: Esto es vital para que calculatePricePure funcione
+  const cleanedZones = rawZones.map(zone => ({
+    ...zone,
+    // Si SQL devuelve el JSON como string, lo parseamos. Si ya es objeto, lo dejamos.
+    geometry: typeof zone.geometry === 'string' ? JSON.parse(zone.geometry) : zone.geometry,
+    price: Number(zone.price)
+  }));
+
+  const addresses = row.addresses || [];
+  const addressBusiness = addresses.find((a: any) => a.businessId === data.businessId) || null;
+  const addressUser = addresses.find((a: any) => a.id === data.deliveryAddressId) || null;
+
+  return {
+    user: row.user,
+    business: row.business,
+    products: row.products || [],
+    deliveryCompany: row.delivery_company,
+    optionGroups: row.option_groups || [],
+    options: row.options || [],
+    addressUser,
+    addressBusiness,
+    deliveryZones: cleanedZones // Pasamos las zonas ya limpias y parseadas
+  };
+}
+
+  private buildOrderItemsAndTotal(
+    data: AggregateOrderDTO,
+    products: any[],
+    options: any[],
+    optionGroups: any[],
+  ) {
+    if (!products) throw new Error('Productos no cargados');
+
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const optionMap = new Map(options.map((o) => [o.id, o]));
+    const groupMap = new Map(optionGroups.map((g) => [g.id, g]));
+
+    let totalOrderSum = 0;
+
+    const itemsNestedCreate = data.items.map((item) => {
+      const product = productMap.get(item.menuProductId);
+      if (!product) {
+        throw new Error(`Producto ${item.menuProductId} no existe`);
+      }
+
+      const basePrice = Number(product.finalPrice);
+      let itemTotalWithoptions = basePrice * item.quantity;
+
+      const optionGroupsToCreate = item.optionGroups.map((group) => {
+        const groupDb = groupMap.get(group.opcionGrupoId);
+        if (!groupDb) {
+          throw new Error(`Grupo ${group.opcionGrupoId} no existe`);
+        }
+
+        const optionsInsideGroup = group.options.map((opt) => {
+          const optionDb = optionMap.get(opt.opcionId);
+
+          if (!optionDb || optionDb.optionGroupId !== group.opcionGrupoId) {
+            throw new Error(`Opción inválida: ${opt.opcionId}`);
+          }
+
+          const optionPrice = Number(optionDb.priceFinal);
+
+          itemTotalWithoptions += optionPrice * opt.quantity * item.quantity;
+
+          return {
+            opcionId: optionDb.id,
+            optionName: optionDb.name,
+            priceFinal: optionPrice,
+            quantity: opt.quantity,
+            priceWithoutTaxes: 0,
+            taxesAmount: 0,
+            priceModifierType: 'FIXED',
+          };
+        });
+
+        return {
+          opcionGrupoId: groupDb.id,
+          groupName: groupDb.name,
+          minQuantity: 0,
+          maxQuantity: 1,
+          quantityType: 'SINGLE',
+          options: {
+            create: optionsInsideGroup,
+          },
+        };
+      });
+
+      totalOrderSum += itemTotalWithoptions;
+
+      return {
+        productName: product.name,
+        productDescription: product.description,
+        productImageUrl: product.imageUrl,
+        productPaymentMethod: data.orderPaymentMethod,
+        quantity: item.quantity,
+        priceAtPurchase: basePrice,
+        notes: '',
+        menuProductId: product.id,
+        optionGroups: {
+          create: optionGroupsToCreate,
+        },
+      };
+    });
+
+    return {
+      itemsNestedCreate,
+      totalOrderSum,
+    };
+  }
+
+  async build(dto: unknown): Promise<any> {
+    const data = this.validateCreateOrderDTO(dto);
+    const { productIds, optionIds, groupIds } =
+      this.recolectIdsForBatchQueries(data);
+
+    // 1. Todo el I/O de lectura ocurre aquí (1 solo await grande)
+    const deps = await this.fetchOrderDependencies(
+      data,
+      productIds,
+      groupIds,
+      optionIds,
+    );
+    const {
+      user,
+      business,
+      products,
+      optionGroups,
+      options,
+      deliveryCompany,
+      addressUser,
+      addressBusiness,
+      deliveryZones,
+    } = deps;
+
+    if (!user || !business)
+      throw new NotFoundException('Usuario o Negocio no encontrado');
+
+    // 2. Lógica de negocio pura (CPU - Microsegundos)
+    const { itemsNestedCreate, totalOrderSum } = this.buildOrderItemsAndTotal(
+      data,
+      products,
+      options,
+      optionGroups,
+    );
+
+    let totalDeliveryCost = 0;
+
+    // 3. Cálculo de envío SIN CONSULTAS A DB
+    if (data.deliveryType === 'DELIVERY' && deliveryCompany) {
+      const deliveryPriceResult =
+        await this.deliveryZonesQueryService.calculatePricePure(
+          deliveryZones, // Le pasamos las zonas que ya bajamos en deps
+          Number(addressUser?.latitude),
+          Number(addressUser?.longitude),
+          Number(addressBusiness?.latitude),
+          Number(addressBusiness?.longitude),
+        );
+
+      if (deliveryPriceResult.price === null)
+        throw new BadRequestException(deliveryPriceResult.message);
+      totalDeliveryCost = deliveryPriceResult.price;
+    }
+
+    // 4. Escritura optimizada (SELECT mínimo)
+    const result = await this.prisma.order.create({
+      data: {
+        userId: data.userId,
+        businessId: business.id,
+        deliveryAddressId: data.deliveryAddressId,
+        pickupAddressId: data.pickupAddressId,
+        deliveryCompanyId: deliveryCompany?.id,
+        customerName: `${user.firstName} ${user.lastName}`,
+        customerPhone: user.email,
+        customerAddresslatitude: addressUser?.latitude,
+        customerAddresslongitude: addressUser?.longitude,
+        businessName: business.name,
+        businessPhone: business.phone,
+        businessAddress: business.address,
+        businessAddresslatitude: addressBusiness?.latitude || 0,
+        businessAddresslongitude: addressBusiness?.longitude || 0,
+        deliveryCompanyName: deliveryCompany?.name,
+        deliveryCompanyPhone: deliveryCompany?.phone,
+        total: new Prisma.Decimal(totalOrderSum),
+        totalDeliveryCost: new Prisma.Decimal(totalDeliveryCost),
+        orderPaymentMethod: data.orderPaymentMethod,
+        deliveryType: data.deliveryType,
+        notes: data.notes,
+        paymentExpected: {
+          orderTotal: totalOrderSum,
+          delivery: totalDeliveryCost,
+          final: totalOrderSum + totalDeliveryCost,
+        },
+        paymentReceived: {},
+        OrderItem: { create: itemsNestedCreate },
+      },
+      // No usamos include masivo para que el INSERT + SELECT sea veloz
+      select: { id: true, total: true, deliveryType: true },
+    });
+
+    // 5. Fire and Forget
+    this.eventEmitter.emit('notification.createdneworder', {
+      orderId: result.id,
+    });
+
+    return result;
+  }
+
+  @OnEvent('notification.createdneworder', { async: true })
+  async handleOrderNotification(payload: { orderId: string }) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: payload.orderId },
+      include: {
+        business: true,
+        user: true,
+      },
+    });
+
+    if (!order) return;
+
+    const shortOrderId = `#${order.id.slice(0, 6).toUpperCase()}`;
+
+    const message = `🚨 ${order.business.name}
+${shortOrderId}
+Total: $${order.total}`;
+
+    await this.notificationCommanService.create({
+      category: 'ORDER',
+      type: 'ORDER_STATUS',
+      title: 'Nueva Orden',
+      message,
+      targetEntityId: order.businessId,
+      priority: NotificationPriority.HIGH,
+      targetEntityType: TargetEntityType.BUSINESS,
+    });
+  }
+
   // Metodo para la creacion completa de una orden
   async createFullOrder(dto: CreateOrderFullDTO): Promise<Order> {
-
     try {
       // validacion antes de crear la orden
       await this.orderValidation.validateCreateFullOrder(dto);
-
 
       // 1. Reestructurar los datos para el formato de Nested Writes de Prisma
       const { items, pickupAddressId, deliveryAddressId, ...baseOrderData } =
@@ -211,7 +538,9 @@ export class OrderCommandService
 
       // Lógica de mapeo (debe estar definida en algún lugar cerca o importada)
       // 1. Mapeo del método de pago (función reutilizable)
-      const getorderPaymentMethodLabel = (orderPaymentMethod: PaymentMethodType): string => {
+      const getorderPaymentMethodLabel = (
+        orderPaymentMethod: PaymentMethodType,
+      ): string => {
         switch (orderPaymentMethod) {
           case 'CASH':
             return 'Efectivo';
@@ -246,17 +575,18 @@ export class OrderCommandService
       // --- LÓGICA DENTRO DEL CÓDIGO DE NOTIFICACIÓN ---
 
       // Mapeo de valores
-      const orderPaymentMethod: PaymentMethodType = fullOrder.orderPaymentMethod;
+      const orderPaymentMethod: PaymentMethodType =
+        fullOrder.orderPaymentMethod;
       const typeEnvio: DeliveryType = fullOrder.deliveryType;
 
-      const orderPaymentMethodLabel = getorderPaymentMethodLabel(orderPaymentMethod);
-      const deliveryTypeLabel = getDeliveryTypeLabel(typeEnvio); 
+      const orderPaymentMethodLabel =
+        getorderPaymentMethodLabel(orderPaymentMethod);
+      const deliveryTypeLabel = getDeliveryTypeLabel(typeEnvio);
 
       const message = `🚨 ${fullOrder.business.name}
       ${shortOrderId} ${fullOrder.user.fullName.toLocaleUpperCase()}
       Total: $${fullOrder.total} ${orderPaymentMethodLabel}
-      Entrega: ${deliveryTypeLabel}`; 
-
+      Entrega: ${deliveryTypeLabel}`;
 
       this.notificationCommanService.create({
         category: 'ORDER',
@@ -292,7 +622,6 @@ export class OrderCommandService
       throw error;
     }
   }
-
 
   async updateStatus(id: string, status: OrderStatus) {
     try {

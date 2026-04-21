@@ -56,12 +56,18 @@ export class DeliveryZonesController {
   @Post('calculate-price')
   @Roles(UserRole.CLIENT, UserRole.OWNER)
   async calculatePrice(
-    @Body() body: { companyId: string; lat: number; lng: number },
+    @Body() body: { companyId: string,
+    customerLat: number,
+    customerLng: number,
+    businessLat: number,
+    businessLng: number, },
   ) {
     const price = await this.deliveryZonesQueryService.calculatePrice(
       body.companyId,
-      body.lat,
-      body.lng,
+      body.customerLat,
+      body.customerLng ,
+      body.businessLat,
+      body.businessLng
     );
 
     return { ...price };
@@ -69,11 +75,16 @@ export class DeliveryZonesController {
 
   @Post('options')
   @Roles(UserRole.CLIENT, UserRole.OWNER)
-  async getAvailableDeliveries(@Body() body: DeliveryOptionsDto) {
+  async getAvailableDeliveries(@Body() body: {companyId: string,
+    customerLat: number,
+    customerLng: number,
+    businessId: string,
+    }) {
     const companiesWithPrices =
-      await this.deliveryZonesQueryService.getAvailableCompaniesWithPrices(
-        body.lat,
-        body.lng,
+      await this.deliveryZonesQueryService.getAutoDeliveryPrice(
+        body.businessId,
+        body.customerLat,
+        body.customerLng
       );
 
     return companiesWithPrices;
