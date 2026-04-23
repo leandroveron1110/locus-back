@@ -13,7 +13,7 @@ export class AddressIndexingService {
   private readonly logger = new Logger(AddressIndexingService.name);
 
   constructor(private prisma: PrismaService) {}
-/**
+  /**
    * CALCULO DE PRECIO: Lógica de "Origen Dominante"
    * El negocio (origen) determina si usamos precios de Plaza o Cementerio.
    */
@@ -22,54 +22,55 @@ export class AddressIndexingService {
     clientAddressId: string,
     deliveryCompanyId: string,
   ) {
-    // 1. Buscamos los índices de ambas direcciones (Cache geográfico)
-    const [storeIdx, clientIdx] = await Promise.all([
-      this.prisma.addressZoneIndex.findUnique({ where: { addressId: storeAddressId } }),
-      this.prisma.addressZoneIndex.findUnique({ where: { addressId: clientAddressId } }),
-    ]);
+    // 1. Buscamos AMBOS índices en un solo viaje
+    const indices = await this.prisma.addressZoneIndex.findMany({
+      where: { addressId: { in: [storeAddressId, clientAddressId] } },
+    });
 
-    // Verificamos que el negocio tenga una MacroZona (Plaza/Cementerio)
-    if (!storeIdx?.macroZoneId || !storeIdx?.deliveryZoneId) {
-      throw new NotFoundException('La ubicación del negocio no está indexada o está fuera de cobertura.');
-    }
-    
-    if (!clientIdx?.deliveryZoneId) {
-      throw new NotFoundException('La ubicación del cliente no está dentro de un barrio válido.');
+    const storeIdx = indices.find((i) => i.addressId === storeAddressId);
+    const clientIdx = indices.find((i) => i.addressId === clientAddressId);
+
+    if (
+      !storeIdx?.macroZoneId ||
+      !storeIdx?.deliveryZoneId ||
+      !clientIdx?.deliveryZoneId
+    ) {
+      throw new NotFoundException(
+        'Ubicaciones fuera de cobertura o no indexadas.',
+      );
     }
 
-    // EL PIVOTE: La MacroZona del negocio determina la columna de la matriz
     const pivotMacroId = storeIdx.macroZoneId;
 
-    // 2. Buscamos los precios de AMBOS barrios usando el pivote del negocio
-    const [priceStoreEntry, priceClientEntry] = await Promise.all([
-      this.prisma.deliveryPriceMatrix.findUnique({
-        where: {
-          deliveryCompanyId_deliveryZoneId_macroZoneId: {
-            deliveryCompanyId,
-            deliveryZoneId: storeIdx.deliveryZoneId, // Barrio del negocio
-            macroZoneId: pivotMacroId,        // Basado en el origen
-          },
+    // 2. Buscamos AMBOS precios en la matriz en un solo viaje
+    // Usamos el índice compuesto que ya tienes definido (deliveryCompanyId_deliveryZoneId_macroZoneId)
+    const priceEntries = await this.prisma.deliveryPriceMatrix.findMany({
+      where: {
+        deliveryCompanyId,
+        macroZoneId: pivotMacroId,
+        deliveryZoneId: {
+          in: [storeIdx.deliveryZoneId, clientIdx.deliveryZoneId],
         },
-      }),
-      this.prisma.deliveryPriceMatrix.findUnique({
-        where: {
-          deliveryCompanyId_deliveryZoneId_macroZoneId: {
-            deliveryCompanyId,
-            deliveryZoneId: clientIdx.deliveryZoneId, // Barrio del cliente
-            macroZoneId: pivotMacroId,         // TAMBIÉN basado en el origen
-          },
-        },
-      }), 
-    ]);
+      },
+    });
+
+    // Mapeamos los resultados
+    const priceStoreEntry = priceEntries.find(
+      (p) => p.deliveryZoneId === storeIdx.deliveryZoneId,
+    );
+    const priceClientEntry = priceEntries.find(
+      (p) => p.deliveryZoneId === clientIdx.deliveryZoneId,
+    );
 
     const priceStore = Number(priceStoreEntry?.price || 0);
     const priceClient = Number(priceClientEntry?.price || 0);
 
     if (priceStore === 0 && priceClient === 0) {
-      throw new BadRequestException('No hay precios configurados para este trayecto.');
+      throw new BadRequestException(
+        'No hay precios configurados para este trayecto.',
+      );
     }
 
-    // 3. Retornamos el máximo según tu regla
     return {
       success: true,
       finalPrice: Math.max(priceStore, priceClient),

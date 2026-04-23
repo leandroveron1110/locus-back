@@ -8,7 +8,10 @@ import { AddressIndexingService } from 'src/delivery-zones/services/address-inde
 
 @Injectable()
 export class AddressService {
-  constructor(private prisma: PrismaService, private addressIndexingService: AddressIndexingService) {}
+  constructor(
+    private prisma: PrismaService,
+    private addressIndexingService: AddressIndexingService,
+  ) {}
 
   async create(data: CreateAddressDto) {
     const address = await this.prisma.address.create({ data });
@@ -24,11 +27,44 @@ export class AddressService {
     return await this.prisma.address.findMany();
   }
   async findAllByUser(userId: string) {
-    return await this.prisma.address.findMany({ where: { userId } });
+    const addresses = await this.prisma.address.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        street: true,
+        number: true,
+        city: true,
+        latitude: true,
+        longitude: true,
+        notes: true,
+      },
+    });
+    const dtos = addresses.map((addr) => {
+      return {
+        id: addr.id,
+        address: `${addr.street} ${addr.number} ${addr.city}`,
+        latitude: addr.latitude,
+        longitude: addr.longitude,
+        notes: addr.notes || undefined, // Placeholder, puedes agregar un campo de notas si lo deseas
+      };
+    });
+
+    return dtos;
   }
 
   async findAllByBusiness(businessId: string) {
-    return await this.prisma.address.findMany({ where: { businessId } });
+    const addresses = await this.prisma.address.findMany({
+      where: { businessId },
+      select: {
+        id: true,
+        street: true,
+        number: true,
+        city: true,
+        latitude: true,
+        longitude: true,
+      },
+    });
+    return addresses;
   }
 
   async findOne(id: string) {

@@ -198,21 +198,7 @@ export class OrderCommandService
 
       (SELECT json_agg(json_build_object(
                 'id', id, 'name', nombre, 'priceFinal', precio_final, 'optionGroupId', id_grupo_opcion
-              )) FROM "opciones" WHERE id = ANY($6) AND borrado = false) as options,
-
-      -- CORRECCIÓN AQUÍ: Traemos todos los campos de validación
-      (SELECT json_agg(json_build_object(
-                'id', id, 
-                'name', name,
-                'price', price,
-                'geometry', geometry,
-                'hasTimeLimit', "hasTimeLimit",
-                'startTime', "startTime",
-                'endTime', "endTime"
-              )) 
-       FROM "DeliveryZone" 
-       WHERE "deliveryCompanyId" = (SELECT id FROM "DeliveryCompany" WHERE "isActive" = true LIMIT 1) 
-       AND "isActive" = true) as delivery_zones
+              )) FROM "opciones" WHERE id = ANY($6) AND borrado = false) as options
   `,
       data.userId,
       data.businessId,
@@ -223,18 +209,6 @@ export class OrderCommandService
     );
 
     const row = result[0] || {};
-    const rawZones = row.delivery_zones || [];
-
-    // LIMPIEZA DE DATOS: Esto es vital para que calculatePricePure funcione
-    const cleanedZones = rawZones.map((zone) => ({
-      ...zone,
-      // Si SQL devuelve el JSON como string, lo parseamos. Si ya es objeto, lo dejamos.
-      geometry:
-        typeof zone.geometry === 'string'
-          ? JSON.parse(zone.geometry)
-          : zone.geometry,
-      price: Number(zone.price),
-    }));
 
     const addresses = row.addresses || [];
     const addressBusiness =
@@ -251,7 +225,6 @@ export class OrderCommandService
       options: row.options || [],
       addressUser,
       addressBusiness,
-      deliveryZones: cleanedZones, // Pasamos las zonas ya limpias y parseadas
     };
   }
 
@@ -362,7 +335,6 @@ export class OrderCommandService
       deliveryCompany,
       addressUser,
       addressBusiness,
-      deliveryZones,
     } = deps;
 
     if (!user || !business)
