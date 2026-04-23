@@ -1123,9 +1123,9 @@ model DeliveryPriceMatrix {
   price             Decimal  // El precio resultante
 
   // Relaciones
-  company   DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id])
-  barrio    DeliveryZone    @relation(fields: [deliveryZoneId], references: [id])
-  macroZone MacroZone       @relation(fields: [macroZoneId], references: [id])
+  company   DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id], onDelete: Cascade)
+  barrio    DeliveryZone    @relation(fields: [deliveryZoneId], references: [id], onDelete: Cascade)
+  macroZone MacroZone       @relation(fields: [macroZoneId], references: [id], onDelete: Cascade)
 
   @@unique([deliveryCompanyId, deliveryZoneId, macroZoneId])
   @@map("delivery_price_matrix")
@@ -1137,12 +1137,12 @@ model AddressZoneIndex {
   id          String   @id @default(uuid())
   addressId   String   @unique
   macroZoneId String?  // ¿Está en Plaza o Cementerio?
-  barrioId    String?  // ¿En qué barrio (San Isidro, Centro)?
+  deliveryZoneId    String?  // ¿En qué barrio (San Isidro, Centro)?
 
   // Relaciones
   address   Address       @relation(fields: [addressId], references: [id])
   macroZone MacroZone?    @relation(fields: [macroZoneId], references: [id])
-  barrio    DeliveryZone? @relation(fields: [barrioId], references: [id])
+  barrio    DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
 
   @@map("address_zone_index")
 }

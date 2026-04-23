@@ -9,7 +9,8 @@ import {
   IsObject,
   IsBoolean, // Nuevo
   IsOptional,
-  IsEmpty, // Nuevo
+  IsEmpty,
+  isObject, // Nuevo
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -24,15 +25,26 @@ export class GeoJsonPolygonDto {
   coordinates: number[][][];
 }
 
+export class PriceMatrixItemDto {
+  @IsString()
+  @IsNotEmpty()
+  macroZoneId: string;
+
+  @IsNumber()
+  price: number;
+}
+
 // Define el DTO para la creación de una zona
 export class CreateDeliveryZoneDto {
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @IsNumber()
-  @IsNotEmpty()
-  price: number;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PriceMatrixItemDto)
+  @IsOptional()
+  priceMatrix?: PriceMatrixItemDto[];
 
   @IsString()
   @IsNotEmpty()

@@ -4,6 +4,7 @@ import { point, polygon } from '@turf/helpers';
 import { PrismaService } from 'src/prisma/prisma.service';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { CompanyDeliveryWithPrice } from '../dtos/response/CompanyDeliveryWithPrice';
+import { AddressIndexingService } from './address-indexing.service';
 
 // Define el tipo para la geometría GeoJSON
 type GeoJsonPolygon = {
@@ -13,7 +14,7 @@ type GeoJsonPolygon = {
 
 @Injectable()
 export class DeliveryZonesQueryService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private addressIndexingService: AddressIndexingService) {}
 
   async calculatePrice(
     companyId: string,
@@ -198,8 +199,7 @@ async calculatePricePure(
 
   async getAutoDeliveryPrice(
     businessId: string,
-    customerLat: number,
-    customerLng: number,
+    clientAddressId: string,
   ): Promise<PriceResult> {
     // 1. Obtener la única compañía de mensajería activa
     const company = await this.prisma.deliveryCompany.findFirst({
@@ -217,29 +217,37 @@ async calculatePricePure(
         businessId: businessId,
         // Asumiendo que el negocio tiene una dirección principal o de retiro
       },
-      select: { latitude: true, longitude: true }
+      select: { id: true }
     });
 
-    const dirs = await this.prisma.address.findMany();
 
-    for (const dir of dirs) {
-      console.log('Dirección ID:', dir.id, 'Latitud:', dir.latitude, 'Longitud:', dir.longitude, 'direccion:', dir.street);
-    }
 
-    console.log('Coordenadas del negocio:', businessAddress);
-    console.log('Coordenadas del cliente:', { latitude: customerLat, longitude: customerLng });
-
-    if (!businessAddress || businessAddress.latitude === null || businessAddress.longitude === null) {
+    if (!businessAddress ) {
       throw new Error(`El negocio no tiene una ubicación configurada para calcular el envío.`);
     }
 
+    const result =  await this.addressIndexingService.getDeliveryPrice(businessAddress.id, clientAddressId, company.id);
     // 3. Reutilizar la lógica de cálculo de doble zona
-    return this.calculatePrice(
-      company.id,
-      customerLat,
-      customerLng,
-      Number(businessAddress.latitude),
-      Number(businessAddress.longitude)
-    );
+    return {
+      idCompany: company.id,
+      price: result.finalPrice,
+      message: `Precio calculado automáticamente basado en la ubicación del negocio y el cliente. ${result.finalPrice > 0 ? 'Tarifa aplicada.' : 'No hay tarifa configurada para este trayecto.'}`,
+    };
   }
+
+  async getAllZonesForCompany(companyId: string) {
+    return this.prisma.deliveryZone.findMany({
+      where: { deliveryCompanyId: companyId },
+      select: {
+        id: true,
+        name: true,
+      }
+    });
+  }
+
+  async getMacroZones() {
+    return this.prisma.macroZone.findMany({
+      where: { isActive: true },
+    });
+    }
 }

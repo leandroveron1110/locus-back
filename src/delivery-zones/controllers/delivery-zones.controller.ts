@@ -31,6 +31,18 @@ export class DeliveryZonesController {
     return this.deliveryZonesService.create(createZoneDto);
   }
 
+  @Get('company/:companyId')
+  @Roles(UserRole.OWNER, UserRole.CLIENT)
+  async getAllZones(@Param('companyId') companyId: string) {
+    return this.deliveryZonesQueryService.getAllZonesForCompany(companyId);
+  }
+
+  @Get('macro-zones')
+  @Roles(UserRole.OWNER, UserRole.CLIENT)
+  async getMacroZones() {
+    return this.deliveryZonesQueryService.getMacroZones();
+  }
+
   // Endpoint para editar parcialmente una zona de entrega.
   // La ruta incluye el ID de la zona a editar.
   // Ejemplo de body: { "name": "Zona Norte (Actualizada)", "price": 1100 }
@@ -56,18 +68,21 @@ export class DeliveryZonesController {
   @Post('calculate-price')
   @Roles(UserRole.CLIENT, UserRole.OWNER)
   async calculatePrice(
-    @Body() body: { companyId: string,
-    customerLat: number,
-    customerLng: number,
-    businessLat: number,
-    businessLng: number, },
+    @Body()
+    body: {
+      companyId: string;
+      customerLat: number;
+      customerLng: number;
+      businessLat: number;
+      businessLng: number;
+    },
   ) {
     const price = await this.deliveryZonesQueryService.calculatePrice(
       body.companyId,
       body.customerLat,
-      body.customerLng ,
+      body.customerLng,
       body.businessLat,
-      body.businessLng
+      body.businessLng,
     );
 
     return { ...price };
@@ -75,16 +90,17 @@ export class DeliveryZonesController {
 
   @Post('options')
   @Roles(UserRole.CLIENT, UserRole.OWNER)
-  async getAvailableDeliveries(@Body() body: {companyId: string,
-    customerLat: number,
-    customerLng: number,
-    businessId: string,
-    }) {
+  async getAvailableDeliveries(
+    @Body()
+    body: {
+      clientAddressId: string,
+      businessId: string;
+    },
+  ) {
     const companiesWithPrices =
       await this.deliveryZonesQueryService.getAutoDeliveryPrice(
         body.businessId,
-        body.customerLat,
-        body.customerLng
+        body.clientAddressId,
       );
 
     return companiesWithPrices;
@@ -93,6 +109,6 @@ export class DeliveryZonesController {
   @Get('zones/:companyId')
   @Roles(UserRole.CLIENT, UserRole.OWNER)
   async getZonesByDeliberyCompany(@Param('companyId') companyId: string) {
-    return this.deliveryZonesService.getZonesByDeliberyCompany(companyId);
+    return this.deliveryZonesService.getZonesByDeliveryCompany(companyId);
   }
 }

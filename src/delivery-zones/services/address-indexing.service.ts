@@ -1,5 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service'; // Ajusta la ruta a tu PrismaService
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { point, polygon } from '@turf/helpers';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 
@@ -8,14 +13,79 @@ export class AddressIndexingService {
   private readonly logger = new Logger(AddressIndexingService.name);
 
   constructor(private prisma: PrismaService) {}
+/**
+   * CALCULO DE PRECIO: Lógica de "Origen Dominante"
+   * El negocio (origen) determina si usamos precios de Plaza o Cementerio.
+   */
+  async getDeliveryPrice(
+    storeAddressId: string,
+    clientAddressId: string,
+    deliveryCompanyId: string,
+  ) {
+    // 1. Buscamos los índices de ambas direcciones (Cache geográfico)
+    const [storeIdx, clientIdx] = await Promise.all([
+      this.prisma.addressZoneIndex.findUnique({ where: { addressId: storeAddressId } }),
+      this.prisma.addressZoneIndex.findUnique({ where: { addressId: clientAddressId } }),
+    ]);
+
+    // Verificamos que el negocio tenga una MacroZona (Plaza/Cementerio)
+    if (!storeIdx?.macroZoneId || !storeIdx?.deliveryZoneId) {
+      throw new NotFoundException('La ubicación del negocio no está indexada o está fuera de cobertura.');
+    }
+    
+    if (!clientIdx?.deliveryZoneId) {
+      throw new NotFoundException('La ubicación del cliente no está dentro de un barrio válido.');
+    }
+
+    // EL PIVOTE: La MacroZona del negocio determina la columna de la matriz
+    const pivotMacroId = storeIdx.macroZoneId;
+
+    // 2. Buscamos los precios de AMBOS barrios usando el pivote del negocio
+    const [priceStoreEntry, priceClientEntry] = await Promise.all([
+      this.prisma.deliveryPriceMatrix.findUnique({
+        where: {
+          deliveryCompanyId_deliveryZoneId_macroZoneId: {
+            deliveryCompanyId,
+            deliveryZoneId: storeIdx.deliveryZoneId, // Barrio del negocio
+            macroZoneId: pivotMacroId,        // Basado en el origen
+          },
+        },
+      }),
+      this.prisma.deliveryPriceMatrix.findUnique({
+        where: {
+          deliveryCompanyId_deliveryZoneId_macroZoneId: {
+            deliveryCompanyId,
+            deliveryZoneId: clientIdx.deliveryZoneId, // Barrio del cliente
+            macroZoneId: pivotMacroId,         // TAMBIÉN basado en el origen
+          },
+        },
+      }), 
+    ]);
+
+    const priceStore = Number(priceStoreEntry?.price || 0);
+    const priceClient = Number(priceClientEntry?.price || 0);
+
+    if (priceStore === 0 && priceClient === 0) {
+      throw new BadRequestException('No hay precios configurados para este trayecto.');
+    }
+
+    // 3. Retornamos el máximo según tu regla
+    return {
+      success: true,
+      finalPrice: Math.max(priceStore, priceClient),
+      meta: {
+        originMacro: pivotMacroId,
+        storePrice: priceStore,
+        clientPrice: priceClient,
+      },
+    };
+  }
 
   /**
-   * Este método se debe llamar cada vez que se crea o actualiza una dirección.
-   * Determina en qué MacroZona y Barrio cae la coordenada y lo guarda en el índice.
+   * MANTENIMIENTO: Indexar una dirección (Geofencing)
    */
   async updateAddressIndex(addressId: string, lat: number, lng: number) {
     try {
-      // 1. Obtenemos todas las MacroZonas y Zonas de Barrio activas
       const [macroZones, barrios] = await Promise.all([
         this.prisma.macroZone.findMany({ where: { isActive: true } }),
         this.prisma.deliveryZone.findMany({ where: { isActive: true } }),
@@ -25,61 +95,57 @@ export class AddressIndexingService {
       let foundMacroId: string | null = null;
       let foundBarrioId: string | null = null;
 
-      // 2. Buscamos la Macro-Zona (Plaza o Cementerio)
       for (const mz of macroZones) {
         const geometry = mz.geometry as any;
-        if (geometry?.type === 'Polygon') {
-          if (booleanPointInPolygon(p, polygon(geometry.coordinates))) {
-            foundMacroId = mz.id;
-            break;
-          }
+        if (
+          geometry?.type === 'Polygon' &&
+          booleanPointInPolygon(p, polygon(geometry.coordinates))
+        ) {
+          foundMacroId = mz.id;
+          break;
         }
       }
 
-      // 3. Buscamos el Barrio (San Isidro, Centro, etc.)
       for (const b of barrios) {
         const geometry = b.geometry as any;
-        if (geometry?.type === 'Polygon') {
-          if (booleanPointInPolygon(p, polygon(geometry.coordinates))) {
-            foundBarrioId = b.id;
-            break;
-          }
+        if (
+          geometry?.type === 'Polygon' &&
+          booleanPointInPolygon(p, polygon(geometry.coordinates))
+        ) {
+          foundBarrioId = b.id;
+          break;
         }
       }
 
-      // 4. Guardamos o actualizamos en la tabla de índice
-      await this.prisma.addressZoneIndex.upsert({
+      return await this.prisma.addressZoneIndex.upsert({
         where: { addressId },
-        update: {
-          macroZoneId: foundMacroId,
-          barrioId: foundBarrioId,
-        },
+        update: { macroZoneId: foundMacroId, deliveryZoneId: foundBarrioId },
         create: {
           addressId,
           macroZoneId: foundMacroId,
-          barrioId: foundBarrioId,
+          deliveryZoneId: foundBarrioId,
         },
       });
-
-      this.logger.log(`Dirección ${addressId} indexada: Macro=${foundMacroId}, Barrio=${foundBarrioId}`);
     } catch (error) {
-      this.logger.error(`Error indexando dirección ${addressId}:`, error);
+      this.logger.error(`Error indexando ${addressId}`, error);
+      throw error;
     }
   }
 
   /**
-   * Script de utilidad para indexar todas las direcciones existentes en la DB
-   * Úsalo una sola vez después de crear las tablas.
+   * MANTENIMIENTO: Re-indexar todo
    */
   async reindexAllAddresses() {
     const addresses = await this.prisma.address.findMany();
-    this.logger.log(`Iniciando re-indexación de ${addresses.length} direcciones...`);
-    
     for (const addr of addresses) {
       if (addr.latitude && addr.longitude) {
-        await this.updateAddressIndex(addr.id, Number(addr.latitude), Number(addr.longitude));
+        await this.updateAddressIndex(
+          addr.id,
+          Number(addr.latitude),
+          Number(addr.longitude),
+        );
       }
     }
-    this.logger.log('Proceso de re-indexación completado.');
+    return { message: `Procesadas ${addresses.length} direcciones.` };
   }
 }

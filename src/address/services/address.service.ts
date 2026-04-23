@@ -4,13 +4,20 @@ import {
   CreateAddressDto,
   UpdateAddressDto,
 } from '../dtos/request/address.dto';
+import { AddressIndexingService } from 'src/delivery-zones/services/address-indexing.service';
 
 @Injectable()
 export class AddressService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private addressIndexingService: AddressIndexingService) {}
 
   async create(data: CreateAddressDto) {
-    return await this.prisma.address.create({ data });
+    const address = await this.prisma.address.create({ data });
+    await this.addressIndexingService.updateAddressIndex(
+      address.id,
+      Number(address.latitude),
+      Number(address.longitude),
+    );
+    return address;
   }
 
   async findAll() {
