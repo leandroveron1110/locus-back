@@ -37,6 +37,7 @@ import { TargetEntityType } from 'src/notification/dto/request/create-notificati
 import { OrderResponseDtoMapper } from 'src/order/dtos/response/order-response.dto';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { DeliveryZonesQueryService } from 'src/delivery-zones/services/delivery-zones-query.service';
+import { AddressIndexingService } from 'src/delivery-zones/services/address-indexing.service';
 
 @Injectable()
 export class OrderCommandService
@@ -54,6 +55,7 @@ export class OrderCommandService
     private notificationCommanService: NotificationCommandService,
     private deliveryZonesQueryService: DeliveryZonesQueryService,
     private eventEmitter: EventEmitter2,
+    private addressIndexingService: AddressIndexingService,
   ) {
     this.logging.setContext(OrderCommandService.name);
     this.logging.setService('OrderModule');
@@ -155,15 +157,18 @@ export class OrderCommandService
     return { productIds, optionIds, groupIds };
   }
 
-private async fetchOrderDependencies(
-  data: any,
-  productIds: string[],
-  groupIds: string[],
-  optionIds: string[],
-) {
-  const addressIds = [data.deliveryAddressId, data.pickupAddressId].filter(Boolean);
+  private async fetchOrderDependencies(
+    data: any,
+    productIds: string[],
+    groupIds: string[],
+    optionIds: string[],
+  ) {
+    const addressIds = [data.deliveryAddressId, data.pickupAddressId].filter(
+      Boolean,
+    );
 
-  const result = await this.prisma.$queryRawUnsafe<any[]>(`
+    const result = await this.prisma.$queryRawUnsafe<any[]>(
+      `
     SELECT 
       (SELECT json_build_object(
                 'id', id, 'firstName', nombre, 'lastName', apellido, 'email', email
@@ -208,37 +213,47 @@ private async fetchOrderDependencies(
        FROM "DeliveryZone" 
        WHERE "deliveryCompanyId" = (SELECT id FROM "DeliveryCompany" WHERE "isActive" = true LIMIT 1) 
        AND "isActive" = true) as delivery_zones
-  `, 
-  data.userId, data.businessId, addressIds, productIds, groupIds, optionIds
-  );
+  `,
+      data.userId,
+      data.businessId,
+      addressIds,
+      productIds,
+      groupIds,
+      optionIds,
+    );
 
-  const row = result[0] || {};
-  const rawZones = row.delivery_zones || [];
+    const row = result[0] || {};
+    const rawZones = row.delivery_zones || [];
 
-  // LIMPIEZA DE DATOS: Esto es vital para que calculatePricePure funcione
-  const cleanedZones = rawZones.map(zone => ({
-    ...zone,
-    // Si SQL devuelve el JSON como string, lo parseamos. Si ya es objeto, lo dejamos.
-    geometry: typeof zone.geometry === 'string' ? JSON.parse(zone.geometry) : zone.geometry,
-    price: Number(zone.price)
-  }));
+    // LIMPIEZA DE DATOS: Esto es vital para que calculatePricePure funcione
+    const cleanedZones = rawZones.map((zone) => ({
+      ...zone,
+      // Si SQL devuelve el JSON como string, lo parseamos. Si ya es objeto, lo dejamos.
+      geometry:
+        typeof zone.geometry === 'string'
+          ? JSON.parse(zone.geometry)
+          : zone.geometry,
+      price: Number(zone.price),
+    }));
 
-  const addresses = row.addresses || [];
-  const addressBusiness = addresses.find((a: any) => a.businessId === data.businessId) || null;
-  const addressUser = addresses.find((a: any) => a.id === data.deliveryAddressId) || null;
+    const addresses = row.addresses || [];
+    const addressBusiness =
+      addresses.find((a: any) => a.businessId === data.businessId) || null;
+    const addressUser =
+      addresses.find((a: any) => a.id === data.deliveryAddressId) || null;
 
-  return {
-    user: row.user,
-    business: row.business,
-    products: row.products || [],
-    deliveryCompany: row.delivery_company,
-    optionGroups: row.option_groups || [],
-    options: row.options || [],
-    addressUser,
-    addressBusiness,
-    deliveryZones: cleanedZones // Pasamos las zonas ya limpias y parseadas
-  };
-}
+    return {
+      user: row.user,
+      business: row.business,
+      products: row.products || [],
+      deliveryCompany: row.delivery_company,
+      optionGroups: row.option_groups || [],
+      options: row.options || [],
+      addressUser,
+      addressBusiness,
+      deliveryZones: cleanedZones, // Pasamos las zonas ya limpias y parseadas
+    };
+  }
 
   private buildOrderItemsAndTotal(
     data: AggregateOrderDTO,
@@ -366,17 +381,13 @@ private async fetchOrderDependencies(
     // 3. Cálculo de envío SIN CONSULTAS A DB
     if (data.deliveryType === 'DELIVERY' && deliveryCompany) {
       const deliveryPriceResult =
-        await this.deliveryZonesQueryService.calculatePricePure(
-          deliveryZones, // Le pasamos las zonas que ya bajamos en deps
-          Number(addressUser?.latitude),
-          Number(addressUser?.longitude),
-          Number(addressBusiness?.latitude),
-          Number(addressBusiness?.longitude),
+        await this.addressIndexingService.getDeliveryPrice(
+          addressBusiness.id,
+          addressUser.id,
+          deliveryCompany.id,
         );
 
-      if (deliveryPriceResult.price === null)
-        throw new BadRequestException(deliveryPriceResult.message);
-      totalDeliveryCost = deliveryPriceResult.price;
+      totalDeliveryCost = deliveryPriceResult.finalPrice;
     }
 
     // 4. Escritura optimizada (SELECT mínimo)
