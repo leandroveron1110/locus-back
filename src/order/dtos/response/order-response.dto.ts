@@ -32,8 +32,6 @@ export interface OrderOptionDto {
   opcionId?: string | null;
   optionName: string;
   priceFinal: number;
-  priceWithoutTaxes: number;
-  taxesAmount: number;
   priceModifierType: string;
   quantity: number;
 }
@@ -54,7 +52,6 @@ export interface OrderItemDto {
   id: string;
   productName: string;
   productDescription?: string | null;
-  productImageUrl?: string | null;
   quantity: number;
   priceAtPurchase: number;
   notes?: string | null;
@@ -70,8 +67,7 @@ export interface OrderDiscountDto {
   paidBy?: string | null;
 }
 
-// DTO principal de la orden
-// DTO principal de la orden
+
 export interface OrderResponseDto {
   id: string;
   businessId: string;
@@ -79,10 +75,7 @@ export interface OrderResponseDto {
   deliveryAddressId?: string | null;
   pickupAddressId?: string | null;
   deliveryCompanyId?: string | null;
-
   status: OrderStatus;
-  origin: string;
-  isTest: boolean;
   total: number;
   notes?: string | null;
   createdAt: string;
@@ -102,27 +95,10 @@ export interface OrderResponseDto {
     fullName: string;
     phone: string;
     address?: string | null;
-    latitude?: number | null;
-    longitude?: number | null;
-  };
-  business: {
-    name: string;
-    address: string;
-    phone: string;
-    latitude?: number;
-    longitude?: number;
   };
 
-  deliveryAddress?: AddressDto | null;
-  pickupAddress?: AddressDto | null;
-  deliveryCompany?: {
-    name: string;
-    totalDeliveryCost: number | null;
-    phone?: string | null;
-  } | null;
 
   items: OrderItemDto[];
-  discounts: OrderDiscountDto[];
 }
 
 
@@ -138,8 +114,6 @@ export class OrderResponseDtoMapper {
       deliveryCompanyId: order.deliveryCompanyId ?? null,
 
       status: order.status,
-      origin: order.origin,
-      isTest: order.isTest,
       total: Number(order.total),
       notes: order.notes ?? null,
       createdAt: order.createdAt.toISOString(),
@@ -158,41 +132,12 @@ export class OrderResponseDtoMapper {
         fullName: order.customerName,
         phone: order.customerPhone,
         address: order.customerAddress ?? null,
-        latitude: order.customerAddresslatitude ?? null,
-        longitude: order.customerAddresslongitude ?? null,
       },
-
-      business: {
-        name: order.businessName,
-        address: order.businessAddress,
-        phone: order.businessPhone,
-        latitude: Number(order.businessAddresslatitude),
-        longitude: Number(order.businessAddresslongitude),
-      },
-
-      deliveryAddress: order.deliveryAddress
-        ? {
-            ...order.deliveryAddress,
-          }
-        : null,
-      pickupAddress: order.pickupAddress
-        ? {
-            ...order.pickupAddress,
-          }
-        : null,
-      deliveryCompany: order.deliveryCompanyName
-        ? {
-            name: order.deliveryCompanyName,
-            phone: order.deliveryCompanyPhone ?? null,
-            totalDeliveryCost: order.totalDeliveryCost ?? null
-          }
-        : null,
 
       items: order.OrderItem.map((item: any) => ({
         id: item.id,
         productName: item.productName,
         productDescription: item.productDescription ?? null,
-        productImageUrl: item.productImageUrl ?? null,
         productPaymentMethod: item.productPaymentMethod,
         quantity: item.quantity,
         priceAtPurchase: Number(item.priceAtPurchase),
@@ -209,21 +154,24 @@ export class OrderResponseDtoMapper {
             opcionId: option.opcionId ?? null,
             optionName: option.optionName,
             priceFinal: Number(option.priceFinal),
-            priceWithoutTaxes: Number(option.priceWithoutTaxes),
-            taxesAmount: Number(option.taxesAmount),
             priceModifierType: option.priceModifierType,
             quantity: option.quantity,
           })),
         })),
       })),
-      discounts: order.OrderDiscount.map((discount: any) => ({
-        id: discount.id,
-        amount: Number(discount.amount),
-        type: discount.type,
-        notes: discount.notes ?? null,
-        paidBy: discount.paidBy ?? null,
-      })),
     };
   }
 }
 
+
+
+export interface IOrderDtoResponse {
+  id: string;
+  userId: string;
+  createdAt: string;
+  total: number;
+  deliveryType: DeliveryType;
+  orderPaymentMethod: PaymentMethodType;
+  status: OrderStatus;
+  customerName: string;
+}

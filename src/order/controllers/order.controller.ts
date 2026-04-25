@@ -11,9 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { validateWithZod } from 'src/common/validators/validate-with-zod';
-import {
-  CreateOrderFullDTO,
-} from '../dtos/request/order.dto';
+import { CreateOrderFullDTO } from '../dtos/request/order.dto';
 import {
   OrderStatus,
   PaymentMethodType,
@@ -85,29 +83,10 @@ export class OrderController {
 
   // ================== CREACIÓN ==================
 
-  // @Post()
-  // @Roles(UserRole.OWNER)
-  // create(@Body() createOrderDto: any) {
-  //   const validated = validateWithZod(CreateOrderSchema, createOrderDto);
-  //   return this.orderCreationService.create(validated);
-  // }
-
-  @Post('full')
-  @Public()
-  @HttpCode(HttpStatus.CREATED) // Opcional, pero recomendado
-  async createFullOrder(
-    @Body() dto: CreateOrderFullDTO,
-  ): Promise<{ id: string }> {
-    const order = await this.orderCreationService.createFullOrder(dto);
-    return { id: order.id };
-  }
-
   @Post('full-sync')
   @Public()
   @HttpCode(HttpStatus.CREATED) // Opcional, pero recomendado
-  async createOrder(
-    @Body() dto: CreateOrderFullDTO,
-  ): Promise<{ id: string }> {
+  async createOrder(@Body() dto: CreateOrderFullDTO): Promise<{ id: string }> {
     const order = await this.orderCreationService.build(dto);
     return { id: order.id };
   }
@@ -139,9 +118,22 @@ export class OrderController {
   @Roles(UserRole.OWNER)
   @Permissions(OrderPermissions.VIEW_ORDERS, ProductPermissions.EDIT_PRODUCT)
   @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
-  async syncOrders(@Body() body: SyncOrdersDto): Promise<SyncResult> {
-    const { id, lastSyncTime } = body;
-    return this.orderQueryService.syncOrdersByBusinessId(id, lastSyncTime);
+  async syncOrders(
+    @Body()
+    body: {
+      id: string;
+      lastSyncTime?: string;
+      daysBack?: number;
+      specificDate?: string;
+    },
+  ): Promise<SyncResult> {
+    const { id, lastSyncTime, daysBack, specificDate } = body;
+    return this.orderQueryService.syncOrdersByBusinessId(
+      id,
+      lastSyncTime,
+      daysBack,
+      specificDate,
+    );
   }
 
   @Post('sync/user')
@@ -226,7 +218,6 @@ export class OrderController {
   ): Promise<PaymentStatus> {
     return this.orderUpdateService.updatePaymentStatus(id, status);
   }
-
 
   // ================== ELIMINACIÓN ==================
 

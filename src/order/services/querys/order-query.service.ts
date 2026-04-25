@@ -7,6 +7,7 @@ import {
   SyncNotificationUserResponse,
 } from 'src/order/dtos/response/sync-notification-orders.dto.';
 import {
+  IOrderDtoResponse,
   OrderResponseDto,
   OrderResponseDtoMapper,
 } from 'src/order/dtos/response/order-response.dto';
@@ -18,7 +19,12 @@ import {
 } from 'src/common/lib/notification.factory';
 
 export interface SyncResult {
-  newOrUpdatedOrders: OrderResponseDto[];
+  orders: IOrderDtoResponse[];
+  latestTimestamp: string;
+}
+
+export interface SyncResults {
+  orders: OrderResponseDto[];
   // latestTimestamp: string;
 }
 
@@ -35,63 +41,92 @@ export class OrderQueryService implements IOrderQueryService {
   async syncOrdersByBusinessId(
     businessId: string,
     lastSyncTime?: string,
+    daysBack?: number,
+    specificDate?: string, // Formato "2026-04-25"
   ): Promise<SyncResult> {
-    this.logger.debug('Starting incremental sync for business', {
+    let dateFilter: any = {};
+
+    if (specificDate) {
+      // Filtrar TODO el día específico (desde las 00:00 hasta las 23:59)
+      const start = new Date(specificDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(specificDate);
+      end.setHours(23, 59, 59, 999);
+
+      dateFilter = { gte: start, lte: end };
+    } else {
+      // Filtrar por rango de días (lo que ya teníamos)
+      const limitDate = new Date();
+      limitDate.setDate(limitDate.getDate() - (daysBack || 2));
+      dateFilter = { gte: limitDate };
+    }
+
+    let whereClause: any = {
       businessId,
-      lastSyncTime,
-    });
+      createdAt: dateFilter,
+    };
 
-    let whereClause: any = { businessId };
-    // let latestTimestamp: Date;
-
-    // 1. Lógica de Filtro Incremental (si hay lastSyncTime)
+    // Lógica de Filtro Incremental (para actualizaciones en tiempo real)
     if (lastSyncTime) {
       const syncDate = new Date(lastSyncTime);
 
-      // Filtra: Creadas DESPUÉS O Actualizadas DESPUÉS del lastSyncTime
       whereClause = {
         ...whereClause,
-        OR: [{ createdAt: { gt: syncDate } }, { updatedAt: { gt: syncDate } }],
+        // Mantenemos el filtro de los N días, pero sumamos la novedad
+        OR: [{ updatedAt: { gt: syncDate } }, { createdAt: { gt: syncDate } }],
       };
     }
 
-    // 2. Consulta de Órdenes
-    const newOrUpdatedOrders = await this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where: whereClause,
-      include: this.commonIncludes, // Reutiliza los includes comunes
-      orderBy: { updatedAt: 'desc' }, // Ordenar por la actualización más reciente
+      select: {
+        id: true,
+        userId: true,
+        createdAt: true,
+        updatedAt: true, // Necesario para el próximo sync
+        total: true,
+        deliveryType: true,
+        orderPaymentMethod: true,
+        status: true,
+        customerName: true,
+        paymentStatus: true,
+      },
+      orderBy: { updatedAt: 'desc' },
     });
 
-    // // 3. Determinar el Nuevo Timestamp de Sincronización
-    // if (newOrUpdatedOrders.length > 0) {
-    //   // Si encontramos órdenes, el timestamp más reciente es el updatedAt de la primera orden
-    //   latestTimestamp = newOrUpdatedOrders[0].updatedAt;
-    // } else {
-    //   // Si no hay cambios, el timestamp más reciente es el actual o el que ya teníamos
-    //   latestTimestamp = lastSyncTime ? new Date(lastSyncTime) : new Date();
-    // }
-
-    // 4. Mapear y Retornar
-    const dtoList = newOrUpdatedOrders.map(OrderResponseDtoMapper.fromPrisma);
-
-    this.logger.log(
-      `Fetched ${dtoList.length} new/updated [Business] orders for sync`,
-      {
-        businessId,
-      },
-    );
+    const latestTimestamp =
+      orders.length > 0
+        ? orders[0].updatedAt.toISOString()
+        : lastSyncTime || new Date().toISOString();
 
     return {
-      newOrUpdatedOrders: dtoList,
-      // latestTimestamp: latestTimestamp.toISOString(),
+      orders: orders.map((order) => ({
+        ...order,
+        total: Number(order.total),
+        createdAt: order.createdAt.toISOString(),
+      })),
+      latestTimestamp,
     };
+  }
+
+  async orderDetailById(orderId: string) {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: this.commonIncludes,
+      });
+      return order;
+    } catch (error) {
+      this.logger.error('Error fetching order by ID', { orderId, error });
+      throw new NotFoundException(`Order with id ${orderId} not found`);
+    }
   }
 
   async syncOrdersByUserId(
     userId: string,
     hours: number = 24,
     lastSyncTime?: string,
-  ): Promise<SyncResult> {
+  ): Promise<any> {
     this.logger.debug('Starting incremental sync for user', {
       userId,
       lastSyncTime,

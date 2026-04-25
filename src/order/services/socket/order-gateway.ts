@@ -9,7 +9,10 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { OrderStatus, PaymentMethodType, PaymentStatus } from '@prisma/client';
-import { OrderResponseDto } from 'src/order/dtos/response/order-response.dto';
+import {
+  IOrderDtoResponse,
+  OrderResponseDto,
+} from 'src/order/dtos/response/order-response.dto';
 import { IOrderGateway } from 'src/order/interfaces/order-gateway.interface';
 import { LoggingService } from 'src/logging/logging.service';
 import {
@@ -119,7 +122,13 @@ export class OrderGateway
   }
 
   /** Cuando se crea una nueva orden */
-  emitNewOrder(order: OrderResponseDto) {
+  emitNewOrder(
+    order: IOrderDtoResponse & {
+      orderPaymentMethod: PaymentMethodType;
+      paymentStatus: PaymentStatus;
+      businessId: string;
+    },
+  ) {
     const businessRoom = `business-${order.businessId}`;
     const userRoom = `user-${order.userId}`;
 
