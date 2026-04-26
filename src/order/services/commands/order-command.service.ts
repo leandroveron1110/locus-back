@@ -204,7 +204,7 @@ export class OrderCommandService
 
       (SELECT json_agg(json_build_object(
                 'id', id, 'street', calle, 'latitude', latitud, 'longitude', longitud,
-                'businessId', negocio_id, 'number', numero
+                'businessId', negocio_id, 'number', numero, 'apartment', departamento, 'notes', notas
               )) FROM "direcciones" WHERE (negocio_id = $2) OR (id = ANY($3))) as addresses,
 
       (SELECT json_agg(json_build_object(
@@ -408,6 +408,7 @@ export class OrderCommandService
         customerAddress: addressUser?.street ? `${addressUser.street} ${addressUser.number}` : null,
         customerAddresslatitude: addressUser?.latitude,
         customerAddresslongitude: addressUser?.longitude,
+        customerObservations:`${addressUser.apartment}, ${addressUser.notes}`,
         businessName: business.name,
         businessPhone: business.phone,
         businessAddress: business.address,

@@ -77,6 +77,7 @@ export interface OrderResponseDto {
   deliveryCompanyId?: string | null;
   status: OrderStatus;
   total: number;
+  totalDeliveryCost: number,
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -97,6 +98,11 @@ export interface OrderResponseDto {
     address?: string | null;
   };
 
+  bussiness: {
+    name: string;
+    address: string; // dirección completa como string
+  }
+
 
   items: OrderItemDto[];
 }
@@ -115,6 +121,7 @@ export class OrderResponseDtoMapper {
 
       status: order.status,
       total: Number(order.total),
+      totalDeliveryCost: Number(order.totalDeliveryCost),
       notes: order.notes ?? null,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
@@ -132,6 +139,10 @@ export class OrderResponseDtoMapper {
         fullName: order.customerName,
         phone: order.customerPhone,
         address: order.customerAddress ?? null,
+      },
+      bussiness: {
+        address: order.businessAddress,
+        name: order.businessName
       },
 
       items: order.OrderItem.map((item: any) => ({
