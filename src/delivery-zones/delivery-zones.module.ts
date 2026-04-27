@@ -6,6 +6,8 @@ import { AddressIndexingService } from './services/address-indexing.service';
 import { AddressIndexingController } from './controllers/AddressIndexing.controller';
 import { ZoneManagementController } from './controllers/zone-management.controller';
 import { ZoneManagementService } from './services/zone-zanagement.service';
+import { H3MigrationService } from './services/H3Migration.service';
+import { DeliveryPriceCalculatorService } from './services/delivery-price-calculator.service';
 
 @Module({
   controllers: [
@@ -18,6 +20,8 @@ import { ZoneManagementService } from './services/zone-zanagement.service';
     DeliveryZonesQueryService,
     AddressIndexingService,
     ZoneManagementService,
+    H3MigrationService,
+    DeliveryPriceCalculatorService
   ],
   exports: [DeliveryZonesQueryService, AddressIndexingService],
 })

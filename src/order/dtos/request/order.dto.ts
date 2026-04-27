@@ -201,6 +201,39 @@ export const CreateOrderSchema = z.object({
   ),
 });
 
+export const CreateManualOrderSchema = z.object({
+  // userId ahora es opcional. 
+  // El local puede buscarlo por teléfono o dejarlo vacío.
+  userId: z.uuid().optional(),
+
+  businessId: z.uuid(),
+
+  // Datos del cliente "al vuelo"
+  customerName: z.string().min(2, "El nombre es obligatorio"),
+  customerPhone: z.string().min(7, "El teléfono es necesario para el cadete"),
+
+  // Direcciones simplificadas
+  // Si es RETIRO (PICKUP), estos pueden ser null.
+  // Si es DELIVERY, el vendedor puede cargar una dirección de texto o lat/lng si las tiene.
+  customerAddress: z.string().optional(),
+  customerLatitude: z.number().optional(),
+  customerLongitude: z.number().optional(),
+
+  deliveryType: z.enum(["DELIVERY", "PICKUP"]),
+  orderPaymentMethod: z.enum(PaymentMethodType),
+
+  // Notas para el cadete o el cocinero
+  notes: z.string().optional(),
+
+  items: z.array(
+    z.object({
+      menuProductId: z.string(),
+      quantity: z.number().int().positive(),
+      // ... tus grupos de opciones siguen igual
+    })
+  ),
+});
+
 export type AggregateOrderDTO = z.infer<typeof CreateOrderSchema>;
 export type CreateOrderDTO = z.infer<typeof CreateOrderFullSchema>;
 export type CreateOrderFullDTO = z.infer<typeof CreateOrderFullSchema>;

@@ -5,6 +5,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { CompanyDeliveryWithPrice } from '../dtos/response/CompanyDeliveryWithPrice';
 import { AddressIndexingService } from './address-indexing.service';
+import { DeliveryPriceCalculatorService } from './delivery-price-calculator.service';
 
 // Define el tipo para la geometría GeoJSON
 type GeoJsonPolygon = {
@@ -14,7 +15,11 @@ type GeoJsonPolygon = {
 
 @Injectable()
 export class DeliveryZonesQueryService {
-  constructor(private prisma: PrismaService, private addressIndexingService: AddressIndexingService) {}
+  constructor(
+    private prisma: PrismaService,
+    private addressIndexingService: AddressIndexingService,
+    private deliveryPriceCalculatorService: DeliveryPriceCalculatorService,
+  ) {}
 
   async calculatePrice(
     companyId: string,
@@ -81,46 +86,65 @@ export class DeliveryZonesQueryService {
   }
 
   // En DeliveryZonesQueryService
-async calculatePricePure(
-  zones: any[], 
-  customerLat: number,
-  customerLng: number,
-  businessLat: number,
-  businessLng: number,
-): Promise<Omit<PriceResult, 'idCompany'>> {
-  const now = new Date();
-  // Forzamos el horario a formato HH:mm
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  async calculatePricePure(
+    zones: any[],
+    customerLat: number,
+    customerLng: number,
+    businessLat: number,
+    businessLng: number,
+  ): Promise<Omit<PriceResult, 'idCompany'>> {
+    const now = new Date();
+    // Forzamos el horario a formato HH:mm
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  // IMPORTANTE: Limpiamos las zonas que vienen del queryRaw
-  const cleanedZones = zones.map(zone => ({
-    ...zone,
-    // Si el geometry viene como string (común en Raw SQL), lo parseamos
-    geometry: typeof zone.geometry === 'string' ? JSON.parse(zone.geometry) : zone.geometry,
-    // Nos aseguramos que el precio sea un número
-    price: Number(zone.price)
-  }));
+    // IMPORTANTE: Limpiamos las zonas que vienen del queryRaw
+    const cleanedZones = zones.map((zone) => ({
+      ...zone,
+      // Si el geometry viene como string (común en Raw SQL), lo parseamos
+      geometry:
+        typeof zone.geometry === 'string'
+          ? JSON.parse(zone.geometry)
+          : zone.geometry,
+      // Nos aseguramos que el precio sea un número
+      price: Number(zone.price),
+    }));
 
-  // Validaciones en memoria
-  const customerZone = this.findZoneForPoint(cleanedZones, customerLat, customerLng, currentTime);
-  const businessZone = this.findZoneForPoint(cleanedZones, businessLat, businessLng, currentTime);
+    // Validaciones en memoria
+    const customerZone = this.findZoneForPoint(
+      cleanedZones,
+      customerLat,
+      customerLng,
+      currentTime,
+    );
+    const businessZone = this.findZoneForPoint(
+      cleanedZones,
+      businessLat,
+      businessLng,
+      currentTime,
+    );
 
-  if (customerZone.error) {
-    return { price: null, message: `Punto de entrega: ${customerZone.error}` };
+    if (customerZone.error) {
+      return {
+        price: null,
+        message: `Punto de entrega: ${customerZone.error}`,
+      };
+    }
+
+    if (businessZone.error) {
+      return {
+        price: null,
+        message: `Punto de retiro (negocio): ${businessZone.error}`,
+      };
+    }
+
+    // Elegimos el más caro (lógica de doble zona)
+    const finalPrice = Math.max(customerZone.price, businessZone.price);
+
+    return {
+      price: finalPrice,
+      message: `Cobertura total. Tarifa: ${finalPrice}.`,
+    };
   }
-
-  if (businessZone.error) {
-    return { price: null, message: `Punto de retiro (negocio): ${businessZone.error}` };
-  }
-
-  // Elegimos el más caro (lógica de doble zona)
-  const finalPrice = Math.max(customerZone.price, businessZone.price);
-
-  return {
-    price: finalPrice,
-    message: `Cobertura total. Tarifa: ${finalPrice}.`,
-  };
-}
 
   /**
    * Función auxiliar para encontrar una zona y validar horario para un punto específico
@@ -133,7 +157,12 @@ async calculatePricePure(
   ): { price: number; error?: string } {
     const p = point([Number(lng), Number(lat)]);
 
-    console.log('Validando punto:', { lat, lng }, 'en zonas:', zones.map(z => ({ id: z.id, name: z.name })));
+    console.log(
+      'Validando punto:',
+      { lat, lng },
+      'en zonas:',
+      zones.map((z) => ({ id: z.id, name: z.name })),
+    );
 
     for (const zone of zones) {
       const geometry = zone.geometry as GeoJsonPolygon;
@@ -202,36 +231,61 @@ async calculatePricePure(
     clientAddressId: string,
   ): Promise<PriceResult> {
     // 1. Obtener la única compañía de mensajería activa
-    const company = await this.prisma.deliveryCompany.findFirst({
-      where: { isActive: true },
-      select: { id: true, name: true }
-    });
+    const result = await this.prisma.$queryRawUnsafe<any[]>(
+      `
+  SELECT 
+    (SELECT json_build_object('id', id, 'name', name) 
+     FROM "DeliveryCompany" 
+     WHERE "isActive" = true LIMIT 1) as company,
+     
+    (SELECT json_build_object('id', id) 
+     FROM "direcciones" 
+     WHERE "negocio_id" = $1 LIMIT 1) as business_address,
+     
+    (SELECT json_build_object('latitude', latitud, 'longitude', longitud) 
+     FROM "direcciones" 
+     WHERE "id" = $2 LIMIT 1) as client_address
+  `,
+      businessId,
+      clientAddressId,
+    );
+
+
+    // El resultado será un array con un objeto que contiene los datos:
+    const { company, business_address, client_address } = result[0];
 
     if (!company) {
-      return { idCompany: '', price: null, message: 'No hay ninguna empresa de mensajería disponible en este momento.' };
+      return {
+        idCompany: '',
+        price: null,
+        message:
+          'No hay ninguna empresa de mensajería disponible en este momento.',
+      };
     }
 
-    // 2. Obtener las coordenadas del negocio (desde su dirección)
-    const businessAddress = await this.prisma.address.findFirst({
-      where: { 
-        businessId: businessId,
-        // Asumiendo que el negocio tiene una dirección principal o de retiro
-      },
-      select: { id: true }
-    });
-
-
-
-    if (!businessAddress ) {
-      throw new Error(`El negocio no tiene una ubicación configurada para calcular el envío.`);
+    if (!business_address) {
+      throw new Error(
+        `El negocio no tiene una ubicación configurada para calcular el envío.`,
+      );
+    }
+    if (!client_address) {
+      throw new Error(
+        `El cliente no tiene una ubicación configurada para calcular el envío.`,
+      );
     }
 
-    const result =  await this.addressIndexingService.getDeliveryPrice(businessAddress.id, clientAddressId, company.id);
+    const price = await this.deliveryPriceCalculatorService.calculate(
+      business_address.id,
+      Number(client_address.latitude),
+      Number(client_address.longitude),
+      company.id,
+    );
+
     // 3. Reutilizar la lógica de cálculo de doble zona
     return {
       idCompany: company.id,
-      price: result.finalPrice,
-      message: `Precio calculado automáticamente basado en la ubicación del negocio y el cliente. ${result.finalPrice > 0 ? 'Tarifa aplicada.' : 'No hay tarifa configurada para este trayecto.'}`,
+      price: price.price,
+      message: `Precio calculado automáticamente basado en la ubicación del negocio y el cliente. ${price.price > 0 ? 'Tarifa aplicada.' : 'No hay tarifa configurada para este trayecto.'}`,
     };
   }
 
@@ -241,7 +295,7 @@ async calculatePricePure(
       select: {
         id: true,
         name: true,
-      }
+      },
     });
   }
 
@@ -249,5 +303,5 @@ async calculatePricePure(
     return this.prisma.macroZone.findMany({
       where: { isActive: true },
     });
-    }
+  }
 }

@@ -68,6 +68,7 @@ model User {
   firstName    String   @map("nombre")
   lastName     String   @map("apellido")
   email        String   @unique @map("email")
+  phone        String?   @map("telefono")
   passwordHash String   @map("password_hash")
   role         UserRole @default(CLIENT) @map("rol")
   createdAt    DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
@@ -734,7 +735,7 @@ model Address {
 /// Representa una orden de un cliente.
 model Order {
   id                String  @id @default(uuid()) @map("id")
-  userId            String  @map("usuario_id")
+  userId            String?  @map("usuario_id")
   businessId        String  @map("negocio_id")
   deliveryAddressId String? @map("direccion_entrega_id") // opcional si es retiro
   pickupAddressId   String? @map("direccion_retiro_id") // opcional si es entrega
@@ -806,7 +807,7 @@ model Order {
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
 
-  user            User             @relation(fields: [userId], references: [id])
+  user            User?             @relation(fields: [userId], references: [id])
   business        Business         @relation(fields: [businessId], references: [id])
   deliveryAddress Address?         @relation("OrderDeliveryAddress", fields: [deliveryAddressId], references: [id])
   pickupAddress   Address?         @relation("OrderPickupAddress", fields: [pickupAddressId], references: [id])
@@ -1058,6 +1059,7 @@ model DeliveryZone {
   updatedAt DateTime @updatedAt
   priceMatrices DeliveryPriceMatrix[]
   addressIndices AddressZoneIndex[]
+  h3Indices H3Index[]
 }
 
 enum OrderOrigin {
@@ -1109,6 +1111,7 @@ model MacroZone {
   // Relaciones
   addressIndices AddressZoneIndex[]
   priceMatrix    DeliveryPriceMatrix[]
+  h3Indices H3Index[]
 
   @@map("macro_zones")
 }
@@ -1145,4 +1148,19 @@ model AddressZoneIndex {
   barrio    DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
 
   @@map("address_zone_index")
+}
+
+model H3Index {
+  id             String  @id @default(uuid())
+  h3Index        String  // El hexágono (Ej: '89e28308283ffff')
+  
+  macroZoneId    String?
+  deliveryZoneId String?
+  
+  // Relaciones (las que ya tenías)
+  macroZone      MacroZone?    @relation(fields: [macroZoneId], references: [id])
+  deliveryZone   DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
+
+  @@index([h3Index])
+  @@map("h3_indices")
 }

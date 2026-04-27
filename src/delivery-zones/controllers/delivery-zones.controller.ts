@@ -15,12 +15,16 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { DeliveryZonesQueryService } from '../services/delivery-zones-query.service';
 import { DeliveryOptionsDto } from '../dtos/request/delivery-options.dto';
+import { H3MigrationService } from '../services/H3Migration.service';
+import { DeliveryPriceCalculatorService } from '../services/delivery-price-calculator.service';
 
 @Controller('delivery-zones')
 export class DeliveryZonesController {
   constructor(
     private readonly deliveryZonesService: DeliveryZonesService,
     private readonly deliveryZonesQueryService: DeliveryZonesQueryService,
+    private readonly h3MigrationService: H3MigrationService,
+    private readonly deliveryPriceCalculatorService: DeliveryPriceCalculatorService,
   ) {}
 
   // Endpoint para que la compañía de delivery cree una nueva zona.
@@ -29,6 +33,31 @@ export class DeliveryZonesController {
   @Roles(UserRole.OWNER)
   async create(@Body() createZoneDto: CreateDeliveryZoneDto) {
     return this.deliveryZonesService.create(createZoneDto);
+  }
+
+  @Get('to-h3')
+  @Roles(UserRole.OWNER, UserRole.CLIENT)
+  async burnZonesToH3() {
+    return this.h3MigrationService.burnZonesToH3();
+  }
+
+  @Post('calculate-price')
+  @Roles(UserRole.OWNER, UserRole.CLIENT)
+  async calculate(
+    @Body()
+    cal: {
+      storeAddressId: string;
+      clientLat: number;
+      clientLng: number;
+      deliveryCompanyId: string;
+    },
+  ) {
+    return this.deliveryPriceCalculatorService.calculate(
+      cal.storeAddressId,
+      cal.clientLat,
+      cal.clientLng,
+      cal.deliveryCompanyId,
+    );
   }
 
   @Get('company/:companyId')
@@ -93,7 +122,7 @@ export class DeliveryZonesController {
   async getAvailableDeliveries(
     @Body()
     body: {
-      clientAddressId: string,
+      clientAddressId: string;
       businessId: string;
     },
   ) {

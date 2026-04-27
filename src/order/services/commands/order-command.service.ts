@@ -121,31 +121,35 @@ export class OrderCommandService
     });
 
     if (updatedOrder.paymentStatus == PaymentStatus.IN_PROGRESS) {
-      this.orderGateway.emitNewOrder({
-        businessId: updatedOrder.businessId,
-        userId: updatedOrder.userId,
-        id: updatedOrder.id,
-        createdAt: updatedOrder.createdAt.toISOString(),
-        total: Number(updatedOrder.total),
-        deliveryType: updatedOrder.deliveryType,
-        orderPaymentMethod: updatedOrder.orderPaymentMethod,
-        paymentStatus: updatedOrder.paymentStatus,
-        status: updatedOrder.status,
-        customerName: updatedOrder.customerName,
-      });
+      if (updatedOrder.userId) {
+        this.orderGateway.emitNewOrder({
+          businessId: updatedOrder.businessId,
+          userId: updatedOrder.userId,
+          id: updatedOrder.id,
+          createdAt: updatedOrder.createdAt.toISOString(),
+          total: Number(updatedOrder.total),
+          deliveryType: updatedOrder.deliveryType,
+          orderPaymentMethod: updatedOrder.orderPaymentMethod,
+          paymentStatus: updatedOrder.paymentStatus,
+          status: updatedOrder.status,
+          customerName: updatedOrder.customerName,
+        });
+      }
       // this.orderGateway.emitNewOrderNotification(fullOrder);
       this.logging.log('Orden en progreso. Evento emitido (New Order).', {
         orderId,
       });
     }
 
-    this.orderGateway.emitPaymentUpdated(
-      updatedOrder.id,
-      updatedOrder.paymentStatus,
-      data.paymentReceiptUrl || '',
-      updatedOrder.userId,
-      updatedOrder.businessId,
-    );
+    if (updatedOrder.userId) {
+      this.orderGateway.emitPaymentUpdated(
+        updatedOrder.id,
+        updatedOrder.paymentStatus,
+        data.paymentReceiptUrl || '',
+        updatedOrder.userId,
+        updatedOrder.businessId,
+      );
+    }
 
     this.logging.log('Pago de orden actualizado exitosamente.', {
       orderId: updatedOrder.id,
@@ -375,14 +379,17 @@ export class OrderCommandService
 
     // 3. Cálculo de envío SIN CONSULTAS A DB
     if (data.deliveryType === 'DELIVERY' && deliveryCompany) {
-      const deliveryPriceResult =
-        await this.addressIndexingService.getDeliveryPrice(
-          addressBusiness.id,
+      const deliveryPrice =
+        await this.deliveryZonesQueryService.getAutoDeliveryPrice(
+          data.businessId,
           addressUser.id,
-          deliveryCompany.id,
         );
 
-      totalDeliveryCost = deliveryPriceResult.finalPrice;
+      if (!deliveryPrice.price) {
+        throw new NotFoundException('Precio del envio no encontrado');
+      }
+
+      totalDeliveryCost = deliveryPrice.price;
     }
 
     const isCash = data.orderPaymentMethod === 'CASH';
@@ -405,10 +412,12 @@ export class OrderCommandService
         deliveryCompanyId: deliveryCompany?.id,
         customerName: `${user.firstName} ${user.lastName}`,
         customerPhone: user.email,
-        customerAddress: addressUser?.street ? `${addressUser.street} ${addressUser.number}` : null,
+        customerAddress: addressUser?.street
+          ? `${addressUser.street} ${addressUser.number}`
+          : null,
         customerAddresslatitude: addressUser?.latitude,
         customerAddresslongitude: addressUser?.longitude,
-        customerObservations:`${addressUser.apartment}, ${addressUser.notes}`,
+        customerObservations: `${addressUser.apartment}, ${addressUser.notes}`,
         businessName: business.name,
         businessPhone: business.phone,
         businessAddress: business.address,
@@ -443,18 +452,20 @@ export class OrderCommandService
       },
     });
 
-    this.orderGateway.emitNewOrder({
-      businessId: newOrder.businessId,
-      userId: newOrder.userId,
-      id: newOrder.id,
-      createdAt: newOrder.createdAt.toISOString(),
-      total: Number(newOrder.total),
-      deliveryType: newOrder.deliveryType,
-      orderPaymentMethod: newOrder.orderPaymentMethod,
-      paymentStatus: newOrder.paymentStatus,
-      status: newOrder.status,
-      customerName: newOrder.customerName,
-    });
+    if (newOrder.userId) {
+      this.orderGateway.emitNewOrder({
+        businessId: newOrder.businessId,
+        userId: newOrder.userId,
+        id: newOrder.id,
+        createdAt: newOrder.createdAt.toISOString(),
+        total: Number(newOrder.total),
+        deliveryType: newOrder.deliveryType,
+        orderPaymentMethod: newOrder.orderPaymentMethod,
+        paymentStatus: newOrder.paymentStatus,
+        status: newOrder.status,
+        customerName: newOrder.customerName,
+      });
+    }
 
     // // 5. Fire and Forget
     // this.eventEmitter.emit('notification.createdneworder', {
@@ -533,21 +544,23 @@ export class OrderCommandService
       // Esto es mejor afuera para no retrasar el cierre de la transacción en la BD
       const { updatedOrder, currentOrder } = result;
 
-      this.orderGateway.emitOrderStatusUpdated(
-        updatedOrder.id,
-        updatedOrder.status,
-        currentOrder.userId,
-        currentOrder.businessId,
-        currentOrder.deliveryCompanyId,
-      );
+      if (currentOrder.userId) {
+        this.orderGateway.emitOrderStatusUpdated(
+          updatedOrder.id,
+          updatedOrder.status,
+          currentOrder.userId,
+          currentOrder.businessId,
+          currentOrder.deliveryCompanyId,
+        );
 
-      this.emitUserNotification({
-        id: updatedOrder.id,
-        status: updatedOrder.status,
-        total: `${currentOrder.total}`,
-        targetEntityId: currentOrder.userId,
-        targetEntityType: TargetEntityType.USER,
-      });
+        this.emitUserNotification({
+          id: updatedOrder.id,
+          status: updatedOrder.status,
+          total: `${currentOrder.total}`,
+          targetEntityId: currentOrder.userId,
+          targetEntityType: TargetEntityType.USER,
+        });
+      }
 
       return updatedOrder.status;
     } catch (error) {
@@ -628,21 +641,23 @@ export class OrderCommandService
             // Tu lógica de emitNewOrder...
           }
 
-          this.orderGateway.emitOrderStatusUpdated(
-            updatedOrder.id,
-            updatedOrder.status,
-            updatedOrder.userId,
-            updatedOrder.businessId,
-            updatedOrder.deliveryCompanyId,
-          );
+          if (updatedOrder.userId) {
+            this.orderGateway.emitOrderStatusUpdated(
+              updatedOrder.id,
+              updatedOrder.status,
+              updatedOrder.userId,
+              updatedOrder.businessId,
+              updatedOrder.deliveryCompanyId,
+            );
 
-          this.orderGateway.emitPaymentUpdated(
-            updatedOrder.id,
-            updatedOrder.paymentStatus,
-            updatedOrder.paymentReceiptUrl || '',
-            updatedOrder.userId,
-            updatedOrder.businessId,
-          );
+            this.orderGateway.emitPaymentUpdated(
+              updatedOrder.id,
+              updatedOrder.paymentStatus,
+              updatedOrder.paymentReceiptUrl || '',
+              updatedOrder.userId,
+              updatedOrder.businessId,
+            );
+          }
 
           this.logging.log(
             'Estado de pago y orden actualizados exitosamente. Eventos emitidos.',

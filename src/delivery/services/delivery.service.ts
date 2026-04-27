@@ -110,13 +110,17 @@ export class DeliveryService implements IDeliveryService{
       data: { status },
     });
 
-    // Emitir actualización por WS
-    this.orderGateway.emitOrderStatusUpdated(
-      updated.id,
-      updated.status,
-      updated.userId,
-      updated.businessId,
-    );
+    if(updated.userId) {
+      // Emitir actualización por WS
+      this.orderGateway.emitOrderStatusUpdated(
+        updated.id,
+        updated.status,
+        updated.userId,
+        updated.businessId,
+      );
+
+    }
+
 
     return updated;
   }

@@ -7,12 +7,28 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { point, polygon } from '@turf/helpers';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+  import { polygonToCells } from 'h3-js';
+
 
 @Injectable()
 export class AddressIndexingService {
   private readonly logger = new Logger(AddressIndexingService.name);
 
   constructor(private prisma: PrismaService) {}
+
+
+async  indexZoneGeometry(zoneId: string, isMacro: boolean, geometry: any) {
+  // 1. Convertir polígono a lista de celdas H3 (resolución 9)
+  const h3Indices = polygonToCells(geometry.coordinates, 9, true);
+
+  // 2. Guardar en la tabla H3Index
+  await this.prisma.h3Index.createMany({
+    data: h3Indices.map(h3 => ({
+      h3Index: h3,
+      [isMacro ? 'macroZoneId' : 'deliveryZoneId']: zoneId
+    }))
+  });
+}
   /**
    * CALCULO DE PRECIO: Lógica de "Origen Dominante"
    * El negocio (origen) determina si usamos precios de Plaza o Cementerio.

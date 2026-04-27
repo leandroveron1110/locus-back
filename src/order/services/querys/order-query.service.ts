@@ -102,6 +102,7 @@ export class OrderQueryService implements IOrderQueryService {
     return {
       orders: orders.map((order) => ({
         ...order,
+        userId: order.userId ? order.userId : '', 
         total: Number(order.total),
         createdAt: order.createdAt.toISOString(),
       })),

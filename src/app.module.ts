@@ -34,12 +34,18 @@ import { LoggingModule } from './logging/logging.module';
 import { UploadsImageGlobalModule } from './uploads-image-global/uploads-image-global.module';
 import { PushModule } from './push/push.module';
 import { NotificationModule } from './notification/notification.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    CacheModule.register({
+      isGlobal: true, // Para no tener que importarlo en cada módulo
+      ttl: 0,         // 0 significa que no expira por defecto (ideal para tus zonas)
+      max: 10000,     // Cantidad máxima de elementos en memoria
     }),
     PrismaModule,
     AuthModule,
