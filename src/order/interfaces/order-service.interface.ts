@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 import { CreateOrderFullDTO } from '../dtos/request/order.dto';
 import { OrderResponseDto } from '../dtos/response/order-response.dto';
-import { SyncResult } from '../services/querys/order-query.service';
+import { SyncResult, SyncResults } from '../services/querys/order-query.service';
 import {
   SyncNotificationResponse,
   SyncNotificationUserResponse,
@@ -32,10 +32,9 @@ export interface IOrderQueryService {
   findNotificationNewsOrders(businessIds: string[]): Promise<any[]>;
   syncOrdersByBusinessId(
     businessId: string,
+    hours: number,
     lastSyncTime?: string,
-    daysBack?: number,
-    specificDate?: string,
-  ): Promise<SyncResult>;
+  ): Promise<SyncResults>;
   syncOrdersByUserId(
     id: string,
     hours?: number,

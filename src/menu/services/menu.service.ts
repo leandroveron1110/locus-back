@@ -42,6 +42,26 @@ export class MenuService implements IMenuService {
     return newMenu;
   }
 
+  // En tu backend: menus.service.ts
+  async getMenuVersion(businessId: string) {
+    // Obtenemos la fecha de la última actualización de cualquier producto de este negocio
+    const lastProductUpdate = await this.prisma.menuProduct.aggregate({
+      where: {
+        seccion: {
+          menu: { businessId },
+        },
+        isDeleted: false,
+      },
+      _max: { updatedAt: true },
+    });
+
+    return {
+      lastUpdated:
+        lastProductUpdate._max.updatedAt?.toISOString() ||
+        new Date(0).toISOString(),
+    };
+  }
+
   public async findAll() {
     const menus = await this.prisma.menu.findMany();
     return menus;
@@ -92,7 +112,7 @@ export class MenuService implements IMenuService {
           id: section.id,
           name: section.name,
           index: section.index,
-          products: []
+          products: [],
         }),
       ),
     }));

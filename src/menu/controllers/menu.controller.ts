@@ -36,6 +36,12 @@ export class MenuController {
     return await this.menuService.findBusinessesWithDiscountedProducts();
   }
 
+  @Get('version/:businessId')
+  @Public()
+  async getMenuVersion(@Param('businessId') businessId: string) {
+    return await this.menuService.getMenuVersion(businessId);
+  }
+
   // Obtener todos los menús de un negocio
   @Get('business/:businessId')
   @Public()

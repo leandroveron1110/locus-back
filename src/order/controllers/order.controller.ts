@@ -126,13 +126,12 @@ export class OrderController {
       daysBack?: number;
       specificDate?: string;
     },
-  ): Promise<SyncResult> {
+  ) {
     const { id, lastSyncTime, daysBack, specificDate } = body;
     return this.orderQueryService.syncOrdersByBusinessId(
       id,
+      200,
       lastSyncTime,
-      daysBack,
-      specificDate,
     );
   }
 

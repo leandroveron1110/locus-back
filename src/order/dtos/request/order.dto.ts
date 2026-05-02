@@ -201,39 +201,59 @@ export const CreateOrderSchema = z.object({
   ),
 });
 
-export const CreateManualOrderSchema = z.object({
-  // userId ahora es opcional. 
-  // El local puede buscarlo por teléfono o dejarlo vacío.
-  userId: z.uuid().optional(),
+export const BusinessCreateOrderSchema = z.object({
+  // Relaciones opcionales/obligatorias
+  userId: z.string().uuid().optional(), // Opcional para el negocio
+  businessId: z.string().uuid(),
+  deliveryCompanyId: z.string().uuid().optional(),
 
-  businessId: z.uuid(),
+  // Datos del Cliente (Snapshot Manual)
+  customerName: z.string().min(3, "El nombre es obligatorio"),
+  customerPhone: z.string().min(7, "El teléfono es obligatorio"),
+  
+  // Direcciones
+  deliveryAddressId: z.string().uuid().optional(), // ID de una dirección ya guardada
+  // Si no hay ID, el negocio puede mandar la info manual (Snapshot)
+  manualAddress: z.object({
+    street: z.string(),
+    latitude: z.number(),
+    longitude: z.number(),
+    observations: z.string().optional(),
+  }).optional(),
 
-  // Datos del cliente "al vuelo"
-  customerName: z.string().min(2, "El nombre es obligatorio"),
-  customerPhone: z.string().min(7, "El teléfono es necesario para el cadete"),
+  pickupAddressId: z.string().uuid().optional(),
 
-  // Direcciones simplificadas
-  // Si es RETIRO (PICKUP), estos pueden ser null.
-  // Si es DELIVERY, el vendedor puede cargar una dirección de texto o lat/lng si las tiene.
-  customerAddress: z.string().optional(),
-  customerLatitude: z.number().optional(),
-  customerLongitude: z.number().optional(),
-
-  deliveryType: z.enum(["DELIVERY", "PICKUP"]),
-  orderPaymentMethod: z.enum(PaymentMethodType),
-
-  // Notas para el cadete o el cocinero
+  // Configuración de la Orden
+  orderPaymentMethod: z.enum(['CASH', 'TRANSFER']), // Ajusta según tus enums
+  deliveryType: z.enum(['DELIVERY', 'PICKUP']),
+  
+  // Lógica de Cadetería (Nueva según tu modelo)
+  cadetPaymentPayer: z.enum(['CLIENT', 'BUSINESS']).default('CLIENT'),
+  isCadetCollectingOrder: z.boolean().default(false),
+  
   notes: z.string().optional(),
 
+  // Items (Igual que antes)
   items: z.array(
     z.object({
-      menuProductId: z.string(),
+      menuProductId: z.string().uuid(),
       quantity: z.number().int().positive(),
-      // ... tus grupos de opciones siguen igual
+      optionGroups: z.array(
+        z.object({
+          opcionGrupoId: z.string().uuid(),
+          options: z.array(
+            z.object({
+              opcionId: z.string().uuid(),
+              quantity: z.number().int().nonnegative(),
+            })
+          ),
+        })
+      ),
     })
-  ),
+  ).min(1, "La orden debe tener al menos un producto"),
 });
 
+export type BusinessCreateOrderDTO = z.infer<typeof BusinessCreateOrderSchema>;
 export type AggregateOrderDTO = z.infer<typeof CreateOrderSchema>;
 export type CreateOrderDTO = z.infer<typeof CreateOrderFullSchema>;
 export type CreateOrderFullDTO = z.infer<typeof CreateOrderFullSchema>;

@@ -97,11 +97,6 @@ export class MenuProductService implements IMenuProductService {
             },
           },
         },
-        foodCategories: {
-          include: {
-            foodCategory: true,
-          },
-        },
       },
       orderBy: {
         name: 'asc',

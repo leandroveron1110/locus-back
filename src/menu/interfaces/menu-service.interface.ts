@@ -5,6 +5,7 @@ import { MenuWithSectionsDto } from '../dtos/response/menu-res.dto';
 
 export interface IMenuService {
   createMenu(dto: MenuCreateDto): Promise<Menu>;
+  getMenuVersion(businessId: string): Promise<{lastUpdated: string}>;
   findAllByBusinessId(businessId: string): Promise<MenuWithSectionsDto[]>;
   findAllByBusinessIdForBusiness(businessId: string): Promise<MenuWithSectionsDto[]>
   findAll(): Promise<any>;

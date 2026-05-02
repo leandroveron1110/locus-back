@@ -18,6 +18,8 @@ import {
 } from '@prisma/client';
 import {
   AggregateOrderDTO,
+  BusinessCreateOrderDTO,
+  BusinessCreateOrderSchema,
   CreateOrderDTO,
   CreateOrderFullDTO,
   CreateOrderSchema,
@@ -171,7 +173,7 @@ export class OrderCommandService
     return data;
   }
 
-  private recolectIdsForBatchQueries(data: AggregateOrderDTO) {
+  private recolectIdsForBatchQueries(data: AggregateOrderDTO | BusinessCreateOrderDTO) {
     // 2. RECOLECTAR IDS PARA BÚSQUEDA MASIVA
     const productIds = data.items.map((i) => i.menuProductId);
     const optionIds = data.items.flatMap((item) =>
@@ -256,7 +258,7 @@ export class OrderCommandService
   }
 
   private buildOrderItemsAndTotal(
-    data: AggregateOrderDTO,
+    data: AggregateOrderDTO | BusinessCreateOrderDTO,
     products: any[],
     options: any[],
     optionGroups: any[],
@@ -477,6 +479,85 @@ export class OrderCommandService
 
     return newOrder;
   }
+
+  async buildFromBusiness(dto: unknown) {
+  const data = BusinessCreateOrderSchema.parse(dto);
+  const { productIds, optionIds, groupIds } = this.recolectIdsForBatchQueries(data);
+
+  // 1. Fetch de dependencias (User puede venir null)
+  const deps = await this.fetchOrderDependencies(data, productIds, groupIds, optionIds);
+  const { business, products, optionGroups, options, deliveryCompany, addressUser, addressBusiness } = deps;
+
+  // 2. Cálculo de Items y Total
+  const { itemsNestedCreate, totalOrderSum } = this.buildOrderItemsAndTotal(data, products, options, optionGroups);
+
+  // 3. CÁLCULO DE ENVÍO REPOTENCIADO (H3 + COORDENADAS)
+  let totalDeliveryCost = 0;
+  if (data.deliveryType === 'DELIVERY' && deliveryCompany) {
+    // Usamos el ID de dirección si existe, si no, las coordenadas manuales del front
+    const lat = addressUser?.latitude || data.manualAddress?.latitude;
+    const lng = addressUser?.longitude || data.manualAddress?.longitude;
+
+    if (!lat || !lng) throw new BadRequestException("Faltan coordenadas para calcular el envío");
+    const latN =  Number(lat);
+    const lngN = Number(lng)
+
+    const deliveryPrice = await this.deliveryZonesQueryService.getAutoDeliveryPrice(
+      data.businessId,
+      latN+""
+    );
+    totalDeliveryCost = deliveryPrice.price || 0;
+  }
+
+  // 4. CREACIÓN DE LA ORDEN CON SNAPSHOTS
+  return await this.prisma.order.create({
+    data: {
+      userId: data.userId || null,
+      businessId: data.businessId,
+      deliveryAddressId: data.deliveryAddressId || null,
+      deliveryCompanyId: deliveryCompany?.id || null,
+
+      // SNAPSHOTS: Aquí guardamos la info tal cual entró
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      customerAddress: addressUser 
+        ? `${addressUser.street} ${addressUser.number}` 
+        : data.manualAddress?.street,
+      customerAddresslatitude: addressUser?.latitude || data.manualAddress?.latitude,
+      customerAddresslongitude: addressUser?.longitude || data.manualAddress?.longitude,
+      customerObservations: addressUser?.notes || data.manualAddress?.observations,
+
+      businessName: business.name,
+      businessPhone: business.phone,
+      businessAddress: business.address,
+      businessAddresslatitude: addressBusiness?.latitude || 0,
+      businessAddresslongitude: addressBusiness?.longitude || 0,
+
+      total: new Prisma.Decimal(totalOrderSum),
+      totalDeliveryCost: new Prisma.Decimal(totalDeliveryCost),
+
+      orderPaymentMethod: data.orderPaymentMethod,
+      deliveryType: data.deliveryType,
+      
+      // Nuevos campos del modelo
+      cadetPaymentPayer: data.cadetPaymentPayer,
+      isCadetCollectingOrder: data.isCadetCollectingOrder,
+      
+      // Campos de pago (Inician en blanco o con lógica de Cash)
+      paymentExpected: { 
+        order: totalOrderSum, 
+        delivery: totalDeliveryCost, 
+        total: totalOrderSum + totalDeliveryCost 
+      },
+      paymentReceived: { order: 0, delivery: 0, total: 0 },
+
+      status: 'PENDING',
+      origin: 'IN_PERSON', // Para saber que la creó el local y no la App del cliente
+      
+      OrderItem: { create: itemsNestedCreate },
+    }
+  });
+}
 
   @OnEvent('notification.createdneworder', { async: true })
   async handleOrderNotification(order: {

@@ -25,7 +25,7 @@ export interface SyncResult {
 
 export interface SyncResults {
   orders: OrderResponseDto[];
-  // latestTimestamp: string;
+  latestTimestamp: string | undefined;
 }
 
 @Injectable()
@@ -38,7 +38,7 @@ export class OrderQueryService implements IOrderQueryService {
     this.logger.setService('OrderModule');
   }
 
-  async syncOrdersByBusinessId(
+  async syncOrdersShortByBusinessId(
     businessId: string,
     lastSyncTime?: string,
     daysBack?: number,
@@ -102,13 +102,15 @@ export class OrderQueryService implements IOrderQueryService {
     return {
       orders: orders.map((order) => ({
         ...order,
-        userId: order.userId ? order.userId : '', 
+        userId: order.userId ? order.userId : '',
         total: Number(order.total),
         createdAt: order.createdAt.toISOString(),
       })),
       latestTimestamp,
     };
   }
+
+  async findAllOrdesByBusinessId(businessId: string, lastSyncTime?: string) {}
 
   async orderDetailById(orderId: string) {
     try {
@@ -172,7 +174,11 @@ export class OrderQueryService implements IOrderQueryService {
     // Consulta
     const newOrUpdatedOrders = await this.prisma.order.findMany({
       where: whereClause,
-      include: this.commonIncludes,
+      include: {
+        OrderItem: {
+          include: { optionGroups: { include: { options: true } } },
+        },
+      },
       orderBy: { updatedAt: 'desc' },
     });
 
@@ -187,6 +193,75 @@ export class OrderQueryService implements IOrderQueryService {
       newOrUpdatedOrders: dtoList,
     };
   }
+
+  async syncOrdersByBusinessId(
+  businessId: string,
+  hours: number = 24,
+  lastSyncTime?: string,
+): Promise<SyncResults> {
+  const timeLimit = new Date(Date.now() - hours * 60 * 60 * 1000);
+  const syncDate = lastSyncTime ? new Date(lastSyncTime) : timeLimit;
+
+  // Filtramos: que sean del negocio Y que se hayan actualizado 
+  // después de la última sincronización, pero dentro del rango de X horas.
+  const orders = await this.prisma.order.findMany({
+    where: {
+      businessId,
+      updatedAt: { gt: syncDate },
+      createdAt: { gt: timeLimit }, // Para no traer todo el historial histórico
+    },
+    select: {
+      id: true,
+      status: true,
+      total: true,
+      totalDeliveryCost: true,
+      deliveryType: true,
+      orderPaymentMethod: true,
+      paymentStatus: true,
+      customerName: true,
+      customerPhone: true,
+      customerAddress: true,
+      customerObservations: true,
+      createdAt: true,
+      updatedAt: true,
+      notes: true,
+      OrderItem: {
+        select: {
+          id: true,
+          productName: true,
+          quantity: true,
+          priceAtPurchase: true,
+          notes: true,
+          optionGroups: {
+            select: {
+              groupName: true,
+              options: {
+                select: {
+                  optionName: true,
+                  priceFinal: true,
+                  quantity: true, // Si el modelo OrderOption tiene cantidad
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  // El latestTimestamp es vital para que el front lo guarde para la próxima llamada
+  const latestTimestamp = orders.length > 0 
+    ? orders[0].updatedAt.toISOString() 
+    : lastSyncTime;
+
+  const orderMapper = orders.map(OrderResponseDtoMapper.fromPrisma)
+
+  return {
+    latestTimestamp,
+    orders: orderMapper
+  };
+}
 
   async findOrdersByDeliveyId(deliveryId: string) {
     this.logger.debug('Fetching orders by deliveryId', { deliveryId });
@@ -523,7 +598,6 @@ export class OrderQueryService implements IOrderQueryService {
       OrderItem: {
         include: { optionGroups: { include: { options: true } } },
       },
-      OrderDiscount: true,
     };
   }
 }
