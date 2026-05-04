@@ -214,6 +214,8 @@ export class OrderQueryService implements IOrderQueryService {
       id: true,
       status: true,
       total: true,
+      userId: true,
+      origin: true,
       totalDeliveryCost: true,
       deliveryType: true,
       orderPaymentMethod: true,

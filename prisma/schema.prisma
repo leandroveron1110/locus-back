@@ -1065,10 +1065,7 @@ model DeliveryZone {
 enum OrderOrigin {
   APP
   WEB
-  WHATSAPP
-  PHONE
-  IN_PERSON
-  OTHER
+  BUSINESS
 }
 
 // -------------------------------------------------------------------------

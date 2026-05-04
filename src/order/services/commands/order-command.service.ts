@@ -552,7 +552,7 @@ export class OrderCommandService
       paymentReceived: { order: 0, delivery: 0, total: 0 },
 
       status: 'PENDING',
-      origin: 'IN_PERSON', // Para saber que la creó el local y no la App del cliente
+      origin: 'BUSINESS', // Para saber que la creó el local y no la App del cliente
       
       OrderItem: { create: itemsNestedCreate },
     }
