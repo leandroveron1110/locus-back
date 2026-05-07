@@ -800,9 +800,13 @@ model Order {
 
   deliveryType DeliveryType @default(DELIVERY) @map("tipo_entrega")
   status       OrderStatus  @default(PENDING) @map("estado")
+  deliveryStatus DeliveryStatus @default(NOT_APPLICABLE) @map("estado_envio")
   origin       OrderOrigin  @default(APP) @map("origen")
   isTest       Boolean      @default(false) @map("es_prueba")
   notes        String?      @map("notas")
+
+
+  events         OrderStateEvent[]
 
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
@@ -823,6 +827,40 @@ model Order {
   @@map("ordenes")
 }
 
+enum DeliveryStatus {
+  NOT_APPLICABLE  // Pick up
+  PENDING         // Reposo (Default)
+  REQUESTED       // El local hizo clic en "Pedir Cadete" (Avisa a la Base)
+  SHIPPED         // El local hizo clic en "Despachar" (Avisa al Cliente)
+  CANCELLED       // Problemas con el envío
+  COMPLETED       // Estado final automático o por fin de jornada
+}
+
+model OrderStateEvent {
+  id        String   @id @default(uuid())
+  orderId   String   @map("orden_id")
+  
+  // Qué tipo de estado cambió
+  stateType StateType @map("tipo_estado") // ORDER, PAYMENT, DELIVERY
+  
+  // El valor al que cambió (ej: "SHIPPED", "PAID")
+  value     String   @map("valor")
+  
+  // Metadata adicional (quién lo cambió, notas, etc.)
+  author    String?  @map("autor") // "SYSTEM", "BUSINESS", "CUSTOMER"
+  createdAt DateTime @default(now()) @map("creado_en")
+
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@map("ordenes_eventos_estado")
+}
+
+enum StateType {
+  ORDER
+  PAYMENT
+  DELIVERY
+}
 /// Representa un ítem individual dentro de una orden.
 model OrderItem {
   id            String @id @default(uuid()) @map("id")
@@ -962,59 +1000,6 @@ model PushSubscriptionTarget {
   @@index([targetEntityId, targetEntityType])
 }
 
-// Enums
-
-enum DeliveryType {
-  PICKUP // El cliente retira en el local
-  DELIVERY
-  IN_HOUSE_DELIVERY // El negocio entrega por su cuenta
-  EXTERNAL_DELIVERY // Se usa una cadetería externa
-}
-
-enum OrderStatus {
-  // 1. Creación y pago
-  PENDING /// Pedido creado (sin pago y sin confirmar)
-  WAITING_FOR_PAYMENT /// Pedido esperando pago
-  PAYMENT_IN_PROGRESS /// Pago en curso
-  PAYMENT_CONFIRMED /// Pago confirmado
-
-  // 2. Confirmación y preparación en negocio
-  PENDING_CONFIRMATION /// Esperando que el negocio acepte
-  CONFIRMED /// Negocio aceptó el pedido
-  REJECTED_BY_BUSINESS /// Negocio rechazó antes de preparar
-  PREPARING /// Pedido en preparación
-
-  // 2.1 Pedido listo
-  READY_FOR_CUSTOMER_PICKUP /// Pedido listo para retiro por el cliente
-  READY_FOR_DELIVERY_PICKUP /// Pedido listo y negocio llamó al delivery
-
-  // 3. Asignación de delivery
-  DELIVERY_PENDING /// Buscando delivery para asignar
-  DELIVERY_ASSIGNED /// Delivery asignado, esperando aceptación
-  DELIVERY_ACCEPTED /// Delivery aceptó la asignación
-  DELIVERY_REJECTED /// Delivery rechazó la asignación
-  DELIVERY_REASSIGNING /// Buscando otro delivery tras rechazo
-
-  // 4. Transporte
-  OUT_FOR_PICKUP /// Delivery yendo al negocio a buscar el pedido
-  PICKED_UP /// Pedido recogido por el delivery
-  OUT_FOR_DELIVERY /// Delivery en camino al cliente
-
-  // 5. Entrega y finalización
-  DELIVERED /// Pedido entregado con éxito
-  DELIVERY_FAILED /// No se pudo entregar el pedido
-  RETURNED /// Pedido devuelto al negocio
-  REFUNDED /// Dinero devuelto al cliente
-  COMPLETED /// Pedido cerrado y finalizado
-
-  // 6. Cancelaciones
-  CANCELLED_BY_USER /// Cancelado por el cliente
-  CANCELLED_BY_BUSINESS /// Cancelado por el negocio
-  CANCELLED_BY_DELIVERY /// Cancelado por el delivery
-
-  // 7. Errores generales
-  FAILED /// Error general (pago rechazado, problema interno)
-}
 
 // Modelos
 
@@ -1079,6 +1064,25 @@ enum PaymentMethodType {
   QR /// Código QR / Link de pago
   OTHER /// Otros métodos no listados
 }
+// Enums
+
+enum DeliveryType {
+  PICKUP // El cliente retira en el local
+  DELIVERY
+  IN_HOUSE_DELIVERY // El negocio entrega por su cuenta
+  EXTERNAL_DELIVERY // Se usa una cadetería externa
+}
+
+enum OrderStatus {
+  PENDING              // Recién creada, sin acción del negocio
+  CONFIRMED            // El negocio aceptó el pedido
+  PREPARING            // Se está cocinando/armando
+  READY                // El paquete está sobre el mostrador (listo para que alguien lo lleve)
+  COMPLETED            // Fin del ciclo (ya se entregó o retiró)
+  REJECTED             // El negocio no pudo o no quiso tomar el pedido
+  CANCELLED            // Anulada por el usuario o sistema
+}
+
 
 /// Define quién paga la tarifa del delivery al cadete/compañía
 enum CadetPaymentPayer {
@@ -1092,6 +1096,7 @@ enum PaymentStatus {
   PENDING /// Pago pendiente o efectivo/transferencia al recibir
   CONFIRMED /// Pago confirmado
   REJECTED /// Pago rechazado o fallido
+  REFUNDED      // Dinero devuelto
 }
 
 

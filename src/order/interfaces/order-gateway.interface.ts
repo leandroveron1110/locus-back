@@ -1,6 +1,14 @@
-import { OrderStatus, PaymentMethodType, PaymentStatus } from '@prisma/client';
+import {
+  DeliveryStatus,
+  OrderStatus,
+  PaymentMethodType,
+  PaymentStatus,
+} from '@prisma/client';
 import { Socket, Server } from 'socket.io';
-import { IOrderDtoResponse, OrderResponseDto } from 'src/order/dtos/response/order-response.dto';
+import {
+  IOrderDtoResponse,
+  OrderResponseDto,
+} from 'src/order/dtos/response/order-response.dto';
 
 export interface IOrderGateway {
   server: Server;
@@ -20,21 +28,23 @@ export interface IOrderGateway {
 
   emitOrderAssignedToDelivery(order: OrderResponseDto): void;
 
-  emitNewOrder(order: IOrderDtoResponse & {
+  emitNewOrder(
+    order: IOrderDtoResponse & {
       orderPaymentMethod: PaymentMethodType;
       paymentStatus: PaymentStatus;
       businessId: string;
-    }): void;
+    },
+  ): void;
 
   emitNewOrderNotification(order: OrderResponseDto): void;
 
   emitUserNotification(order: {
-      id: string,
-      userId: string,
-      total: string,
-      status: OrderStatus,
-      createdAt: string
-    }): void;
+    id: string;
+    userId: string;
+    status: OrderStatus;
+    deliveryStatus: DeliveryStatus; // Nuevo
+    paymentStatus: PaymentStatus; // Nuevo
+  }): void;
 
   emitOrderStatusUpdated(
     orderId: string,

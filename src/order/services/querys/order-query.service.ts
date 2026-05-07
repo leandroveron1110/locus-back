@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus, PaymentMethodType, PaymentStatus } from '@prisma/client';
+import { DeliveryStatus, OrderStatus, PaymentStatus } from '@prisma/client';
 import NewDate from 'src/common/validators/date';
 import { LoggingService } from 'src/logging/logging.service';
 import {
@@ -110,8 +110,6 @@ export class OrderQueryService implements IOrderQueryService {
     };
   }
 
-  async findAllOrdesByBusinessId(businessId: string, lastSyncTime?: string) {}
-
   async orderDetailById(orderId: string) {
     try {
       const order = await this.prisma.order.findUnique({
@@ -195,75 +193,74 @@ export class OrderQueryService implements IOrderQueryService {
   }
 
   async syncOrdersByBusinessId(
-  businessId: string,
-  hours: number = 24,
-  lastSyncTime?: string,
-): Promise<SyncResults> {
-  const timeLimit = new Date(Date.now() - hours * 60 * 60 * 1000);
-  const syncDate = lastSyncTime ? new Date(lastSyncTime) : timeLimit;
+    businessId: string,
+    hours: number = 24,
+    lastSyncTime?: string,
+  ): Promise<SyncResults> {
+    const timeLimit = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const syncDate = lastSyncTime ? new Date(lastSyncTime) : timeLimit;
 
-  // Filtramos: que sean del negocio Y que se hayan actualizado 
-  // después de la última sincronización, pero dentro del rango de X horas.
-  const orders = await this.prisma.order.findMany({
-    where: {
-      businessId,
-      updatedAt: { gt: syncDate },
-      createdAt: { gt: timeLimit }, // Para no traer todo el historial histórico
-    },
-    select: {
-      id: true,
-      status: true,
-      total: true,
-      userId: true,
-      origin: true,
-      totalDeliveryCost: true,
-      deliveryType: true,
-      orderPaymentMethod: true,
-      paymentStatus: true,
-      customerName: true,
-      customerPhone: true,
-      customerAddress: true,
-      customerObservations: true,
-      createdAt: true,
-      updatedAt: true,
-      notes: true,
-      OrderItem: {
-        select: {
-          id: true,
-          productName: true,
-          quantity: true,
-          priceAtPurchase: true,
-          notes: true,
-          optionGroups: {
-            select: {
-              groupName: true,
-              options: {
-                select: {
-                  optionName: true,
-                  priceFinal: true,
-                  quantity: true, // Si el modelo OrderOption tiene cantidad
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    orderBy: { updatedAt: 'desc' },
-  });
+    // Filtramos: que sean del negocio Y que se hayan actualizado
+    // después de la última sincronización, pero dentro del rango de X horas.
+    const orders = await this.prisma.order.findMany({
+      where: {
+        businessId,
+        updatedAt: { gt: syncDate },
+        createdAt: { gt: timeLimit }, // Para no traer todo el historial histórico
+      },
+      select: {
+        id: true,
+        status: true,
+        total: true,
+        userId: true,
+        origin: true,
+        totalDeliveryCost: true,
+        deliveryType: true,
+        orderPaymentMethod: true,
+        paymentStatus: true,
+        customerName: true,
+        customerPhone: true,
+        customerAddress: true,
+        customerObservations: true,
+        createdAt: true,
+        updatedAt: true,
+        notes: true,
+        OrderItem: {
+          select: {
+            id: true,
+            productName: true,
+            quantity: true,
+            priceAtPurchase: true,
+            notes: true,
+            optionGroups: {
+              select: {
+                groupName: true,
+                options: {
+                  select: {
+                    optionName: true,
+                    priceFinal: true,
+                    quantity: true, // Si el modelo OrderOption tiene cantidad
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
 
-  // El latestTimestamp es vital para que el front lo guarde para la próxima llamada
-  const latestTimestamp = orders.length > 0 
-    ? orders[0].updatedAt.toISOString() 
-    : lastSyncTime;
+    // El latestTimestamp es vital para que el front lo guarde para la próxima llamada
+    const latestTimestamp =
+      orders.length > 0 ? orders[0].updatedAt.toISOString() : lastSyncTime;
 
-  const orderMapper = orders.map(OrderResponseDtoMapper.fromPrisma)
+    const orderMapper = orders.map(OrderResponseDtoMapper.fromPrisma);
 
-  return {
-    latestTimestamp,
-    orders: orderMapper
-  };
-}
+    return {
+      latestTimestamp,
+      orders: orderMapper,
+    };
+  }
 
   async findOrdersByDeliveyId(deliveryId: string) {
     this.logger.debug('Fetching orders by deliveryId', { deliveryId });
@@ -449,114 +446,94 @@ export class OrderQueryService implements IOrderQueryService {
     lastSyncTime?: string,
     hours: number = 24,
   ): Promise<SyncNotificationUserResponse> {
-    this.logger.debug('Starting incremental sync for notification orders', {
+    this.logger.debug('Iniciando sincronización incremental (3 hilos)', {
       userId,
       lastSyncTime,
-      hours,
     });
 
-    if (!userId) {
-      return { notification: [] };
-    }
+    if (!userId) return { notification: [] };
 
-    // 1️⃣ Calcular el límite de tiempo dinámico (últimas N horas)
     const now = new Date();
     const timeLimit = new Date(now.getTime() - hours * 60 * 60 * 1000);
-
-    // 2️⃣ Definir estados que generan notificaciones
-    const notificationStatuses = [
-      OrderStatus.READY_FOR_CUSTOMER_PICKUP,
-      OrderStatus.OUT_FOR_DELIVERY,
-      OrderStatus.DELIVERED,
-      OrderStatus.CANCELLED_BY_BUSINESS,
-      OrderStatus.CANCELLED_BY_DELIVERY,
-    ];
-
-    // 3️⃣ Filtros de estado y tiempo
-    const statusFilter = {
-      status: { in: notificationStatuses },
-    };
-
     const syncDate = lastSyncTime ? new Date(lastSyncTime) : undefined;
-
-    // Si hay lastSyncTime, tomamos el más reciente entre syncDate y timeLimit
-    // Así nunca se buscan pedidos más viejos que el rango de horas definido
     const effectiveStartDate =
       syncDate && syncDate > timeLimit ? syncDate : timeLimit;
 
-    const timeFilter = {
-      OR: [
-        { createdAt: { gt: effectiveStartDate } },
-        { updatedAt: { gt: effectiveStartDate } },
-      ],
-    };
-
-    // 4️⃣ Construcción del WHERE final
-    const finalWhere = {
-      userId,
-      ...statusFilter,
-      ...timeFilter,
-    };
-
-    // 5️⃣ Consulta
+    // 1️⃣ Definimos los estados "notificables" en los 3 hilos
+    // Nota: Ahora incluimos cambios en deliveryStatus y paymentStatus
     const orders = await this.prisma.order.findMany({
-      where: finalWhere,
+      where: {
+        userId,
+        OR: [
+          { createdAt: { gt: effectiveStartDate } },
+          { updatedAt: { gt: effectiveStartDate } },
+        ],
+        // Filtramos para no traer pedidos "silenciosos" (como los PENDING iniciales)
+        NOT: {
+          AND: [
+            { status: OrderStatus.PENDING },
+            { deliveryStatus: DeliveryStatus.PENDING },
+            { paymentStatus: PaymentStatus.PENDING },
+          ],
+        },
+      },
       select: {
         id: true,
         userId: true,
         status: true,
-        createdAt: true,
+        deliveryStatus: true, // Nuevo hilo
+        paymentStatus: true, // Nuevo hilo
         updatedAt: true,
         total: true,
       },
       orderBy: { updatedAt: 'desc' },
     });
 
-    this.logger.log(
-      `Fetched USER ${orders.length} new/updated notification orders (last ${hours}h)`,
-    );
-
-    // 6️⃣ Mapear las órdenes a notificaciones
+    // 2️⃣ Mapeo inteligente basado en la prioridad de los hilos
     const notifications: INotification[] = orders
       .map((order) => {
         let title = '';
         let message = '';
         let priority: NotificationPriority = 'LOW';
-        const shortOrderId = `#${order.id.slice(0, 6).toUpperCase()}`;
+        const shortId = `#${order.id.slice(0, 6).toUpperCase()}`;
 
-        switch (order.status) {
-          case OrderStatus.READY_FOR_CUSTOMER_PICKUP:
-            title = '¡Listo para recoger!';
-            message = `Tu pedido ${shortOrderId} te está esperando. ¡Pasa por aquí cuando quieras!`;
-            priority = 'HIGH';
-            break;
+        // Lógica de Prioridad de Notificación:
+        // La logística (Delivery) suele ser más importante para el usuario que el estado de cocina.
 
-          case OrderStatus.OUT_FOR_DELIVERY:
-            title = '¡Tu pedido está en camino!';
-            message = `El repartidor va en camino con tu pedido ${shortOrderId}.`;
-            priority = 'MEDIUM';
-            break;
-
-          case OrderStatus.DELIVERED:
-            title = '¡Pedido entregado! ✅';
-            message = `Tu pedido ${shortOrderId} ha sido completado. ¡Esperamos que lo disfrutes!`;
-            priority = 'LOW';
-            break;
-
-          case OrderStatus.CANCELLED_BY_BUSINESS:
-            title = 'Pedido CANCELADO';
-            message = `Lamentamos informarte que el negocio tuvo que cancelar tu pedido ${shortOrderId}. Revisa los detalles.`;
-            priority = 'HIGH';
-            break;
-
-          case OrderStatus.CANCELLED_BY_DELIVERY:
-            title = 'Pedido CANCELADO';
-            message = `Hubo un problema con el delivery. Tu pedido ${shortOrderId} fue cancelado por el repartidor.`;
-            priority = 'HIGH';
-            break;
-
-          default:
-            return null;
+        // CASO A: El pedido está en viaje (Hilo Delivery manda)
+        if (order.deliveryStatus === DeliveryStatus.SHIPPED) {
+          title = '¡Tu pedido está en camino! 🛵';
+          message = `El repartidor ya retiró tu pedido ${shortId} y va hacia tu ubicación.`;
+          priority = 'HIGH';
+        }
+        // CASO B: El pedido está listo (Hilo Negocio manda)
+        else if (order.status === OrderStatus.READY) {
+          title = '¡Pedido preparado! ✨';
+          message = `Tu pedido ${shortId} ya está listo. Si es para retirar, ¡te esperamos!`;
+          priority = 'HIGH';
+        }
+        // CASO C: Pago rechazado (Hilo Pago manda)
+        else if (order.paymentStatus === PaymentStatus.REJECTED) {
+          title = 'Problema con el pago ❌';
+          message = `Hubo un error con el pago de tu pedido ${shortId}. Por favor, revisalo.`;
+          priority = 'HIGH';
+        }
+        // CASO D: Cancelaciones
+        else if (order.status === OrderStatus.CANCELLED) {
+          title = 'Pedido Cancelado';
+          message = `El pedido ${shortId} ha sido cancelado.`;
+          priority = 'MEDIUM';
+        }
+        // CASO E: Confirmación inicial
+        else if (
+          order.status === OrderStatus.CONFIRMED &&
+          order.paymentStatus === PaymentStatus.CONFIRMED
+        ) {
+          title = 'Pedido Confirmado ✅';
+          message = `¡Todo listo! El negocio ya aceptó tu pedido ${shortId}.`;
+          priority = 'LOW';
+        } else {
+          return null; // No notificamos estados intermedios como PREPARING
         }
 
         return {

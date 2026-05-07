@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  InternalServerErrorException,
   Inject,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -10,18 +9,14 @@ import {
   Prisma,
   OrderStatus,
   PaymentStatus,
-  OrderOrigin,
   PaymentMethodType,
-  Order,
   NotificationPriority,
-  DeliveryType,
+  DeliveryStatus,
 } from '@prisma/client';
 import {
   AggregateOrderDTO,
   BusinessCreateOrderDTO,
   BusinessCreateOrderSchema,
-  CreateOrderDTO,
-  CreateOrderFullDTO,
   CreateOrderSchema,
 } from 'src/order/dtos/request/order.dto';
 import {
@@ -29,18 +24,18 @@ import {
   IOrderDeleteService,
   IOrderQueryService,
   IOrderUpdateService,
-  IOrderValidationService,
 } from 'src/order/interfaces/order-service.interface';
 import { IOrderGateway } from 'src/order/interfaces/order-gateway.interface';
 import { TOKENS } from 'src/common/constants/tokens';
 import { LoggingService } from 'src/logging/logging.service';
 import { NotificationCommandService } from 'src/notification/service/notification.command.service';
 import { TargetEntityType } from 'src/notification/dto/request/create-notification.dto';
-import { OrderResponseDtoMapper } from 'src/order/dtos/response/order-response.dto';
-import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { OnEvent } from '@nestjs/event-emitter';
 import { DeliveryZonesQueryService } from 'src/delivery-zones/services/delivery-zones-query.service';
-import { AddressIndexingService } from 'src/delivery-zones/services/address-indexing.service';
-import { canTransition } from 'src/common/constants/allowed_transition';
+import {
+  canChangeOrderStatus,
+  PAYMENT_TRANSITIONS,
+} from 'src/common/constants/allowed_transition';
 
 @Injectable()
 export class OrderCommandService
@@ -49,7 +44,6 @@ export class OrderCommandService
   constructor(
     private prisma: PrismaService,
     @Inject(TOKENS.IOrderValidationService)
-    private orderValidation: IOrderValidationService,
     @Inject(TOKENS.IOrderGateway)
     private readonly orderGateway: IOrderGateway,
     @Inject(TOKENS.IOrderQueryService)
@@ -57,8 +51,6 @@ export class OrderCommandService
     private logging: LoggingService,
     private notificationCommanService: NotificationCommandService,
     private deliveryZonesQueryService: DeliveryZonesQueryService,
-    private eventEmitter: EventEmitter2,
-    private addressIndexingService: AddressIndexingService,
   ) {
     this.logging.setContext(OrderCommandService.name);
     this.logging.setService('OrderModule');
@@ -173,7 +165,9 @@ export class OrderCommandService
     return data;
   }
 
-  private recolectIdsForBatchQueries(data: AggregateOrderDTO | BusinessCreateOrderDTO) {
+  private recolectIdsForBatchQueries(
+    data: AggregateOrderDTO | BusinessCreateOrderDTO,
+  ) {
     // 2. RECOLECTAR IDS PARA BÚSQUEDA MASIVA
     const productIds = data.items.map((i) => i.menuProductId);
     const optionIds = data.items.flatMap((item) =>
@@ -396,9 +390,7 @@ export class OrderCommandService
 
     const isCash = data.orderPaymentMethod === 'CASH';
 
-    const initialStatus = isCash
-      ? OrderStatus.PENDING_CONFIRMATION
-      : OrderStatus.PENDING;
+    const initialStatus = OrderStatus.PENDING;
 
     const initialPaymentStatus = isCash
       ? PaymentStatus.PENDING // En efectivo siempre está pendiente hasta que se entrega
@@ -480,85 +472,6 @@ export class OrderCommandService
     return newOrder;
   }
 
-  async buildFromBusiness(dto: unknown) {
-  const data = BusinessCreateOrderSchema.parse(dto);
-  const { productIds, optionIds, groupIds } = this.recolectIdsForBatchQueries(data);
-
-  // 1. Fetch de dependencias (User puede venir null)
-  const deps = await this.fetchOrderDependencies(data, productIds, groupIds, optionIds);
-  const { business, products, optionGroups, options, deliveryCompany, addressUser, addressBusiness } = deps;
-
-  // 2. Cálculo de Items y Total
-  const { itemsNestedCreate, totalOrderSum } = this.buildOrderItemsAndTotal(data, products, options, optionGroups);
-
-  // 3. CÁLCULO DE ENVÍO REPOTENCIADO (H3 + COORDENADAS)
-  let totalDeliveryCost = 0;
-  if (data.deliveryType === 'DELIVERY' && deliveryCompany) {
-    // Usamos el ID de dirección si existe, si no, las coordenadas manuales del front
-    const lat = addressUser?.latitude || data.manualAddress?.latitude;
-    const lng = addressUser?.longitude || data.manualAddress?.longitude;
-
-    if (!lat || !lng) throw new BadRequestException("Faltan coordenadas para calcular el envío");
-    const latN =  Number(lat);
-    const lngN = Number(lng)
-
-    const deliveryPrice = await this.deliveryZonesQueryService.getAutoDeliveryPrice(
-      data.businessId,
-      latN+""
-    );
-    totalDeliveryCost = deliveryPrice.price || 0;
-  }
-
-  // 4. CREACIÓN DE LA ORDEN CON SNAPSHOTS
-  return await this.prisma.order.create({
-    data: {
-      userId: data.userId || null,
-      businessId: data.businessId,
-      deliveryAddressId: data.deliveryAddressId || null,
-      deliveryCompanyId: deliveryCompany?.id || null,
-
-      // SNAPSHOTS: Aquí guardamos la info tal cual entró
-      customerName: data.customerName,
-      customerPhone: data.customerPhone,
-      customerAddress: addressUser 
-        ? `${addressUser.street} ${addressUser.number}` 
-        : data.manualAddress?.street,
-      customerAddresslatitude: addressUser?.latitude || data.manualAddress?.latitude,
-      customerAddresslongitude: addressUser?.longitude || data.manualAddress?.longitude,
-      customerObservations: addressUser?.notes || data.manualAddress?.observations,
-
-      businessName: business.name,
-      businessPhone: business.phone,
-      businessAddress: business.address,
-      businessAddresslatitude: addressBusiness?.latitude || 0,
-      businessAddresslongitude: addressBusiness?.longitude || 0,
-
-      total: new Prisma.Decimal(totalOrderSum),
-      totalDeliveryCost: new Prisma.Decimal(totalDeliveryCost),
-
-      orderPaymentMethod: data.orderPaymentMethod,
-      deliveryType: data.deliveryType,
-      
-      // Nuevos campos del modelo
-      cadetPaymentPayer: data.cadetPaymentPayer,
-      isCadetCollectingOrder: data.isCadetCollectingOrder,
-      
-      // Campos de pago (Inician en blanco o con lógica de Cash)
-      paymentExpected: { 
-        order: totalOrderSum, 
-        delivery: totalDeliveryCost, 
-        total: totalOrderSum + totalDeliveryCost 
-      },
-      paymentReceived: { order: 0, delivery: 0, total: 0 },
-
-      status: 'PENDING',
-      origin: 'BUSINESS', // Para saber que la creó el local y no la App del cliente
-      
-      OrderItem: { create: itemsNestedCreate },
-    }
-  });
-}
-
   @OnEvent('notification.createdneworder', { async: true })
   async handleOrderNotification(order: {
     orderId: string;
@@ -606,7 +519,7 @@ export class OrderCommandService
         if (!currentOrder) throw new Error('Orden no encontrada');
 
         // 2. Validamos la transición con la lógica que ya tenemos
-        if (!canTransition(currentOrder.status, newStatus)) {
+        if (!canChangeOrderStatus(currentOrder.status, newStatus)) {
           throw new Error(
             `Transición ilegal: de ${currentOrder.status} a ${newStatus}`,
           );
@@ -616,6 +529,16 @@ export class OrderCommandService
         const updatedOrder = await tx.order.update({
           where: { id },
           data: { status: newStatus },
+        });
+
+        // 2. Registramos el hecho en la tabla de eventos
+        await tx.orderStateEvent.create({
+          data: {
+            orderId: id,
+            stateType: 'ORDER',
+            value: newStatus,
+            author: 'BUSINESS', // O el actor correspondiente
+          },
         });
 
         return { updatedOrder, currentOrder };
@@ -659,104 +582,153 @@ export class OrderCommandService
     paymentStatus: PaymentStatus,
   ): Promise<PaymentStatus> {
     try {
-      return await this.prisma
-        .$transaction(async (tx) => {
-          // 1. Obtener orden actual
-          const currentOrder = await tx.order.findUnique({
-            where: { id: orderId },
-            select: {
-              id: true,
-              status: true,
-              paymentStatus: true,
-              userId: true,
-              businessId: true,
-              deliveryCompanyId: true,
-              total: true,
-            },
-          });
-
-          if (!currentOrder)
-            throw new NotFoundException(`Order ${orderId} not found`);
-
-          // 2. Validar transición de pago (Tu lógica actual)
-          const validInitialStates: PaymentStatus[] = [
-            PaymentStatus.PENDING,
-            PaymentStatus.IN_PROGRESS,
-          ];
-          if (!validInitialStates.includes(currentOrder.paymentStatus)) {
-            throw new BadRequestException(
-              `Cannot change payment status from ${currentOrder.paymentStatus}`,
-            );
-          }
-
-          // 3. Determinar el nuevo estado de la orden (Lógica de negocio)
-          let nextStatus = currentOrder.status; // Por defecto no cambia
-          if (paymentStatus === PaymentStatus.CONFIRMED)
-            nextStatus = OrderStatus.CONFIRMED;
-          if (paymentStatus === PaymentStatus.REJECTED)
-            nextStatus = OrderStatus.REJECTED_BY_BUSINESS;
-
-          // 4. VALIDACIÓN DE SEGURIDAD: ¿Es este cambio de estado legal?
-          if (
-            nextStatus !== currentOrder.status &&
-            !canTransition(currentOrder.status, nextStatus)
-          ) {
-            throw new Error(
-              `Transición ilegal: No se puede cambiar a ${nextStatus} tras el pago.`,
-            );
-          }
-
-          // 5. Actualización Atómica
-          const updatedOrder = await tx.order.update({
-            where: { id: orderId },
-            data: { paymentStatus, status: nextStatus },
-          });
-
-          return { updatedOrder, currentOrder };
-        })
-        .then(async (result) => {
-          const { updatedOrder, currentOrder } = result;
-
-          // 6. EVENTOS (Fuera de la transacción)
-          if (paymentStatus === PaymentStatus.IN_PROGRESS) {
-            // Tu lógica de emitNewOrder...
-          }
-
-          if (updatedOrder.userId) {
-            this.orderGateway.emitOrderStatusUpdated(
-              updatedOrder.id,
-              updatedOrder.status,
-              updatedOrder.userId,
-              updatedOrder.businessId,
-              updatedOrder.deliveryCompanyId,
-            );
-
-            this.orderGateway.emitPaymentUpdated(
-              updatedOrder.id,
-              updatedOrder.paymentStatus,
-              updatedOrder.paymentReceiptUrl || '',
-              updatedOrder.userId,
-              updatedOrder.businessId,
-            );
-          }
-
-          this.logging.log(
-            'Estado de pago y orden actualizados exitosamente. Eventos emitidos.',
-            {
-              orderId: updatedOrder.id,
-              finalPaymentStatus: updatedOrder.paymentStatus,
-              finalOrderStatus: updatedOrder.status,
-            },
-          );
-          return updatedOrder.paymentStatus;
-
-          return updatedOrder.paymentStatus;
+      const result = await this.prisma.$transaction(async (tx) => {
+        const currentOrder = await tx.order.findUnique({
+          where: { id: orderId },
+          select: {
+            id: true,
+            status: true,
+            paymentStatus: true,
+            userId: true,
+            businessId: true,
+            deliveryCompanyId: true,
+          },
         });
+
+        if (!currentOrder)
+          throw new NotFoundException(`Order ${orderId} not found`);
+
+        // 1. Validar transición de pago
+        if (
+          !PAYMENT_TRANSITIONS[currentOrder.paymentStatus]?.includes(
+            paymentStatus,
+          )
+        ) {
+          throw new BadRequestException(
+            `Transición de pago ilegal: ${currentOrder.paymentStatus} -> ${paymentStatus}`,
+          );
+        }
+
+        // 2. Lógica de Reacción: ¿El pago afecta el estado de la orden?
+        let nextOrderStatus = currentOrder.status;
+        if (
+          paymentStatus === PaymentStatus.CONFIRMED &&
+          currentOrder.status === OrderStatus.PENDING
+        ) {
+          nextOrderStatus = OrderStatus.CONFIRMED;
+        }
+
+        // 3. Actualización Atómica
+        const updatedOrder = await tx.order.update({
+          where: { id: orderId },
+          data: {
+            paymentStatus,
+            status: nextOrderStatus,
+          },
+        });
+
+        // 4. Registrar Eventos de Hecho
+        await tx.orderStateEvent.create({
+          data: { orderId, stateType: 'PAYMENT', value: paymentStatus },
+        });
+
+        if (nextOrderStatus !== currentOrder.status) {
+          await tx.orderStateEvent.create({
+            data: { orderId, stateType: 'ORDER', value: nextOrderStatus },
+          });
+        }
+
+        return { updatedOrder, currentOrder };
+      });
+
+      const { updatedOrder } = result;
+
+      if (updatedOrder.userId) {
+        // 5. Notificar a los Gateways
+        this.orderGateway.emitPaymentUpdated(
+          updatedOrder.id,
+          updatedOrder.paymentStatus,
+          updatedOrder.paymentReceiptUrl || '',
+          updatedOrder.userId,
+          updatedOrder.businessId,
+        );
+      }
+
+      return updatedOrder.paymentStatus;
     } catch (error) {
-      // Tu lógica de log y manejo de errores...
+      this.logging.error('Error en updatePaymentStatus', {
+        orderId,
+        error: error.message,
+      });
       throw error;
     }
   }
+
+  async updateDeliveryStatus(id: string, newDeliveryStatus: DeliveryStatus) {
+  try {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const currentOrder = await tx.order.findUnique({
+        where: { id },
+        select: { 
+          id: true, 
+          status: true, 
+          deliveryStatus: true, 
+          userId: true, // Puede ser null
+          businessId: true, 
+          deliveryCompanyId: true 
+        },
+      });
+
+      if (!currentOrder) throw new NotFoundException('Orden no encontrada');
+
+      // 1. Permitimos saltos directos si el negocio lo decide
+      // El negocio puede cancelar o despachar sin pasar por 'REQUESTED'
+      const updatedOrder = await tx.order.update({
+        where: { id },
+        data: { 
+          deliveryStatus: newDeliveryStatus,
+          // Si el negocio pone "En camino", aseguramos que la orden no quede en "PENDING"
+          status: (newDeliveryStatus === DeliveryStatus.SHIPPED && currentOrder.status === OrderStatus.PENDING) 
+                  ? OrderStatus.CONFIRMED 
+                  : currentOrder.status
+        },
+      });
+
+      // 2. Registro del hecho
+      await tx.orderStateEvent.create({
+        data: {
+          orderId: id,
+          stateType: 'DELIVERY',
+          value: newDeliveryStatus,
+          author: 'BUSINESS',
+        },
+      });
+
+      return updatedOrder;
+    });
+
+    // 3. Notificación condicional (Solo si hay usuario registrado)
+    if (result.userId) {
+      this.orderGateway.emitUserNotification({
+        id: result.id,
+        userId: result.userId,
+        status: result.status,
+        deliveryStatus: result.deliveryStatus,
+        paymentStatus: result.paymentStatus,
+      });
+    }
+
+    // 4. Notificación a la Mensajería (Si está asignada)
+    // if (result.deliveryCompanyId) {
+    //    this.orderGateway.emitToDeliveryCompany(result.deliveryCompanyId, result);
+    // }
+
+    return result.deliveryStatus;
+  } catch (error) {
+    this.logging.error('Error en updateDeliveryStatus', { orderId: id, error: error.message });
+    throw error;
+  }
+}
 
   async remove(id: string) {
     return this.prisma.order.delete({ where: { id } });
@@ -766,7 +738,7 @@ export class OrderCommandService
     id: string;
     targetEntityId: string;
     total: string;
-    status: OrderStatus;
+    status: OrderStatus | DeliveryStatus;
     targetEntityType: TargetEntityType;
   }) {
     const shortOrderId = `#${order.id.slice(0, 6).toUpperCase()}`; // ID corto en mayúsculas
@@ -777,31 +749,25 @@ export class OrderCommandService
     let shouldNotify: boolean = true; // Renombrado de isSwitchCase a shouldNotify
 
     switch (order.status) {
-      case OrderStatus.READY_FOR_CUSTOMER_PICKUP:
+      case OrderStatus.COMPLETED:
         title = '¡Listo para recoger!';
         message = `Tu pedido ${shortOrderId} te está esperando. ¡Pasa por aquí cuando quieras!`;
         priority = 'HIGH';
         break;
 
-      case OrderStatus.OUT_FOR_DELIVERY:
+      case DeliveryStatus.SHIPPED:
         title = '¡Tu pedido está en camino!';
         message = `El repartidor va en camino con tu pedido ${shortOrderId}.`;
         priority = 'MEDIUM';
         break;
 
-      case OrderStatus.DELIVERED:
-        title = '¡Pedido entregado! ✅';
-        message = `Tu pedido ${shortOrderId} ha sido completado. ¡Esperamos que lo disfrutes!`;
-        priority = 'LOW';
-        break;
-
-      case OrderStatus.CANCELLED_BY_BUSINESS:
+      case OrderStatus.CANCELLED:
         title = 'Pedido CANCELADO';
         message = `Lamentamos informarte que el negocio tuvo que cancelar tu pedido ${shortOrderId}. Revisa los detalles.`;
         priority = 'HIGH';
         break;
 
-      case OrderStatus.CANCELLED_BY_DELIVERY:
+      case DeliveryStatus.CANCELLED:
         title = 'Pedido CANCELADO';
         message = `Hubo un problema con el delivery. Tu pedido ${shortOrderId} fue cancelado por el repartidor.`;
         priority = 'HIGH';
