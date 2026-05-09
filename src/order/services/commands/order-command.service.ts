@@ -411,7 +411,7 @@ export class OrderCommandService
           : null,
         customerAddresslatitude: addressUser?.latitude,
         customerAddresslongitude: addressUser?.longitude,
-        customerObservations: `${addressUser.apartment}, ${addressUser.notes}`,
+        customerObservations: addressUser ? `${addressUser.apartment}, ${addressUser.notes}` : null,
         businessName: business.name,
         businessPhone: business.phone,
         businessAddress: business.address,
@@ -446,20 +446,20 @@ export class OrderCommandService
       },
     });
 
-    if (newOrder.userId) {
-      this.orderGateway.emitNewOrder({
-        businessId: newOrder.businessId,
-        userId: newOrder.userId,
-        id: newOrder.id,
-        createdAt: newOrder.createdAt.toISOString(),
-        total: Number(newOrder.total),
-        deliveryType: newOrder.deliveryType,
-        orderPaymentMethod: newOrder.orderPaymentMethod,
-        paymentStatus: newOrder.paymentStatus,
-        status: newOrder.status,
-        customerName: newOrder.customerName,
-      });
-    }
+    // if (newOrder.userId) {
+    //   this.orderGateway.emitNewOrder({
+    //     businessId: newOrder.businessId,
+    //     userId: newOrder.userId,
+    //     id: newOrder.id,
+    //     createdAt: newOrder.createdAt.toISOString(),
+    //     total: Number(newOrder.total),
+    //     deliveryType: newOrder.deliveryType,
+    //     orderPaymentMethod: newOrder.orderPaymentMethod,
+    //     paymentStatus: newOrder.paymentStatus,
+    //     status: newOrder.status,
+    //     customerName: newOrder.customerName,
+    //   });
+    // }
 
     // // 5. Fire and Forget
     // this.eventEmitter.emit('notification.createdneworder', {

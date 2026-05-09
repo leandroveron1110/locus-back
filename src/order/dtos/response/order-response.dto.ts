@@ -90,6 +90,8 @@ export interface OrderResponseDto {
   customerObservations?: string | null;
   businessObservations?: string | null;
   origin: OrderOrigin
+  shortCode?: string | null;
+  dailyNumber?: number | null;
 
   // 📌 Snapshots
   user: {

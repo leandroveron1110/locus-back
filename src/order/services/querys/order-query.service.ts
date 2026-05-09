@@ -225,6 +225,8 @@ export class OrderQueryService implements IOrderQueryService {
         createdAt: true,
         updatedAt: true,
         notes: true,
+        shortCode: true,
+        dailyNumber: true,
         OrderItem: {
           select: {
             id: true,

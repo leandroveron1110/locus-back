@@ -808,6 +808,15 @@ model Order {
 
   events         OrderStateEvent[]
 
+  // El "Nombre de Guerra" (P-1, A-22)
+  // Es String porque incluye el prefijo y es opcional para 
+  // no romper pedidos viejos o integraciones externas
+  shortCode        String?  
+  
+  // Guardamos el número puro para facilitar el conteo y resets
+  // 1, 2, 3...
+  dailyNumber      Int?
+
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
 
