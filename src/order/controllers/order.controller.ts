@@ -11,7 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { validateWithZod } from 'src/common/validators/validate-with-zod';
-import { CreateOrderFullDTO } from '../dtos/request/order.dto';
+import { CreateOrderFullDTO, SyncBusinessOrderDTO } from '../dtos/request/order.dto';
 import {
   OrderStatus,
   PaymentMethodType,
@@ -89,6 +89,14 @@ export class OrderController {
   async createOrder(@Body() dto: CreateOrderFullDTO): Promise<{ id: string }> {
     const order = await this.orderCreationService.build(dto);
     return { id: order.id };
+  }
+
+  @Post('sync-from-pos')
+  @Public()
+  @HttpCode(HttpStatus.CREATED) // Opcional, pero recomendado
+  async syncFromPos(@Body() dto: SyncBusinessOrderDTO): Promise<{ id: string }> {
+    const result = await this.orderCreationService.syncOrderFromBusiness(dto);
+    return { id: result.id };
   }
 
   // ================== CONSULTAS ==================

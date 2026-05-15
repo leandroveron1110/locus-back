@@ -4,7 +4,7 @@ import {
   PaymentMethodType,
   PaymentStatus,
 } from '@prisma/client';
-import { CreateOrderFullDTO } from '../dtos/request/order.dto';
+import { CreateOrderFullDTO, SyncBusinessOrderDTO } from '../dtos/request/order.dto';
 import { OrderResponseDto } from '../dtos/response/order-response.dto';
 import { SyncResult, SyncResults } from '../services/querys/order-query.service';
 import {
@@ -17,6 +17,7 @@ import {
  */
 export interface IOrderCreationService {
   build(dto: unknown): Promise<Order>;
+  syncOrderFromBusiness(data: SyncBusinessOrderDTO): Promise<any>;
 }
 
 /**

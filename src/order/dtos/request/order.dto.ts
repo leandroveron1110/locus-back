@@ -201,59 +201,79 @@ export const CreateOrderSchema = z.object({
   ),
 });
 
-export const BusinessCreateOrderSchema = z.object({
-  // Relaciones opcionales/obligatorias
-  userId: z.string().uuid().optional(), // Opcional para el negocio
-  businessId: z.string().uuid(),
-  deliveryCompanyId: z.string().uuid().optional(),
+export const BusinessSyncOrderSchema = z.object({
+  idTemp: z.string().uuid(), // ID soberano del local
+  businessId: z.uuid(),
+  userId: z.uuid().optional().nullable(), // Puede ser anónimo
 
-  // Datos del Cliente (Snapshot Manual)
-  customerName: z.string().min(3, "El nombre es obligatorio"),
-  customerPhone: z.string().min(7, "El teléfono es obligatorio"),
+  // Datos ya resueltos por el Core local
+  customerName: z.string(),
+  customerPhone: z.string().optional(),
+  customerAddress: z.string().optional(),
   
-  // Direcciones
-  deliveryAddressId: z.string().uuid().optional(), // ID de una dirección ya guardada
-  // Si no hay ID, el negocio puede mandar la info manual (Snapshot)
-  manualAddress: z.object({
-    street: z.string(),
-    latitude: z.number(),
-    longitude: z.number(),
-    observations: z.string().optional(),
-  }).optional(),
-
-  pickupAddressId: z.string().uuid().optional(),
-
-  // Configuración de la Orden
-  orderPaymentMethod: z.enum(['CASH', 'TRANSFER']), // Ajusta según tus enums
   deliveryType: z.enum(['DELIVERY', 'PICKUP']),
+  deliveryProvider: z.enum(['PLATFORM', 'INTERNAL']),
+  orderPaymentMethod: z.enum(['CASH', 'TRANSFER', 'QR']),
   
-  // Lógica de Cadetería (Nueva según tu modelo)
-  cadetPaymentPayer: z.enum(['CLIENT', 'BUSINESS']).default('CLIENT'),
-  isCadetCollectingOrder: z.boolean().default(false),
+  total: z.number(),
+  totalDeliveryCost: z.number(),
   
-  notes: z.string().optional(),
-
-  // Items (Igual que antes)
-  items: z.array(
-    z.object({
-      menuProductId: z.string().uuid(),
-      quantity: z.number().int().positive(),
-      optionGroups: z.array(
-        z.object({
-          opcionGrupoId: z.string().uuid(),
-          options: z.array(
-            z.object({
-              opcionId: z.string().uuid(),
-              quantity: z.number().int().nonnegative(),
-            })
-          ),
-        })
-      ),
-    })
-  ).min(1, "La orden debe tener al menos un producto"),
+  items: z.array(z.object({
+    menuProductId: z.string(),
+    productName: z.string(),
+    quantity: z.number(),
+    priceAtPurchase: z.number(),
+    optionGroups: z.array(z.object({
+      groupName: z.string(),
+      options: z.array(z.object({
+        opcionId: z.string(),
+        optionName: z.string(),
+        priceFinal: z.number(),
+        quantity: z.number()
+      }))
+    }))
+  }))
 });
 
-export type BusinessCreateOrderDTO = z.infer<typeof BusinessCreateOrderSchema>;
+export interface SyncBusinessOrderDTO {
+  businessId: string;
+  userId?: string; // Opcional para venta mostrador
+  customerName: string;
+  customerPhone: string;
+  
+  // Totales ya calculados por el Core local
+  total: number;
+  totalDeliveryCost: number;
+  paymentExpected: any; 
+  paymentReceived: any;
+  
+  deliveryType: 'DELIVERY' | 'PICKUP';
+  orderPaymentMethod: 'CASH' | 'TRANSFER' | 'QR';
+  shortCode: string;
+  dailyNumber: number;
+
+  items: Array<{
+    menuProductId: string;
+    productName: string;
+    productDescription?: string;
+    quantity: number;
+    priceAtPurchase: number;
+    optionGroups: Array<{
+      groupName: string;
+      minQuantity: number;
+      maxQuantity: number;
+      quantityType: string;
+      options: Array<{
+        opcionId: string;
+        optionName: string;
+        priceFinal: number;
+        quantity: number;
+      }>
+    }>
+  }>
+}
+
+export type BusinessSyncOrderDTO = z.infer<typeof BusinessSyncOrderSchema>;
 export type AggregateOrderDTO = z.infer<typeof CreateOrderSchema>;
 export type CreateOrderDTO = z.infer<typeof CreateOrderFullSchema>;
 export type CreateOrderFullDTO = z.infer<typeof CreateOrderFullSchema>;

@@ -14,7 +14,6 @@ import { UpdateDeliveryZoneDto } from '../dtos/request/update-delivery-zone.dto'
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { DeliveryZonesQueryService } from '../services/delivery-zones-query.service';
-import { DeliveryOptionsDto } from '../dtos/request/delivery-options.dto';
 import { H3MigrationService } from '../services/H3Migration.service';
 import { DeliveryPriceCalculatorService } from '../services/delivery-price-calculator.service';
 
@@ -41,7 +40,7 @@ export class DeliveryZonesController {
     return this.h3MigrationService.burnZonesToH3();
   }
 
-  @Post('calculate-price')
+  @Post('calculate-price-addressid')
   @Roles(UserRole.OWNER, UserRole.CLIENT)
   async calculate(
     @Body()
@@ -57,6 +56,24 @@ export class DeliveryZonesController {
       cal.clientLat,
       cal.clientLng,
       cal.deliveryCompanyId,
+    );
+  }
+
+  @Post('calculate-price')
+  @Roles(UserRole.OWNER, UserRole.CLIENT)
+  async calculatePrice(
+    @Body()
+    cal: {
+      businessId: string;
+      clientLat: number;
+      clientLng: number;
+      deliveryCompanyId: string;
+    },
+  ) {
+    return this.deliveryPriceCalculatorService.calculateForBusiness(
+      cal.businessId,
+      cal.clientLat,
+      cal.clientLng,
     );
   }
 
@@ -94,28 +111,28 @@ export class DeliveryZonesController {
 
   // Endpoint para que el cliente obtenga el precio de una ubicación.
   // Ejemplo de body: { "companyId": "uuid-company", "lat": -34.6037, "lng": -58.3816 }
-  @Post('calculate-price')
-  @Roles(UserRole.CLIENT, UserRole.OWNER)
-  async calculatePrice(
-    @Body()
-    body: {
-      companyId: string;
-      customerLat: number;
-      customerLng: number;
-      businessLat: number;
-      businessLng: number;
-    },
-  ) {
-    const price = await this.deliveryZonesQueryService.calculatePrice(
-      body.companyId,
-      body.customerLat,
-      body.customerLng,
-      body.businessLat,
-      body.businessLng,
-    );
+  // @Post('calculate-price')
+  // @Roles(UserRole.CLIENT, UserRole.OWNER)
+  // async calculatePrice(
+  //   @Body()
+  //   body: {
+  //     companyId: string;
+  //     customerLat: number;
+  //     customerLng: number;
+  //     businessLat: number;
+  //     businessLng: number;
+  //   },
+  // ) {
+  //   const price = await this.deliveryZonesQueryService.calculatePrice(
+  //     body.companyId,
+  //     body.customerLat,
+  //     body.customerLng,
+  //     body.businessLat,
+  //     body.businessLng,
+  //   );
 
-    return { ...price };
-  }
+  //   return { ...price };
+  // }
 
   @Post('options')
   @Roles(UserRole.CLIENT, UserRole.OWNER)

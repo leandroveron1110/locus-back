@@ -15,9 +15,10 @@ import {
 } from '@prisma/client';
 import {
   AggregateOrderDTO,
-  BusinessCreateOrderDTO,
-  BusinessCreateOrderSchema,
   CreateOrderSchema,
+  BusinessSyncOrderDTO,
+  BusinessSyncOrderSchema,
+  SyncBusinessOrderDTO,
 } from 'src/order/dtos/request/order.dto';
 import {
   IOrderCreationService,
@@ -165,9 +166,7 @@ export class OrderCommandService
     return data;
   }
 
-  private recolectIdsForBatchQueries(
-    data: AggregateOrderDTO | BusinessCreateOrderDTO,
-  ) {
+  private recolectIdsForBatchQueries(data: AggregateOrderDTO) {
     // 2. RECOLECTAR IDS PARA BÚSQUEDA MASIVA
     const productIds = data.items.map((i) => i.menuProductId);
     const optionIds = data.items.flatMap((item) =>
@@ -252,7 +251,7 @@ export class OrderCommandService
   }
 
   private buildOrderItemsAndTotal(
-    data: AggregateOrderDTO | BusinessCreateOrderDTO,
+    data: AggregateOrderDTO,
     products: any[],
     options: any[],
     optionGroups: any[],
@@ -411,7 +410,9 @@ export class OrderCommandService
           : null,
         customerAddresslatitude: addressUser?.latitude,
         customerAddresslongitude: addressUser?.longitude,
-        customerObservations: addressUser ? `${addressUser.apartment}, ${addressUser.notes}` : null,
+        customerObservations: addressUser
+          ? `${addressUser.apartment}, ${addressUser.notes}`
+          : null,
         businessName: business.name,
         businessPhone: business.phone,
         businessAddress: business.address,
@@ -468,6 +469,105 @@ export class OrderCommandService
     //   businessName: newOrder.businessName,
     //   total: newOrder.total.toString(),
     // });
+
+    return newOrder;
+  }
+
+  async syncOrderFromBusiness(data: SyncBusinessOrderDTO) {
+    // Esto lo podemos cachear o traerlo rápido.
+    const business = await this.prisma.business.findUnique({
+      where: { id: data.businessId },
+      select: {
+        name: true,
+        phone: true,
+        address: true,
+        latitude: true,
+        longitude: true,
+      },
+    });
+
+    if (!business) throw new Error('Negocio no encontrado');
+
+    // 2. Creación en un solo paso
+    const newOrder = await this.prisma.order.create({
+      data: {
+        businessId: data.businessId,
+        userId: data.userId || null,
+
+        // Snapshots del Cliente
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
+        customerAddress:
+          data.deliveryType === 'DELIVERY'
+            ? 'Venta en mostrador / Local'
+            : null,
+
+        // Snapshots del Negocio
+        businessName: business.name,
+        businessPhone: business.phone || '',
+        businessAddress: business.address || '',
+        businessAddresslatitude: business.latitude || 0,
+        businessAddresslongitude: business.longitude || 0,
+
+        // Totales (Hechos)
+        total: new Prisma.Decimal(data.total),
+        totalDeliveryCost: new Prisma.Decimal(data.totalDeliveryCost),
+        paymentExpected: data.paymentExpected,
+        paymentReceived: data.paymentReceived,
+
+        // Estados
+        deliveryType: data.deliveryType,
+        orderPaymentMethod: data.orderPaymentMethod,
+        origin: 'BUSINESS',
+        status: 'PENDING',
+        shortCode: data.shortCode,
+        dailyNumber: data.dailyNumber,
+
+        // Items Anidados
+        OrderItem: {
+          create: data.items.map((item) => ({
+            menuProductId: item.menuProductId,
+            productName: item.productName,
+            productDescription: item.productDescription,
+            quantity: item.quantity,
+            priceAtPurchase: new Prisma.Decimal(item.priceAtPurchase),
+            optionGroups: {
+              create: item.optionGroups.map((group) => ({
+                groupName: group.groupName,
+                minQuantity: group.minQuantity,
+                maxQuantity: group.maxQuantity,
+                quantityType: group.quantityType,
+                options: {
+                  create: group.options.map((opt) => ({
+                    opcionId: opt.opcionId,
+                    optionName: opt.optionName,
+                    priceFinal: new Prisma.Decimal(opt.priceFinal),
+                    priceWithoutTaxes: new Prisma.Decimal(opt.priceFinal), // Simplificado para POS
+                    taxesAmount: new Prisma.Decimal(0),
+                    priceModifierType: 'FIXED',
+                    quantity: opt.quantity,
+                  })),
+                },
+              })),
+            },
+          })),
+        },
+
+        // Evento inicial de auditoría
+        events: {
+          create: {
+            stateType: 'ORDER',
+            value: 'CREATED_FROM_POS',
+            author: 'BUSINESS',
+          },
+        },
+      },
+      select: {
+        id: true,
+        shortCode: true,
+        createdAt: true,
+      },
+    });
 
     return newOrder;
   }
@@ -665,70 +765,75 @@ export class OrderCommandService
   }
 
   async updateDeliveryStatus(id: string, newDeliveryStatus: DeliveryStatus) {
-  try {
-    const result = await this.prisma.$transaction(async (tx) => {
-      const currentOrder = await tx.order.findUnique({
-        where: { id },
-        select: { 
-          id: true, 
-          status: true, 
-          deliveryStatus: true, 
-          userId: true, // Puede ser null
-          businessId: true, 
-          deliveryCompanyId: true 
-        },
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        const currentOrder = await tx.order.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            status: true,
+            deliveryStatus: true,
+            userId: true, // Puede ser null
+            businessId: true,
+            deliveryCompanyId: true,
+          },
+        });
+
+        if (!currentOrder) throw new NotFoundException('Orden no encontrada');
+
+        // 1. Permitimos saltos directos si el negocio lo decide
+        // El negocio puede cancelar o despachar sin pasar por 'REQUESTED'
+        const updatedOrder = await tx.order.update({
+          where: { id },
+          data: {
+            deliveryStatus: newDeliveryStatus,
+            // Si el negocio pone "En camino", aseguramos que la orden no quede en "PENDING"
+            status:
+              newDeliveryStatus === DeliveryStatus.SHIPPED &&
+              currentOrder.status === OrderStatus.PENDING
+                ? OrderStatus.CONFIRMED
+                : currentOrder.status,
+          },
+        });
+
+        // 2. Registro del hecho
+        await tx.orderStateEvent.create({
+          data: {
+            orderId: id,
+            stateType: 'DELIVERY',
+            value: newDeliveryStatus,
+            author: 'BUSINESS',
+          },
+        });
+
+        return updatedOrder;
       });
 
-      if (!currentOrder) throw new NotFoundException('Orden no encontrada');
+      // 3. Notificación condicional (Solo si hay usuario registrado)
+      if (result.userId) {
+        this.orderGateway.emitUserNotification({
+          id: result.id,
+          userId: result.userId,
+          status: result.status,
+          deliveryStatus: result.deliveryStatus,
+          paymentStatus: result.paymentStatus,
+        });
+      }
 
-      // 1. Permitimos saltos directos si el negocio lo decide
-      // El negocio puede cancelar o despachar sin pasar por 'REQUESTED'
-      const updatedOrder = await tx.order.update({
-        where: { id },
-        data: { 
-          deliveryStatus: newDeliveryStatus,
-          // Si el negocio pone "En camino", aseguramos que la orden no quede en "PENDING"
-          status: (newDeliveryStatus === DeliveryStatus.SHIPPED && currentOrder.status === OrderStatus.PENDING) 
-                  ? OrderStatus.CONFIRMED 
-                  : currentOrder.status
-        },
+      // 4. Notificación a la Mensajería (Si está asignada)
+      // if (result.deliveryCompanyId) {
+      //    this.orderGateway.emitToDeliveryCompany(result.deliveryCompanyId, result);
+      // }
+
+      return result.deliveryStatus;
+    } catch (error) {
+      this.logging.error('Error en updateDeliveryStatus', {
+        orderId: id,
+        error: error.message,
       });
-
-      // 2. Registro del hecho
-      await tx.orderStateEvent.create({
-        data: {
-          orderId: id,
-          stateType: 'DELIVERY',
-          value: newDeliveryStatus,
-          author: 'BUSINESS',
-        },
-      });
-
-      return updatedOrder;
-    });
-
-    // 3. Notificación condicional (Solo si hay usuario registrado)
-    if (result.userId) {
-      this.orderGateway.emitUserNotification({
-        id: result.id,
-        userId: result.userId,
-        status: result.status,
-        deliveryStatus: result.deliveryStatus,
-        paymentStatus: result.paymentStatus,
-      });
+      throw error;
     }
-
-    // 4. Notificación a la Mensajería (Si está asignada)
-    // if (result.deliveryCompanyId) {
-    //    this.orderGateway.emitToDeliveryCompany(result.deliveryCompanyId, result);
-    // }
-
-    return result.deliveryStatus;
-  } catch (error) {
-    this.logging.error('Error en updateDeliveryStatus', { orderId: id, error: error.message });
-    throw error;
   }
-}
 
   async remove(id: string) {
     return this.prisma.order.delete({ where: { id } });
