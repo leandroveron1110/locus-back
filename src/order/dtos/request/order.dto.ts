@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { OrderStatus, OrderOrigin, PaymentMethodType, PaymentStatus, DeliveryType, CadetPaymentPayer } from '@prisma/client';
+import { OrderStatus, OrderOrigin, PaymentMethodType, PaymentStatus, DeliveryType, CadetPaymentPayer, DeliveryStatus } from '@prisma/client';
 
 export const CreateOrderOptionSchema = z.object({
   optionName: z.string(),
@@ -236,10 +236,15 @@ export const BusinessSyncOrderSchema = z.object({
 });
 
 export interface SyncBusinessOrderDTO {
+  idTemp: string; // ID temporal generado por el local para esta orden
   businessId: string;
   userId?: string; // Opcional para venta mostrador
   customerName: string;
   customerPhone: string;
+
+  status?: OrderStatus;
+  deliveryStatus?: DeliveryStatus;
+  paymentStatus?: PaymentStatus;
   
   // Totales ya calculados por el Core local
   total: number;

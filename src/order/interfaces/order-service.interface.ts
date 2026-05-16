@@ -18,6 +18,14 @@ import {
 export interface IOrderCreationService {
   build(dto: unknown): Promise<Order>;
   syncOrderFromBusiness(data: SyncBusinessOrderDTO): Promise<any>;
+  syncBatchOrdersFromBusiness(
+    data: { businessId: string; orders: SyncBusinessOrderDTO[] },
+  ): Promise<{
+      idTemp: string;
+      cloudId?: string;
+      status: 'SUCCESS' | 'ERROR';
+      error?: string;
+    }[]>;
 }
 
 /**

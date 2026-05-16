@@ -11,7 +11,10 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { validateWithZod } from 'src/common/validators/validate-with-zod';
-import { CreateOrderFullDTO, SyncBusinessOrderDTO } from '../dtos/request/order.dto';
+import {
+  CreateOrderFullDTO,
+  SyncBusinessOrderDTO,
+} from '../dtos/request/order.dto';
 import {
   OrderStatus,
   PaymentMethodType,
@@ -94,9 +97,22 @@ export class OrderController {
   @Post('sync-from-pos')
   @Public()
   @HttpCode(HttpStatus.CREATED) // Opcional, pero recomendado
-  async syncFromPos(@Body() dto: SyncBusinessOrderDTO): Promise<{ id: string }> {
+  async syncFromPos(
+    @Body() dto: SyncBusinessOrderDTO,
+  ): Promise<{ id: string }> {
     const result = await this.orderCreationService.syncOrderFromBusiness(dto);
     return { id: result.id };
+  }
+
+  @Post('sync-batch')
+  @Public()
+  @HttpCode(HttpStatus.CREATED) // Opcional, pero recomendado
+  async syncBatchOrdersFromBusiness(
+    @Body() dto: { businessId: string; orders: SyncBusinessOrderDTO[] },
+  ) {
+    const result =
+      await this.orderCreationService.syncBatchOrdersFromBusiness(dto);
+    return result;
   }
 
   // ================== CONSULTAS ==================
@@ -136,11 +152,7 @@ export class OrderController {
     },
   ) {
     const { id, lastSyncTime, daysBack, specificDate } = body;
-    return this.orderQueryService.syncOrdersByBusinessId(
-      id,
-      200,
-      lastSyncTime,
-    );
+    return this.orderQueryService.syncOrdersByBusinessId(id, 200, lastSyncTime);
   }
 
   @Post('sync/user')

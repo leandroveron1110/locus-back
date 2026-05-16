@@ -735,6 +735,7 @@ model Address {
 /// Representa una orden de un cliente.
 model Order {
   id                String  @id @default(uuid()) @map("id")
+  idTemp            String? @map("id_temp") @unique // ID temporal para pedidos en proceso antes de confirmar
   userId            String?  @map("usuario_id")
   businessId        String  @map("negocio_id")
   deliveryAddressId String? @map("direccion_entrega_id") // opcional si es retiro

@@ -474,6 +474,15 @@ export class OrderCommandService
   }
 
   async syncOrderFromBusiness(data: SyncBusinessOrderDTO) {
+    // 1. Verificar si ya fue sincronizada previamente usando el idTemp único
+    const existOrder = await this.prisma.order.findFirst({
+      where: { idTemp: data.idTemp },
+      select: { id: true, shortCode: true, createdAt: true },
+    });
+
+    if (existOrder) {
+      return existOrder; // Evitamos duplicar y devolvemos consistencia
+    }
     // Esto lo podemos cachear o traerlo rápido.
     const business = await this.prisma.business.findUnique({
       where: { id: data.businessId },
@@ -491,6 +500,7 @@ export class OrderCommandService
     // 2. Creación en un solo paso
     const newOrder = await this.prisma.order.create({
       data: {
+        idTemp: data.idTemp,
         businessId: data.businessId,
         userId: data.userId || null,
 
@@ -570,6 +580,301 @@ export class OrderCommandService
     });
 
     return newOrder;
+  }
+
+  async syncBatchOrdersFromBusiness(payload: {
+    businessId: string;
+    orders: SyncBusinessOrderDTO[];
+  }) {
+    const { businessId, orders } = payload;
+
+    // =========================================================
+    // 1. VALIDACIONES BÁSICAS
+    // =========================================================
+
+    if (!orders.length) {
+      return [];
+    }
+
+    // =========================================================
+    // 2. OBTENEMOS SNAPSHOT DEL NEGOCIO UNA SOLA VEZ
+    // =========================================================
+
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        name: true,
+        phone: true,
+        address: true,
+        latitude: true,
+        longitude: true,
+      },
+    });
+
+    if (!business) {
+      throw new Error('Negocio no encontrado');
+    }
+
+    // =========================================================
+    // 3. MAPEO IDEMPOTENTE INICIAL
+    // =========================================================
+
+    const targetIdTemps = orders
+      .map((o) => o.idTemp)
+      .filter(Boolean) as string[];
+
+    const existingOrders = await this.prisma.order.findMany({
+      where: {
+        idTemp: {
+          in: targetIdTemps,
+        },
+      },
+      select: {
+        id: true,
+        idTemp: true,
+      },
+    });
+
+    const existingMap = new Map(existingOrders.map((o) => [o.idTemp!, o.id]));
+
+    type SyncResult = {
+      idTemp: string;
+      cloudId?: string;
+      status: 'SUCCESS' | 'ERROR';
+      error?: string;
+    };
+
+    const results: SyncResult[] = [];
+
+    // =========================================================
+    // 4. RESPONDEMOS DIRECTO LOS YA EXISTENTES
+    // =========================================================
+
+    for (const [idTemp, cloudId] of existingMap.entries()) {
+      results.push({
+        idTemp,
+        cloudId,
+        status: 'SUCCESS',
+      });
+    }
+
+    // =========================================================
+    // 5. FILTRAMOS SOLO LOS NUEVOS
+    // =========================================================
+
+    const ordersToCreate = orders.filter((o) => !existingMap.has(o.idTemp));
+
+    // =========================================================
+    // 6. CONCURRENCY LIMIT
+    // =========================================================
+
+    const CONCURRENCY_LIMIT = 5;
+
+    for (let i = 0; i < ordersToCreate.length; i += CONCURRENCY_LIMIT) {
+      const slice = ordersToCreate.slice(i, i + CONCURRENCY_LIMIT);
+
+      const settled = await Promise.allSettled(
+        slice.map(async (orderData) => {
+          try {
+            const created = await this.prisma.order.create({
+              data: {
+                idTemp: orderData.idTemp,
+
+                businessId,
+
+                userId: orderData.userId || null,
+
+                customerName: orderData.customerName,
+
+                customerPhone: orderData.customerPhone,
+
+                customerAddress:
+                  orderData.deliveryType === 'DELIVERY'
+                    ? 'Envío a domicilio'
+                    : 'Venta en mostrador / Local',
+
+                // =====================================================
+                // SNAPSHOT NEGOCIO
+                // =====================================================
+
+                businessName: business.name,
+
+                businessPhone: business.phone || '',
+
+                businessAddress: business.address || '',
+
+                businessAddresslatitude: business.latitude || 0,
+
+                businessAddresslongitude: business.longitude || 0,
+
+                // =====================================================
+                // TOTALES
+                // =====================================================
+
+                total: new Prisma.Decimal(orderData.total),
+
+                totalDeliveryCost: new Prisma.Decimal(
+                  orderData.totalDeliveryCost || 0,
+                ),
+
+                paymentExpected: orderData.paymentExpected || {},
+
+                paymentReceived: orderData.paymentReceived || {},
+
+                // =====================================================
+                // ESTADOS
+                // =====================================================
+
+                deliveryType: orderData.deliveryType,
+
+                orderPaymentMethod: orderData.orderPaymentMethod,
+
+                origin: 'BUSINESS',
+
+                status: orderData.status || 'PENDING',
+
+                deliveryStatus: orderData.deliveryStatus || 'NOT_APPLICABLE',
+
+                paymentStatus: orderData.paymentStatus || 'PENDING',
+
+                shortCode: orderData.shortCode,
+
+                dailyNumber: orderData.dailyNumber,
+
+                // =====================================================
+                // ITEMS
+                // =====================================================
+
+                OrderItem: {
+                  create: orderData.items.map((item) => ({
+                    menuProductId: item.menuProductId,
+
+                    productName: item.productName,
+
+                    productDescription: item.productDescription || '',
+
+                    quantity: item.quantity,
+
+                    priceAtPurchase: new Prisma.Decimal(item.priceAtPurchase),
+
+                    optionGroups: {
+                      create: item.optionGroups.map((group) => ({
+                        groupName: group.groupName,
+
+                        minQuantity: group.minQuantity || 0,
+
+                        maxQuantity: group.maxQuantity || 1,
+
+                        quantityType: group.quantityType || 'SINGLE',
+
+                        options: {
+                          create: group.options.map((opt) => ({
+                            opcionId: opt.opcionId,
+
+                            optionName: opt.optionName,
+
+                            priceFinal: new Prisma.Decimal(opt.priceFinal),
+
+                            priceWithoutTaxes: new Prisma.Decimal(
+                              opt.priceFinal,
+                            ),
+
+                            taxesAmount: new Prisma.Decimal(0),
+
+                            priceModifierType: 'FIXED',
+
+                            quantity: opt.quantity,
+                          })),
+                        },
+                      })),
+                    },
+                  })),
+                },
+
+                // =====================================================
+                // EVENTO INICIAL
+                // =====================================================
+
+                events: {
+                  create: {
+                    stateType: 'ORDER',
+                    value: 'CREATED_FROM_BATCH_POS',
+                    author: 'BUSINESS',
+                  },
+                },
+              },
+
+              select: {
+                id: true,
+              },
+            });
+
+            return {
+              idTemp: orderData.idTemp,
+              cloudId: created.id,
+              status: 'SUCCESS' as const,
+            };
+          } catch (err: any) {
+            // =====================================================
+            // IDEMPOTENCIA REAL (RACE CONDITION)
+            // =====================================================
+
+            if (
+              err instanceof Prisma.PrismaClientKnownRequestError &&
+              err.code === 'P2002'
+            ) {
+              const existing = await this.prisma.order.findFirst({
+                where: {
+                  idTemp: orderData.idTemp,
+                },
+                select: {
+                  id: true,
+                },
+              });
+
+              if (existing) {
+                return {
+                  idTemp: orderData.idTemp,
+                  cloudId: existing.id,
+                  status: 'SUCCESS' as const,
+                };
+              }
+            }
+
+            return {
+              idTemp: orderData.idTemp,
+              status: 'ERROR' as const,
+              error:
+                err instanceof Error
+                  ? err.message
+                  : 'Error desconocido de persistencia',
+            };
+          }
+        }),
+      );
+
+      // =========================================================
+      // 7. CONSOLIDACIÓN
+      // =========================================================
+
+      for (const result of settled) {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+        } else {
+          results.push({
+            idTemp: 'UNKNOWN',
+            status: 'ERROR',
+            error: 'Promise execution failed unexpectedly',
+          });
+        }
+      }
+    }
+
+    // =========================================================
+    // 8. RESPUESTA FINAL
+    // =========================================================
+
+    return results;
   }
 
   @OnEvent('notification.createdneworder', { async: true })
