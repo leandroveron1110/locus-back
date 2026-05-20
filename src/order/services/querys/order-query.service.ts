@@ -210,9 +210,11 @@ export class OrderQueryService implements IOrderQueryService {
       },
       select: {
         id: true,
+        idTemp: true,
+        businessId: true,
+        userId: true,
         status: true,
         total: true,
-        userId: true,
         origin: true,
         totalDeliveryCost: true,
         deliveryType: true,

@@ -11,6 +11,7 @@ import { OrderQueryService } from './services/querys/order-query.service';
 import { LoggingModule } from 'src/logging/logging.module';
 import { NotificationModule } from 'src/notification/notification.module';
 import { DeliveryZonesModule } from 'src/delivery-zones/delivery-zones.module';
+import { OrdersSyncService } from './services/commands/orders-sync.service';
 
 @Module({
   controllers: [OrderController],
@@ -40,6 +41,7 @@ import { DeliveryZonesModule } from 'src/delivery-zones/delivery-zones.module';
       provide: TOKENS.IOrderValidationService,
       useClass: OrderValidationService,
     },
+    OrdersSyncService
   ],
   imports: [BusinessModule, MenuModule, MenuProductModule, LoggingModule, NotificationModule, DeliveryZonesModule],
   exports: [TOKENS.IOrderQueryService, TOKENS.IOrderGateway],

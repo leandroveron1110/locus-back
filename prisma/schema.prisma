@@ -870,6 +870,7 @@ enum StateType {
   ORDER
   PAYMENT
   DELIVERY
+  SYNC
 }
 /// Representa un ítem individual dentro de una orden.
 model OrderItem {

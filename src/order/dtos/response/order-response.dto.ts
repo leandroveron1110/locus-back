@@ -70,6 +70,7 @@ export interface OrderDiscountDto {
 
 export interface OrderResponseDto {
   id: string;
+  idTemp: string;
   businessId: string;
   userId: string;
   deliveryAddressId?: string | null;
@@ -116,6 +117,7 @@ export class OrderResponseDtoMapper {
   static fromPrisma(order: any): OrderResponseDto {
     return {
       id: order.id,
+      idTemp: order.idTemp,
       businessId: order.businessId,
       userId: order.userId,
       deliveryAddressId: order.deliveryAddressId ?? null,

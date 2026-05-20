@@ -50,6 +50,8 @@ import {
   SyncNotificationResponse,
   SyncNotificationUserResponse,
 } from '../dtos/response/sync-notification-orders.dto.';
+import { OrdersSyncService } from '../services/commands/orders-sync.service';
+import { SyncOrderEventsDto } from '../dtos/request/sync-order-events.dto';
 
 export class SyncOrdersDto {
   @IsNotEmpty({ message: 'El id no puede estar vacío.' })
@@ -82,6 +84,8 @@ export class OrderController {
 
     @Inject(TOKENS.IOrderDeleteService)
     private readonly orderDeleteService: IOrderDeleteService,
+
+    private readonly syncService: OrdersSyncService,
   ) {}
 
   // ================== CREACIÓN ==================
@@ -113,6 +117,13 @@ export class OrderController {
     const result =
       await this.orderCreationService.syncBatchOrdersFromBusiness(dto);
     return result;
+  }
+
+  @Post('events/sync')
+  @Public()
+  @HttpCode(HttpStatus.CREATED)
+  async syncEvents(@Body() dto: SyncOrderEventsDto) {
+    return await this.syncService.syncHistoryEvents(dto);
   }
 
   // ================== CONSULTAS ==================
@@ -210,6 +221,7 @@ export class OrderController {
     @Param('id') id: string,
     @Body('status') status: OrderStatus,
   ): Promise<OrderStatus> {
+    console.log("status")
     return this.orderUpdateService.updateStatus(id, status);
   }
 

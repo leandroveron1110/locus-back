@@ -35,6 +35,7 @@ import { UploadsImageGlobalModule } from './uploads-image-global/uploads-image-g
 import { PushModule } from './push/push.module';
 import { NotificationModule } from './notification/notification.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { HealthModule } from './health/health.module';
 
 
 @Module({
@@ -47,6 +48,7 @@ import { CacheModule } from '@nestjs/cache-manager';
       ttl: 0,         // 0 significa que no expira por defecto (ideal para tus zonas)
       max: 10000,     // Cantidad máxima de elementos en memoria
     }),
+    HealthModule,
     PrismaModule,
     AuthModule,
     UsersModule,
