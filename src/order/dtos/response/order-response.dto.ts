@@ -79,6 +79,7 @@ export interface OrderResponseDto {
   status: OrderStatus;
   total: number;
   totalDeliveryCost: number,
+  
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -123,6 +124,9 @@ export class OrderResponseDtoMapper {
       deliveryAddressId: order.deliveryAddressId ?? null,
       pickupAddressId: order.pickupAddressId ?? null,
       deliveryCompanyId: order.deliveryCompanyId ?? null,
+
+      shortCode: order.shortCode ?? null,
+      dailyNumber: order.dailyNumber ?? null,
 
       status: order.status,
       total: Number(order.total),
