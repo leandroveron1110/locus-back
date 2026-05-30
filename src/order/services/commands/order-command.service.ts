@@ -504,6 +504,8 @@ export class OrderCommandService
         businessId: data.businessId,
         userId: data.userId || null,
 
+        createAt: data.createdAt,
+
         // Snapshots del Cliente
         customerName: data.customerName,
         customerPhone: data.customerPhone,
@@ -532,7 +534,6 @@ export class OrderCommandService
         status: 'PENDING',
         shortCode: data.shortCode,
         dailyNumber: data.dailyNumber,
-
         // Items Anidados
         OrderItem: {
           create: data.items.map((item) => ({

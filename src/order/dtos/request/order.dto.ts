@@ -256,6 +256,7 @@ export interface SyncBusinessOrderDTO {
   orderPaymentMethod: 'CASH' | 'TRANSFER' | 'QR';
   shortCode: string;
   dailyNumber: number;
+  createdAt?: string;
 
   items: Array<{
     menuProductId: string;
