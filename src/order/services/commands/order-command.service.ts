@@ -504,7 +504,7 @@ export class OrderCommandService
         businessId: data.businessId,
         userId: data.userId || null,
 
-        createAt: data.createdAt,
+        createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
 
         // Snapshots del Cliente
         customerName: data.customerName,
@@ -897,6 +897,85 @@ export class OrderCommandService
       targetEntityId: order.businessId,
       priority: NotificationPriority.HIGH,
       targetEntityType: TargetEntityType.BUSINESS,
+    });
+  }
+
+  // En tu Servicio de Órdenes en el Backend
+  async syncOfflineFields(
+    orderId: string,
+    data: {
+      status?: OrderStatus;
+      paymentStatus?: PaymentStatus;
+      deliveryStatus?: DeliveryStatus;
+      updatedAt: string; // ISO String desde el Front
+    },
+  ) {
+    const parsedDate = new Date(data.updatedAt);
+
+    return await this.prisma.$transaction(async (tx) => {
+      // 1. Verificar existencia rápida
+      const currentOrder = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { id: true },
+      });
+      if (!currentOrder)
+        throw new NotFoundException(`Orden ${orderId} no encontrada`);
+
+      // 2. Mapear solo los campos que cambiaron offline
+      const updateData: any = {};
+      if (data.status) updateData.status = data.status;
+      if (data.paymentStatus) updateData.paymentStatus = data.paymentStatus;
+      if (data.deliveryStatus) updateData.deliveryStatus = data.deliveryStatus;
+
+      // Forzamos la fecha de actualización histórica
+      updateData.updatedAt = parsedDate;
+
+      // 3. Actualización directa (Fuerza bruta consentida para el POS)
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: updateData,
+        select: {
+          id: true,
+          idTemp: true,
+        },
+      });
+
+      // 4. Inyectar los hechos en el historial respetando el momento real en que sucedieron
+      if (data.status) {
+        await tx.orderStateEvent.create({
+          data: {
+            orderId,
+            stateType: 'ORDER',
+            value: data.status,
+            author: 'BUSINESS',
+            createdAt: parsedDate,
+          },
+        });
+      }
+      if (data.paymentStatus) {
+        await tx.orderStateEvent.create({
+          data: {
+            orderId,
+            stateType: 'PAYMENT',
+            value: data.paymentStatus,
+            author: 'BUSINESS',
+            createdAt: parsedDate,
+          },
+        });
+      }
+      if (data.deliveryStatus) {
+        await tx.orderStateEvent.create({
+          data: {
+            orderId,
+            stateType: 'DELIVERY',
+            value: data.deliveryStatus,
+            author: 'BUSINESS',
+            createdAt: parsedDate,
+          },
+        });
+      }
+
+      return updatedOrder;
     });
   }
 

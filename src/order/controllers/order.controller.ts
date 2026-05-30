@@ -16,6 +16,7 @@ import {
   SyncBusinessOrderDTO,
 } from '../dtos/request/order.dto';
 import {
+  DeliveryStatus,
   OrderStatus,
   PaymentMethodType,
   PaymentStatus,
@@ -221,8 +222,23 @@ export class OrderController {
     @Param('id') id: string,
     @Body('status') status: OrderStatus,
   ): Promise<OrderStatus> {
-    console.log("status")
+    console.log('status');
     return this.orderUpdateService.updateStatus(id, status);
+  }
+
+  @Patch('/sync-offline-updates/:id')
+  @Roles(UserRole.OWNER)
+  syncOfflineFields(
+    @Param('id') id: string,
+    @Body()
+    data: {
+      status?: OrderStatus;
+      paymentStatus?: PaymentStatus;
+      deliveryStatus?: DeliveryStatus;
+      updatedAt: string; // ISO String desde el Front
+    },
+  ): Promise<OrderStatus> {
+    return this.orderUpdateService.syncOfflineFields(id, data);
   }
 
   @Patch('/order/payment/status/:id')

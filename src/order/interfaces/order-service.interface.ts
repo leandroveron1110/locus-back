@@ -1,12 +1,19 @@
 import {
+  DeliveryStatus,
   Order,
   OrderStatus,
   PaymentMethodType,
   PaymentStatus,
 } from '@prisma/client';
-import { CreateOrderFullDTO, SyncBusinessOrderDTO } from '../dtos/request/order.dto';
+import {
+  CreateOrderFullDTO,
+  SyncBusinessOrderDTO,
+} from '../dtos/request/order.dto';
 import { OrderResponseDto } from '../dtos/response/order-response.dto';
-import { SyncResult, SyncResults } from '../services/querys/order-query.service';
+import {
+  SyncResult,
+  SyncResults,
+} from '../services/querys/order-query.service';
 import {
   SyncNotificationResponse,
   SyncNotificationUserResponse,
@@ -18,14 +25,17 @@ import {
 export interface IOrderCreationService {
   build(dto: unknown): Promise<Order>;
   syncOrderFromBusiness(data: SyncBusinessOrderDTO): Promise<any>;
-  syncBatchOrdersFromBusiness(
-    data: { businessId: string; orders: SyncBusinessOrderDTO[] },
-  ): Promise<{
+  syncBatchOrdersFromBusiness(data: {
+    businessId: string;
+    orders: SyncBusinessOrderDTO[];
+  }): Promise<
+    {
       idTemp: string;
       cloudId?: string;
       status: 'SUCCESS' | 'ERROR';
       error?: string;
-    }[]>;
+    }[]
+  >;
 }
 
 /**
@@ -80,6 +90,16 @@ export interface IOrderUpdateService {
     orderId: string,
     paymentStatus: PaymentStatus,
   ): Promise<PaymentStatus>;
+
+  syncOfflineFields(
+    orderId: string,
+    data: {
+      status?: OrderStatus;
+      paymentStatus?: PaymentStatus;
+      deliveryStatus?: DeliveryStatus;
+      updatedAt: string; // ISO String desde el Front
+    },
+  );
 }
 
 /**
