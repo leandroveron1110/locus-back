@@ -1,4 +1,4 @@
-import { DeliveryType, OrderOrigin, OrderStatus, PaymentMethodType, PaymentStatus } from "@prisma/client";
+import { DeliveryStatus, DeliveryType, OrderOrigin, OrderStatus, PaymentMethodType, PaymentStatus } from "@prisma/client";
 
 // DTO para la dirección
 export interface AddressDto {
@@ -84,6 +84,7 @@ export interface OrderResponseDto {
   createdAt: string;
   updatedAt: string;
   deliveryType: DeliveryType;
+  deliveryStatus: DeliveryStatus;
   orderPaymentMethod: PaymentMethodType;
   paymentStatus: PaymentStatus;
   paymentReceiptUrl?: string | null;
@@ -135,6 +136,7 @@ export class OrderResponseDtoMapper {
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       deliveryType: order.deliveryType,
+      deliveryStatus: order.deliveryStatus,
       orderPaymentMethod: order.orderPaymentMethod,
       paymentStatus: order.paymentStatus,
       paymentReceiptUrl: order.paymentReceiptUrl ?? null,
