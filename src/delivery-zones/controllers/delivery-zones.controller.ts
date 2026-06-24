@@ -67,9 +67,13 @@ export class DeliveryZonesController {
       businessId: string;
       clientLat: number;
       clientLng: number;
-      deliveryCompanyId: string;
     },
   ) {
+    return {
+      price: 2500,
+      zoneName: 'Zona Centro',
+      h3: '8928308280fffff',
+    }
     return this.deliveryPriceCalculatorService.calculateForBusiness(
       cal.businessId,
       cal.clientLat,
