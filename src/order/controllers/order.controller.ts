@@ -120,12 +120,12 @@ export class OrderController {
     return result;
   }
 
-  @Post('events/sync')
-  @Public()
-  @HttpCode(HttpStatus.CREATED)
-  async syncEvents(@Body() dto: SyncOrderEventsDto) {
-    return await this.syncService.syncHistoryEvents(dto);
-  }
+  // @Post('events/sync')
+  // @Public()
+  // @HttpCode(HttpStatus.CREATED)
+  // async syncEvents(@Body() dto: SyncOrderEventsDto) {
+  //   return await this.syncService.syncHistoryEvents(dto);
+  // }
 
   // ================== CONSULTAS ==================
 

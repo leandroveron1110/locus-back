@@ -68,7 +68,7 @@ model User {
   firstName    String   @map("nombre")
   lastName     String   @map("apellido")
   email        String   @unique @map("email")
-  phone        String?   @map("telefono")
+  phone        String?  @map("telefono")
   passwordHash String   @map("password_hash")
   role         UserRole @default(CLIENT) @map("rol")
   createdAt    DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
@@ -324,9 +324,9 @@ model Business {
   businessEmployee BusinessEmployee[]
 
   // --- Configuración general de formas de pago ---
-  acceptsCash     Boolean  @default(true) @map("acepta_efectivo")
-  acceptsTransfer Boolean  @default(true) @map("acepta_transferencia")
-  acceptsQr       Boolean  @default(false) @map("acepta_qr")
+  acceptsCash     Boolean @default(true) @map("acepta_efectivo")
+  acceptsTransfer Boolean @default(true) @map("acepta_transferencia")
+  acceptsQr       Boolean @default(false) @map("acepta_qr")
 
   @@map("negocios")
 }
@@ -719,9 +719,9 @@ model Address {
   deliveryOrder Order[] @relation("OrderDeliveryAddress") // dirección de entrega
   pickupOrder   Order[] @relation("OrderPickupAddress") // dirección de retiro
 
-  createdAt DateTime @default(now()) @map("creado_en")
-  updatedAt DateTime @updatedAt @map("actualizado_en")
-  order    Order[]
+  createdAt DateTime          @default(now()) @map("creado_en")
+  updatedAt DateTime          @updatedAt @map("actualizado_en")
+  order     Order[]
   zoneIndex AddressZoneIndex? // Relación 1:1 con el índice
 
   // Índices para consultas rápidas
@@ -735,8 +735,8 @@ model Address {
 /// Representa una orden de un cliente.
 model Order {
   id                String  @id @default(uuid()) @map("id")
-  idTemp            String? @map("id_temp") @unique // ID temporal para pedidos en proceso antes de confirmar
-  userId            String?  @map("usuario_id")
+  idTemp            String? @unique @map("id_temp") // ID temporal para pedidos en proceso antes de confirmar
+  userId            String? @map("usuario_id")
   businessId        String  @map("negocio_id")
   deliveryAddressId String? @map("direccion_entrega_id") // opcional si es retiro
   pickupAddressId   String? @map("direccion_retiro_id") // opcional si es entrega
@@ -775,7 +775,7 @@ model Order {
   paymentStatus      PaymentStatus     @default(PENDING) @map("estado_pago_orden")
 
   /// Quién paga la tarifa de envío: CLIENT o BUSINESS si es por delibery.
-  cadetPaymentPayer  CadetPaymentPayer?  @default(CLIENT) @map("quien_paga_cadete")
+  cadetPaymentPayer  CadetPaymentPayer? @default(CLIENT) @map("quien_paga_cadete")
   /// Método de pago que el cliente usa para pagar el envío al cadete (si aplica).
   cadetPaymentMethod PaymentMethodType? @map("metodo_pago_cadete")
 
@@ -799,36 +799,35 @@ model Order {
 
   // --------------------------- METADATA Y RELACIONES --------------------------------
 
-  deliveryType DeliveryType @default(DELIVERY) @map("tipo_entrega")
-  status       OrderStatus  @default(PENDING) @map("estado")
+  deliveryType   DeliveryType   @default(DELIVERY) @map("tipo_entrega")
+  status         OrderStatus    @default(PENDING) @map("estado")
   deliveryStatus DeliveryStatus @default(NOT_APPLICABLE) @map("estado_envio")
-  origin       OrderOrigin  @default(APP) @map("origen")
-  isTest       Boolean      @default(false) @map("es_prueba")
-  notes        String?      @map("notas")
+  origin         OrderOrigin    @default(APP) @map("origen")
+  isTest         Boolean        @default(false) @map("es_prueba")
+  notes          String?        @map("notas")
 
-
-  events         OrderStateEvent[]
+  events OrderStateEvent[]
 
   // El "Nombre de Guerra" (P-1, A-22)
   // Es String porque incluye el prefijo y es opcional para 
   // no romper pedidos viejos o integraciones externas
-  shortCode        String?  
-  
+  shortCode String?
+
   // Guardamos el número puro para facilitar el conteo y resets
   // 1, 2, 3...
-  dailyNumber      Int?
+  dailyNumber Int?
 
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
 
-  user            User?             @relation(fields: [userId], references: [id])
+  user            User?            @relation(fields: [userId], references: [id])
   business        Business         @relation(fields: [businessId], references: [id])
   deliveryAddress Address?         @relation("OrderDeliveryAddress", fields: [deliveryAddressId], references: [id])
   pickupAddress   Address?         @relation("OrderPickupAddress", fields: [pickupAddressId], references: [id])
   OrderItem       OrderItem[]
   OrderDiscount   OrderDiscount[]
   deliveryCompany DeliveryCompany? @relation("DeliveryCompanyOrder", fields: [deliveryCompanyId], references: [id])
-  addresses Address[]
+  addresses       Address[]
 
   @@index([businessId])
   @@index([userId])
@@ -838,29 +837,29 @@ model Order {
 }
 
 enum DeliveryStatus {
-  NOT_APPLICABLE  // Pick up
-  PENDING         // Reposo (Default)
-  REQUESTED       // El local hizo clic en "Pedir Cadete" (Avisa a la Base)
-  SHIPPED         // El local hizo clic en "Despachar" (Avisa al Cliente)
-  CANCELLED       // Problemas con el envío
-  COMPLETED       // Estado final automático o por fin de jornada
+  NOT_APPLICABLE // Pick up
+  PENDING // Reposo (Default)
+  REQUESTED // El local hizo clic en "Pedir Cadete" (Avisa a la Base)
+  SHIPPED // El local hizo clic en "Despachar" (Avisa al Cliente)
+  CANCELLED // Problemas con el envío
+  COMPLETED // Estado final automático o por fin de jornada
 }
 
 model OrderStateEvent {
-  id        String   @id @default(uuid())
-  orderId   String   @map("orden_id")
-  
+  id      String @id @default(uuid())
+  orderId String @map("orden_id")
+
   // Qué tipo de estado cambió
   stateType StateType @map("tipo_estado") // ORDER, PAYMENT, DELIVERY
-  
+
   // El valor al que cambió (ej: "SHIPPED", "PAID")
-  value     String   @map("valor")
-  
+  value String @map("valor")
+
   // Metadata adicional (quién lo cambió, notas, etc.)
   author    String?  @map("autor") // "SYSTEM", "BUSINESS", "CUSTOMER"
   createdAt DateTime @default(now()) @map("creado_en")
 
-  order     Order    @relation(fields: [orderId], references: [id])
+  order Order @relation(fields: [orderId], references: [id])
 
   @@index([orderId])
   @@map("ordenes_eventos_estado")
@@ -872,6 +871,7 @@ enum StateType {
   DELIVERY
   SYNC
 }
+
 /// Representa un ítem individual dentro de una orden.
 model OrderItem {
   id            String @id @default(uuid()) @map("id")
@@ -890,8 +890,8 @@ model OrderItem {
 
   productPaymentMethod PaymentMethodType @default(TRANSFER) @map("metodo_pago_producto")
   // Relaciones
-  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuProduct MenuProduct @relation(fields: [menuProductId], references: [id])
+  order                Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuProduct          MenuProduct       @relation(fields: [menuProductId], references: [id])
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
@@ -1011,7 +1011,6 @@ model PushSubscriptionTarget {
   @@index([targetEntityId, targetEntityType])
 }
 
-
 // Modelos
 
 model DeliveryCompany {
@@ -1030,7 +1029,7 @@ model DeliveryCompany {
   updatedAt DateTime @updatedAt
 
   DeliveryEmployee DeliveryEmployee[]
-  priceMatrices DeliveryPriceMatrix[]
+  priceMatrices    DeliveryPriceMatrix[]
 }
 
 model DeliveryZone {
@@ -1051,11 +1050,11 @@ model DeliveryZone {
   deliveryCompany   DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id])
   deliveryCompanyId String
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  priceMatrices DeliveryPriceMatrix[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  priceMatrices  DeliveryPriceMatrix[]
   addressIndices AddressZoneIndex[]
-  h3Indices H3Index[]
+  h3Indices      H3Index[]
 }
 
 enum OrderOrigin {
@@ -1075,6 +1074,7 @@ enum PaymentMethodType {
   QR /// Código QR / Link de pago
   OTHER /// Otros métodos no listados
 }
+
 // Enums
 
 enum DeliveryType {
@@ -1085,15 +1085,14 @@ enum DeliveryType {
 }
 
 enum OrderStatus {
-  PENDING              // Recién creada, sin acción del negocio
-  CONFIRMED            // El negocio aceptó el pedido
-  PREPARING            // Se está cocinando/armando
-  READY                // El paquete está sobre el mostrador (listo para que alguien lo lleve)
-  COMPLETED            // Fin del ciclo (ya se entregó o retiró)
-  REJECTED             // El negocio no pudo o no quiso tomar el pedido
-  CANCELLED            // Anulada por el usuario o sistema
+  PENDING // Recién creada, sin acción del negocio
+  CONFIRMED // El negocio aceptó el pedido
+  PREPARING // Se está cocinando/armando
+  READY // El paquete está sobre el mostrador (listo para que alguien lo lleve)
+  COMPLETED // Fin del ciclo (ya se entregó o retiró)
+  REJECTED // El negocio no pudo o no quiso tomar el pedido
+  CANCELLED // Anulada por el usuario o sistema
 }
-
 
 /// Define quién paga la tarifa del delivery al cadete/compañía
 enum CadetPaymentPayer {
@@ -1107,24 +1106,20 @@ enum PaymentStatus {
   PENDING /// Pago pendiente o efectivo/transferencia al recibir
   CONFIRMED /// Pago confirmado
   REJECTED /// Pago rechazado o fallido
-  REFUNDED      // Dinero devuelto
+  REFUNDED // Dinero devuelto
 }
-
-
-
-
 
 // 1. Representa las divisiones macro de la ciudad (ej: "Zona Cementerio", "Zona Plaza")
 model MacroZone {
-  id        String   @id @default(uuid())
-  name      String   @unique // "CEMENTERIO", "PLAZA"
-  geometry  Json?    // Polígono para el cálculo inicial automático
-  isActive  Boolean  @default(true)
+  id       String  @id @default(uuid())
+  name     String  @unique // "CEMENTERIO", "PLAZA"
+  geometry Json? // Polígono para el cálculo inicial automático
+  isActive Boolean @default(true)
 
   // Relaciones
   addressIndices AddressZoneIndex[]
   priceMatrix    DeliveryPriceMatrix[]
-  h3Indices H3Index[]
+  h3Indices      H3Index[]
 
   @@map("macro_zones")
 }
@@ -1132,11 +1127,11 @@ model MacroZone {
 // 2. La Matriz de Precios definitiva
 // Aquí configuras: Empresa + Barrio (Destino) + Macro (Origen) = Precio
 model DeliveryPriceMatrix {
-  id                String   @id @default(uuid())
+  id                String  @id @default(uuid())
   deliveryCompanyId String
-  deliveryZoneId    String   // ID del Barrio (Destino) - ej: San Isidro
-  macroZoneId       String   // ID de la Macro-zona (Origen) - ej: Plaza
-  price             Decimal  // El precio resultante
+  deliveryZoneId    String // ID del Barrio (Destino) - ej: San Isidro
+  macroZoneId       String // ID de la Macro-zona (Origen) - ej: Plaza
+  price             Decimal // El precio resultante
 
   // Relaciones
   company   DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id], onDelete: Cascade)
@@ -1150,10 +1145,10 @@ model DeliveryPriceMatrix {
 // 3. El Índice de Direcciones (Cache Geográfico)
 // Esto evita usar Turf en cada pedido. Ya sabemos dónde está cada dirección.
 model AddressZoneIndex {
-  id          String   @id @default(uuid())
-  addressId   String   @unique
-  macroZoneId String?  // ¿Está en Plaza o Cementerio?
-  deliveryZoneId    String?  // ¿En qué barrio (San Isidro, Centro)?
+  id             String  @id @default(uuid())
+  addressId      String  @unique
+  macroZoneId    String? // ¿Está en Plaza o Cementerio?
+  deliveryZoneId String? // ¿En qué barrio (San Isidro, Centro)?
 
   // Relaciones
   address   Address       @relation(fields: [addressId], references: [id])
@@ -1164,16 +1159,67 @@ model AddressZoneIndex {
 }
 
 model H3Index {
-  id             String  @id @default(uuid())
-  h3Index        String  // El hexágono (Ej: '89e28308283ffff')
-  
+  id      String @id @default(uuid())
+  h3Index String // El hexágono (Ej: '89e28308283ffff')
+
   macroZoneId    String?
   deliveryZoneId String?
-  
+
   // Relaciones (las que ya tenías)
-  macroZone      MacroZone?    @relation(fields: [macroZoneId], references: [id])
-  deliveryZone   DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
+  macroZone    MacroZone?    @relation(fields: [macroZoneId], references: [id])
+  deliveryZone DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
 
   @@index([h3Index])
   @@map("h3_indices")
+}
+
+model DeliveryCommand {
+  // Identificación
+  id         String  @id @default(uuid())
+  businessId String // ID del negocio que envía el comando
+  orderId    String // ID de la orden local relacionada (si existe)
+
+  // Comando y Estado
+  command DeliveryCommandType
+  status  DeliveryCommandStatus @default(PENDING)
+
+  // Origen (Datos del Negocio)
+  originName      String? // Nombre comercial del negocio
+  originAddress   String? // Dirección física del negocio
+  originLatitude  Float? // Latitud del negocio
+  originLongitude Float? // Longitud del negocio
+
+  // Destino (Datos del Cliente)
+  destinationAddress   String? // Dirección de entrega que tipeó el cajero
+  destinationLatitude  Float? // Latitud del cliente
+  destinationLongitude Float? // Longitud del cliente
+  zoneId               String? // Zona o barrio detectado por el sistema
+  notes                String? // Indicaciones del cliente ("Tocar timbre", etc.)
+
+  // Respuesta de Base y Auditoría
+  quotedCost    Int? // Precio del envío calculado (manual o automático)
+  externalId    String? // ID que genera Base para su logística interna
+  failureReason String? // Detalle del error si el status es ERROR
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([orderId])
+  @@index([status])
+  @@index([command])
+  @@unique([businessId, orderId])
+}
+
+enum DeliveryCommandType {
+  QUOTE // Calcular el precio del envío
+  DISPATCH // Solicitar la logística completa (retiro en origen y entrega en destino)
+  CANCEL // Cancelar la solicitud de logística
+}
+
+enum DeliveryCommandStatus {
+  PENDING // Esperando que Base tome el comando
+  PROCESSING // Procesando la solicitud (ej: operador cotizando a mano)
+  COMPLETED // Comando finalizado con éxito (ya se cotizó o se despachó)
+  ERROR // Ocurrió un problema en el proceso
+  CANCELLED // El negocio anuló el comando antes de completarse
 }
