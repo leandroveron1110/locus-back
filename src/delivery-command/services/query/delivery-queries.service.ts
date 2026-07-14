@@ -1,7 +1,12 @@
 // delivery-queries.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { DeliveryCommandStatus, DeliveryCommandType } from '@prisma/client';
+import {
+  DeliveryCommandStatus,
+  DeliveryCommandType,
+  Prisma,
+} from '@prisma/client';
+import { FindDeliveryCommandsDto } from 'src/delivery-command/dtos/request/create-delivery-command.dto';
 
 @Injectable()
 export class DeliveryQueriesService {
@@ -73,10 +78,16 @@ export class DeliveryQueriesService {
    * 1. Cola de Cotizaciones Urgentes para Base
    * Trae todo lo que la caja mandó porque el sistema automático falló.
    */
-  async getBaseUrgentQuotes(filters: { zoneId?: string; limit?: number; page?: number }) {
+  async getBaseUrgentQuotes(filters: {
+    zoneId?: string;
+    limit?: number;
+    page?: number;
+  }) {
     const limit = filters.limit || 50;
     const offset = ((filters.page || 1) - 1) * limit;
-    const zoneFilter = filters.zoneId ? `AND "zoneId" = '${filters.zoneId}'` : '';
+    const zoneFilter = filters.zoneId
+      ? `AND "zoneId" = '${filters.zoneId}'`
+      : '';
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -101,10 +112,16 @@ export class DeliveryQueriesService {
    * 2. Cola de Despachos Pendientes para Base (Pedidos a buscar/retirar)
    * Trae las órdenes físicas listas para que el operador las mande a los cadetes.
    */
-  async getBasePendingDispatches(filters: { zoneId?: string; limit?: number; page?: number }) {
+  async getBasePendingDispatches(filters: {
+    zoneId?: string;
+    limit?: number;
+    page?: number;
+  }) {
     const limit = filters.limit || 50;
     const offset = ((filters.page || 1) - 1) * limit;
-    const zoneFilter = filters.zoneId ? `AND "zoneId" = '${filters.zoneId}'` : '';
+    const zoneFilter = filters.zoneId
+      ? `AND "zoneId" = '${filters.zoneId}'`
+      : '';
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -123,5 +140,71 @@ export class DeliveryQueriesService {
     `);
 
     return result;
+  }
+
+  async findMany(filters: FindDeliveryCommandsDto) {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 50;
+
+    const where: Prisma.DeliveryCommandWhereInput = {};
+
+    if (filters.command) {
+      where.command = filters.command;
+    }
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    if (filters.businessId) {
+      where.businessId = filters.businessId;
+    }
+
+    if (filters.orderId) {
+      where.orderId = filters.orderId;
+    }
+
+    if (filters.zoneId) {
+      where.zoneId = filters.zoneId;
+    }
+
+    if (filters.from || filters.to) {
+      where.createdAt = {};
+
+      if (filters.from) {
+        where.createdAt.gte = filters.from;
+      }
+
+      if (filters.to) {
+        where.createdAt.lte = filters.to;
+      }
+    }
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.deliveryCommand.findMany({
+        where,
+        orderBy: {
+          createdAt: 'asc',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+
+      this.prisma.deliveryCommand.count({
+        where,
+      }),
+    ]);
+
+    return {
+      data: items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 }

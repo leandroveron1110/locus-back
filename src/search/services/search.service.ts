@@ -43,55 +43,27 @@ async searchBusinesses(dto: SearchBusinessDto): Promise<{
   // 🟣 Caso 1: hay lastSyncTime → búsqueda incremental
   // ---------------------------------------------
   if (lastSyncTime) {
-    const params: any[] = [];
-    let paramIndex = 1;
+    const params: any[] = [new Date(lastSyncTime)];
+    let paramIndex = 2; // $1 ya está usado por lastSyncTime
 
-    let rawQuery = `
-      SELECT 
-        id,
-        nombre AS "name",
-        descripcion_corta AS "shortDescription",
-        descripcion_completa AS "fullDescription",
-        direccion AS "address",
-        ciudad AS "city",
-        provincia AS "province",
-        nombres_categorias AS "categoryNames",
-        nombres_tags AS "tagNames",
-        latitud AS "latitude",
-        longitud AS "longitude",
-        promedio_calificacion AS "averageRating",
-        cantidad_calificaciones AS "reviewCount",
-        estado AS "status",
-        url_logo AS "logoUrl",
-        horarios,
-        modulos_config AS "modulesConfig",
-        fecha_creacion_original AS "createdAt",
-        fecha_ultima_sincronizacion AS "updatedAt",
-        cantidad_seguidores AS "followersCount"
-      FROM "negocios_busqueda"
-      WHERE "fecha_ultima_sincronizacion" > $${paramIndex}
-    `;
+    let whereClause = `WHERE "fecha_ultima_sincronizacion" > $1`;
 
-    params.push(new Date(lastSyncTime));
-    paramIndex++;
-
-    // Si hay query → aplicamos búsqueda textual
     if (query) {
-      rawQuery += `
+      whereClause += `
         AND (
-          "nombre" ILIKE '%' || $${paramIndex} || '%'
-          OR "descripcion_corta" ILIKE '%' || $${paramIndex} || '%'
-          OR "descripcion_completa" ILIKE '%' || $${paramIndex} || '%'
-          OR "direccion" ILIKE '%' || $${paramIndex} || '%'
-          OR "ciudad" ILIKE '%' || $${paramIndex} || '%'
-          OR "provincia" ILIKE '%' || $${paramIndex} || '%'
+          unaccent("nombre") ILIKE unaccent('%' || $${paramIndex} || '%')
+          OR unaccent("descripcion_corta") ILIKE unaccent('%' || $${paramIndex} || '%')
+          OR unaccent("descripcion_completa") ILIKE unaccent('%' || $${paramIndex} || '%')
+          OR unaccent("direccion") ILIKE unaccent('%' || $${paramIndex} || '%')
+          OR unaccent("ciudad") ILIKE unaccent('%' || $${paramIndex} || '%')
+          OR unaccent("provincia") ILIKE unaccent('%' || $${paramIndex} || '%')
           OR EXISTS (
             SELECT 1 FROM unnest("nombres_categorias") AS c
-            WHERE c ILIKE '%' || $${paramIndex} || '%'
+            WHERE unaccent(c) ILIKE unaccent('%' || $${paramIndex} || '%')
           )
           OR EXISTS (
             SELECT 1 FROM unnest("nombres_tags") AS t
-            WHERE t ILIKE '%' || $${paramIndex} || '%'
+            WHERE unaccent(t) ILIKE unaccent('%' || $${paramIndex} || '%')
           )
         )
       `;
@@ -99,98 +71,107 @@ async searchBusinesses(dto: SearchBusinessDto): Promise<{
       paramIndex++;
     }
 
-    // Filtros adicionales
     if (city) {
-      rawQuery += ` AND "ciudad" ILIKE '%' || $${paramIndex} || '%'`;
+      whereClause += ` AND unaccent("ciudad") ILIKE unaccent('%' || $${paramIndex} || '%')`;
       params.push(city);
       paramIndex++;
     }
     if (province) {
-      rawQuery += ` AND "provincia" ILIKE '%' || $${paramIndex} || '%'`;
+      whereClause += ` AND unaccent("provincia") ILIKE unaccent('%' || $${paramIndex} || '%')`;
       params.push(province);
       paramIndex++;
     }
     if (categories?.length) {
-      rawQuery += ` AND "nombres_categorias" && $${paramIndex}`;
+      whereClause += ` AND "nombres_categorias" && $${paramIndex}`;
       params.push(categories);
       paramIndex++;
     }
     if (tags?.length) {
-      rawQuery += ` AND "nombres_tags" && $${paramIndex}`;
+      whereClause += ` AND "nombres_tags" && $${paramIndex}`;
       params.push(tags);
       paramIndex++;
     }
 
-    // Orden + paginación
-    rawQuery += ` ORDER BY "fecha_ultima_sincronizacion" DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(take, skip);
+    const selectQuery = `
+      SELECT 
+        id, nombre AS "name", descripcion_corta AS "shortDescription",
+        descripcion_completa AS "fullDescription", direccion AS "address",
+        ciudad AS "city", provincia AS "province", nombres_categorias AS "categoryNames",
+        nombres_tags AS "tagNames", latitud AS "latitude", longitud AS "longitude",
+        promedio_calificacion AS "averageRating", cantidad_calificaciones AS "reviewCount",
+        estado AS "status", url_logo AS "logoUrl", horarios,
+        modulos_config AS "modulesConfig", fecha_creacion_original AS "createdAt",
+        fecha_ultima_sincronizacion AS "updatedAt", cantidad_seguidores AS "followersCount"
+      FROM "negocios_busqueda"
+      ${whereClause}
+      ORDER BY "fecha_ultima_sincronizacion" DESC 
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
 
-    const businesses: SearchableBusiness[] =
-      await this.prisma.$queryRawUnsafe(rawQuery, ...params);
+    const countQuery = `SELECT COUNT(*)::int AS count FROM "negocios_busqueda" ${whereClause}`;
 
-    const total = businesses.length;
+    const [businesses, countResult] = await Promise.all([
+      this.prisma.$queryRawUnsafe<SearchableBusiness[]>(selectQuery, ...params, take, skip),
+      this.prisma.$queryRawUnsafe<{ count: number }[]>(countQuery, ...params),
+    ]);
+
+    const total = countResult[0]?.count || 0;
     const data = this.formatBusinesses(businesses, openNow);
     return { data, total, skip, take };
   }
 
   // ---------------------------------------------
-  // 🟡 Caso 2: búsqueda normal (sin lastSyncTime)
+  // 🟡 Caso 2: búsqueda normal con query (sin lastSyncTime)
   // ---------------------------------------------
   if (query) {
+    const whereClause = `
+      WHERE
+        unaccent("nombre") ILIKE unaccent('%' || $1 || '%')
+        OR unaccent("descripcion_corta") ILIKE unaccent('%' || $1 || '%')
+        OR unaccent("descripcion_completa") ILIKE unaccent('%' || $1 || '%')
+        OR unaccent("direccion") ILIKE unaccent('%' || $1 || '%')
+        OR unaccent("ciudad") ILIKE unaccent('%' || $1 || '%')
+        OR unaccent("provincia") ILIKE unaccent('%' || $1 || '%')
+        OR EXISTS (
+          SELECT 1 FROM unnest("nombres_categorias") AS c
+          WHERE unaccent(c) ILIKE unaccent('%' || $1 || '%')
+        )
+        OR EXISTS (
+          SELECT 1 FROM unnest("nombres_tags") AS t
+          WHERE unaccent(t) ILIKE unaccent('%' || $1 || '%')
+        )
+    `;
+
     const rawQuery = `
       SELECT 
-        id,
-        nombre AS "name",
-        descripcion_corta AS "shortDescription",
-        descripcion_completa AS "fullDescription",
-        direccion AS "address",
-        ciudad AS "city",
-        provincia AS "province",
-        nombres_categorias AS "categoryNames",
-        nombres_tags AS "tagNames",
-        latitud AS "latitude",
-        longitud AS "longitude",
-        promedio_calificacion AS "averageRating",
-        cantidad_calificaciones AS "reviewCount",
-        estado AS "status",
-        url_logo AS "logoUrl",
-        horarios,
-        modulos_config AS "modulesConfig",
-        fecha_creacion_original AS "createdAt",
-        fecha_ultima_sincronizacion AS "updatedAt",
-        cantidad_seguidores AS "followersCount"
+        id, nombre AS "name", descripcion_corta AS "shortDescription",
+        descripcion_completa AS "fullDescription", direccion AS "address",
+        ciudad AS "city", provincia AS "province", nombres_categorias AS "categoryNames",
+        nombres_tags AS "tagNames", latitud AS "latitude", longitud AS "longitude",
+        promedio_calificacion AS "averageRating", cantidad_calificaciones AS "reviewCount",
+        estado AS "status", url_logo AS "logoUrl", horarios,
+        modulos_config AS "modulesConfig", fecha_creacion_original AS "createdAt",
+        fecha_ultima_sincronizacion AS "updatedAt", cantidad_seguidores AS "followersCount"
       FROM "negocios_busqueda"
-      WHERE
-        "nombre" ILIKE '%' || $1 || '%'
-        OR "descripcion_corta" ILIKE '%' || $1 || '%'
-        OR "descripcion_completa" ILIKE '%' || $1 || '%'
-        OR "direccion" ILIKE '%' || $1 || '%'
-        OR "ciudad" ILIKE '%' || $1 || '%'
-        OR "provincia" ILIKE '%' || $1 || '%'
-        OR EXISTS (
-          SELECT 1
-          FROM unnest("nombres_categorias") AS c
-          WHERE c ILIKE '%' || $1 || '%'
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM unnest("nombres_tags") AS t
-          WHERE t ILIKE '%' || $1 || '%'
-        )
+      ${whereClause}
       ORDER BY "promedio_calificacion" DESC
       LIMIT $2 OFFSET $3
     `;
 
-    const allBusinesses: SearchableBusiness[] =
-      await this.prisma.$queryRawUnsafe(rawQuery, query, take, skip);
+    const countQuery = `SELECT COUNT(*)::int AS count FROM "negocios_busqueda" ${whereClause}`;
 
-    const total = allBusinesses.length;
+    const [allBusinesses, countResult] = await Promise.all([
+      this.prisma.$queryRawUnsafe<SearchableBusiness[]>(rawQuery, query, take, skip),
+      this.prisma.$queryRawUnsafe<{ count: number }[]>(countQuery, query),
+    ]);
+
+    const total = countResult[0]?.count || 0;
     const data = this.formatBusinesses(allBusinesses, openNow);
     return { data, total, skip, take };
   }
 
   // ---------------------------------------------
-  // 🟢 Caso 3: sin query, sin lastSyncTime → filtros exactos
+  // 🟢 Caso 3: sin query, sin lastSyncTime → Prisma ORM directo
   // ---------------------------------------------
   const where = this.buildWhere(dto, true);
 

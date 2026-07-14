@@ -47,7 +47,6 @@ export interface IOrderQueryService {
   findOne(orderId: string): Promise<OrderResponseDto>;
   findOrdersByBusiness(businessId: string): Promise<any[]>;
   findOrdersByUserId(userId: string): Promise<any[]>;
-  findOrdersByDeliveyId(deliveryId: string): Promise<any[]>;
   findNotificationNewsOrders(businessIds: string[]): Promise<any[]>;
   syncOrdersByBusinessId(
     businessId: string,

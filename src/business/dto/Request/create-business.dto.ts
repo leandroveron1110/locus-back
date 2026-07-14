@@ -67,15 +67,12 @@ export class CreateBusinessDto {
 
   // --- URLs opcionales ---
   @IsOptional()
-  @IsUrl({}, { message: 'La URL de Instagram debe ser válida.' })
   instagramUrl?: string;
 
   @IsOptional()
-  @IsUrl({}, { message: 'La URL de Facebook debe ser válida.' })
   facebookUrl?: string;
 
   @IsOptional()
-  @IsUrl({}, { message: 'La URL del sitio web debe ser válida.' })
   websiteUrl?: string;
 
   // --- Configuración modular ---

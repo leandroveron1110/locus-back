@@ -315,13 +315,6 @@ export class OrderQueryService implements IOrderQueryService {
     return this.findOrdersWithIncludes({ userId });
   }
 
-  async findOrdersByDeliveryId(deliveryCompanyId: string) {
-    this.logger.debug('Fetching orders by delivery company', {
-      deliveryCompanyId,
-    });
-    return this.findOrdersWithIncludes({ deliveryCompanyId });
-  }
-
   async findNotificationNewsOrders(businessIds: string[]) {
     this.logger.debug('Fetching new orders for notification', { businessIds });
     const orders = await this.prisma.order.findMany({

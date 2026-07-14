@@ -69,6 +69,8 @@ export class DeliveryZonesController {
       clientLng: number;
     },
   ) {
+
+    console.log('Calculating price for businessId:', cal.businessId, 'clientLat:', cal.clientLat, 'clientLng:', cal.clientLng);
     // return {
     //   price: 2500,
     //   zoneName: 'Zona Centro',
