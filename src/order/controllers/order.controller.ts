@@ -52,7 +52,6 @@ import {
   SyncNotificationUserResponse,
 } from '../dtos/response/sync-notification-orders.dto.';
 import { OrdersSyncService } from '../services/commands/orders-sync.service';
-import { SyncOrderEventsDto } from '../dtos/request/sync-order-events.dto';
 
 export class SyncOrdersDto {
   @IsNotEmpty({ message: 'El id no puede estar vacío.' })
@@ -208,14 +207,7 @@ export class OrderController {
     return this.orderQueryService.findOrdersByUserId(userId);
   }
 
-  @Get('delivery/:deliveryId')
-  @Public()
-  findOrdersByDeliveyId(@Param('deliveryId') deliveryId: string) {
-    return this.orderQueryService.findOrdersByDeliveyId(deliveryId);
-  }
-
   // ================== ACTUALIZACIONES ==================
-
   @Patch('/order/status/:id')
   @Roles(UserRole.OWNER)
   updateStatus(

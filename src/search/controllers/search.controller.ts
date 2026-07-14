@@ -34,6 +34,7 @@ export class SearchController {
     searchDto: SearchBusinessDto,
   ) {
     this.logger.log(`Received search request: ${JSON.stringify(searchDto)}`);
+    console.log(`Received search request: ${JSON.stringify(searchDto)}`);
     return this.searchService.searchBusinesses(searchDto);
   }
 
