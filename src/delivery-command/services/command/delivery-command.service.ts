@@ -30,7 +30,8 @@ export class DeliveryCommandsService {
           // Si vuelve a mandar QUOTE (F5/Doble click), no tocamos el estado actual.
           status: dto.command === DeliveryCommandType.DISPATCH 
             ? DeliveryCommandStatus.PENDING 
-            : undefined, 
+            : undefined,
+          updatedAt: new Date(),
         },
         // Si es la primera vez que entra este UUID de orden: se inserta limpio
         create: {
@@ -47,6 +48,7 @@ export class DeliveryCommandsService {
           zoneId: dto.zoneId,
           notes: dto.notes,
           status: DeliveryCommandStatus.PENDING, // Nace siempre en PENDING esperando proceso
+          updatedAt: new Date(),
         },
       });
 
@@ -63,7 +65,7 @@ export class DeliveryCommandsService {
   ) {
     return this.prisma.deliveryCommand.update({
       where: { id },
-      data: updateData,
+      data: {...updateData, updatedAt: new Date()},
     });
   }
 }
