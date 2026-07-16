@@ -192,80 +192,93 @@ export class OrderQueryService implements IOrderQueryService {
     };
   }
 
-  async syncOrdersByBusinessId(
-    businessId: string,
-    hours: number = 24,
-    lastSyncTime?: string,
-  ): Promise<SyncResults> {
-    const timeLimit = new Date(Date.now() - hours * 60 * 60 * 1000);
-    const syncDate = lastSyncTime ? new Date(lastSyncTime) : timeLimit;
+async syncOrdersByBusinessId(
+  businessId: string,
+  hour: number,
+  lastSyncTime?: string,
+): Promise<SyncResults> {
+  const now = new Date();
 
-    // Filtramos: que sean del negocio Y que se hayan actualizado
-    // después de la última sincronización, pero dentro del rango de X horas.
-    const orders = await this.prisma.order.findMany({
-      where: {
-        businessId,
-        updatedAt: { gt: syncDate },
-        createdAt: { gt: timeLimit }, // Para no traer todo el historial histórico
+  // Nunca sincronizamos órdenes de más de 26 horas de antigüedad.
+  const timeLimit = new Date(now.getTime() - 26 * 60 * 60 * 1000);
+
+  // Si existe una última sincronización, usamos la más reciente entre ella y el límite de 26 horas.
+  let syncDate = timeLimit;
+
+  if (lastSyncTime) {
+    const parsedSyncTime = new Date(lastSyncTime);
+    syncDate = parsedSyncTime > timeLimit ? parsedSyncTime : timeLimit;
+  }
+
+  const orders = await this.prisma.order.findMany({
+    where: {
+      businessId,
+      updatedAt: {
+        gt: syncDate,
       },
-      select: {
-        id: true,
-        idTemp: true,
-        businessId: true,
-        userId: true,
-        status: true,
-        total: true,
-        origin: true,
-        totalDeliveryCost: true,
-        deliveryType: true,
-        deliveryStatus: true,
-        orderPaymentMethod: true,
-        paymentStatus: true,
-        customerName: true,
-        customerPhone: true,
-        customerAddress: true,
-        customerObservations: true,
-        createdAt: true,
-        updatedAt: true,
-        notes: true,
-        shortCode: true,
-        dailyNumber: true,
-        OrderItem: {
-          select: {
-            id: true,
-            productName: true,
-            quantity: true,
-            priceAtPurchase: true,
-            notes: true,
-            optionGroups: {
-              select: {
-                groupName: true,
-                options: {
-                  select: {
-                    optionName: true,
-                    priceFinal: true,
-                    quantity: true, // Si el modelo OrderOption tiene cantidad
-                  },
+      createdAt: {
+        gte: timeLimit,
+      },
+    },
+    select: {
+      id: true,
+      idTemp: true,
+      businessId: true,
+      userId: true,
+      status: true,
+      total: true,
+      origin: true,
+      totalDeliveryCost: true,
+      deliveryType: true,
+      deliveryStatus: true,
+      orderPaymentMethod: true,
+      paymentStatus: true,
+      customerName: true,
+      customerPhone: true,
+      customerAddress: true,
+      customerObservations: true,
+      createdAt: true,
+      updatedAt: true,
+      notes: true,
+      shortCode: true,
+      dailyNumber: true,
+      OrderItem: {
+        select: {
+          id: true,
+          productName: true,
+          quantity: true,
+          priceAtPurchase: true,
+          notes: true,
+          optionGroups: {
+            select: {
+              groupName: true,
+              options: {
+                select: {
+                  optionName: true,
+                  priceFinal: true,
+                  quantity: true,
                 },
               },
             },
           },
         },
       },
-      orderBy: { updatedAt: 'desc' },
-    });
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+  });
 
-    // El latestTimestamp es vital para que el front lo guarde para la próxima llamada
-    const latestTimestamp =
-      orders.length > 0 ? orders[0].updatedAt.toISOString() : lastSyncTime;
+  const latestTimestamp =
+    orders.length > 0
+      ? orders[0].updatedAt.toISOString()
+      : lastSyncTime || now.toISOString();
 
-    const orderMapper = orders.map(OrderResponseDtoMapper.fromPrisma);
-
-    return {
-      latestTimestamp,
-      orders: orderMapper,
-    };
-  }
+  return {
+    latestTimestamp,
+    orders: orders.map(OrderResponseDtoMapper.fromPrisma),
+  };
+}
 
   async findOrdersByDeliveyId(deliveryId: string) {
     this.logger.debug('Fetching orders by deliveryId', { deliveryId });
