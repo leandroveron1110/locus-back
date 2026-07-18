@@ -14,28 +14,52 @@ CREATE TYPE "PermissionEnum" AS ENUM ('CREATE_EMPLOYEE', 'EDIT_EMPLOYEE', 'DELET
 CREATE TYPE "DeliveryEmployeeRole" AS ENUM ('DRIVER', 'DISPATCHER');
 
 -- CreateEnum
+CREATE TYPE "DeliveryStatus" AS ENUM ('NOT_APPLICABLE', 'PENDING', 'REQUESTED', 'SHIPPED', 'CANCELLED', 'COMPLETED');
+
+-- CreateEnum
+CREATE TYPE "StateType" AS ENUM ('ORDER', 'PAYMENT', 'DELIVERY', 'SYNC');
+
+-- CreateEnum
 CREATE TYPE "NotificationCategory" AS ENUM ('ORDER', 'PRODUCT', 'PROMOTION', 'SYSTEM');
 
 -- CreateEnum
 CREATE TYPE "NotificationPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH');
 
 -- CreateEnum
-CREATE TYPE "DeliveryType" AS ENUM ('PICKUP', 'DELIVERY', 'IN_HOUSE_DELIVERY', 'EXTERNAL_DELIVERY');
-
--- CreateEnum
-CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'WAITING_FOR_PAYMENT', 'PAYMENT_IN_PROGRESS', 'PAYMENT_CONFIRMED', 'PENDING_CONFIRMATION', 'CONFIRMED', 'REJECTED_BY_BUSINESS', 'PREPARING', 'READY_FOR_CUSTOMER_PICKUP', 'READY_FOR_DELIVERY_PICKUP', 'DELIVERY_PENDING', 'DELIVERY_ASSIGNED', 'DELIVERY_ACCEPTED', 'DELIVERY_REJECTED', 'DELIVERY_REASSIGNING', 'OUT_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURNED', 'REFUNDED', 'COMPLETED', 'CANCELLED_BY_USER', 'CANCELLED_BY_BUSINESS', 'CANCELLED_BY_DELIVERY', 'FAILED');
-
--- CreateEnum
-CREATE TYPE "OrderOrigin" AS ENUM ('APP', 'WEB', 'WHATSAPP', 'PHONE', 'IN_PERSON', 'OTHER');
+CREATE TYPE "OrderOrigin" AS ENUM ('APP', 'WEB', 'BUSINESS');
 
 -- CreateEnum
 CREATE TYPE "PaymentMethodType" AS ENUM ('TRANSFER', 'CASH', 'QR', 'OTHER');
 
 -- CreateEnum
+CREATE TYPE "DeliveryType" AS ENUM ('PICKUP', 'DELIVERY', 'IN_HOUSE_DELIVERY', 'EXTERNAL_DELIVERY');
+
+-- CreateEnum
+CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'REJECTED', 'CANCELLED');
+
+-- CreateEnum
 CREATE TYPE "CadetPaymentPayer" AS ENUM ('BUSINESS', 'CLIENT');
 
 -- CreateEnum
-CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'CONFIRMED', 'REJECTED');
+CREATE TYPE "PaymentStatus" AS ENUM ('IN_PROGRESS', 'PENDING', 'CONFIRMED', 'REJECTED', 'REFUNDED');
+
+-- CreateEnum
+CREATE TYPE "DeliveryCommandType" AS ENUM ('QUOTE', 'DISPATCH', 'CANCEL');
+
+-- CreateEnum
+CREATE TYPE "DeliveryCommandStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'ERROR', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "CashRegisterStatus" AS ENUM ('OPEN', 'CLOSED');
+
+-- CreateEnum
+CREATE TYPE "FinancialMovementType" AS ENUM ('SALE', 'REFUND', 'INCOME', 'EXPENSE');
+
+-- CreateEnum
+CREATE TYPE "FinancialMovementStatus" AS ENUM ('PENDING', 'CONFIRMED', 'FAILED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "PaymentMethodTypeFinancial" AS ENUM ('CASH', 'TRANSFER', 'QR', 'DEBIT_CARD', 'CREDIT_CARD', 'MERCADO_PAGO', 'ACCOUNT', 'OTHER');
 
 -- CreateTable
 CREATE TABLE "estados" (
@@ -58,6 +82,7 @@ CREATE TABLE "usuarios" (
     "nombre" TEXT NOT NULL,
     "apellido" TEXT NOT NULL,
     "email" TEXT NOT NULL,
+    "telefono" TEXT,
     "password_hash" TEXT NOT NULL,
     "rol" "UserRole" NOT NULL DEFAULT 'CLIENT',
     "fecha_creacion" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -460,7 +485,8 @@ CREATE TABLE "direcciones" (
 -- CreateTable
 CREATE TABLE "ordenes" (
     "id" TEXT NOT NULL,
-    "usuario_id" TEXT NOT NULL,
+    "id_temp" TEXT,
+    "usuario_id" TEXT,
     "negocio_id" TEXT NOT NULL,
     "direccion_entrega_id" TEXT,
     "direccion_retiro_id" TEXT,
@@ -483,23 +509,39 @@ CREATE TABLE "ordenes" (
     "costo_total_delivery" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "metodo_pago_orden" "PaymentMethodType" NOT NULL DEFAULT 'TRANSFER',
     "estado_pago_orden" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
-    "quien_paga_cadete" "CadetPaymentPayer" NOT NULL DEFAULT 'CLIENT',
+    "quien_paga_cadete" "CadetPaymentPayer" DEFAULT 'CLIENT',
     "metodo_pago_cadete" "PaymentMethodType",
     "paymentReceiptUrl" TEXT,
     "paymentInstructions" TEXT,
     "paymentHolderName" TEXT,
     "pago_esperado" JSONB NOT NULL,
     "pago_recibido" JSONB NOT NULL,
-    "cadete_cobra_orden" BOOLEAN NOT NULL DEFAULT false,
+    "cadete_cobra_orden" BOOLEAN DEFAULT false,
     "tipo_entrega" "DeliveryType" NOT NULL DEFAULT 'DELIVERY',
     "estado" "OrderStatus" NOT NULL DEFAULT 'PENDING',
+    "estado_envio" "DeliveryStatus" NOT NULL DEFAULT 'NOT_APPLICABLE',
     "origen" "OrderOrigin" NOT NULL DEFAULT 'APP',
     "es_prueba" BOOLEAN NOT NULL DEFAULT false,
     "notas" TEXT,
+    "shortCode" TEXT,
+    "dailyNumber" INTEGER,
+    "assigned_cash_register_turn_id" TEXT,
     "creado_en" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "actualizado_en" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "ordenes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ordenes_eventos_estado" (
+    "id" TEXT NOT NULL,
+    "orden_id" TEXT NOT NULL,
+    "tipo_estado" "StateType" NOT NULL,
+    "valor" TEXT NOT NULL,
+    "autor" TEXT,
+    "creado_en" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ordenes_eventos_estado_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -513,6 +555,7 @@ CREATE TABLE "items_orden" (
     "cantidad" INTEGER NOT NULL,
     "precio_al_momento_compra" DECIMAL(10,2) NOT NULL,
     "notas" TEXT,
+    "metodo_pago_producto" "PaymentMethodType" NOT NULL DEFAULT 'TRANSFER',
     "fecha_creacion" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "fecha_actualizacion" TIMESTAMPTZ(3) NOT NULL,
     "ordersId" TEXT,
@@ -632,6 +675,116 @@ CREATE TABLE "DeliveryZone" (
 );
 
 -- CreateTable
+CREATE TABLE "macro_zones" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "geometry" JSONB,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+
+    CONSTRAINT "macro_zones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "delivery_price_matrix" (
+    "id" TEXT NOT NULL,
+    "deliveryCompanyId" TEXT NOT NULL,
+    "deliveryZoneId" TEXT NOT NULL,
+    "macroZoneId" TEXT NOT NULL,
+    "price" DECIMAL(65,30) NOT NULL,
+
+    CONSTRAINT "delivery_price_matrix_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "address_zone_index" (
+    "id" TEXT NOT NULL,
+    "addressId" TEXT NOT NULL,
+    "macroZoneId" TEXT,
+    "deliveryZoneId" TEXT,
+
+    CONSTRAINT "address_zone_index_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "h3_indices" (
+    "id" TEXT NOT NULL,
+    "h3Index" TEXT NOT NULL,
+    "macroZoneId" TEXT,
+    "deliveryZoneId" TEXT,
+
+    CONSTRAINT "h3_indices_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DeliveryCommand" (
+    "id" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "command" "DeliveryCommandType" NOT NULL,
+    "status" "DeliveryCommandStatus" NOT NULL DEFAULT 'PENDING',
+    "originName" TEXT,
+    "originAddress" TEXT,
+    "originLatitude" DOUBLE PRECISION,
+    "originLongitude" DOUBLE PRECISION,
+    "destinationAddress" TEXT,
+    "destinationLatitude" DOUBLE PRECISION,
+    "destinationLongitude" DOUBLE PRECISION,
+    "zoneId" TEXT,
+    "notes" TEXT,
+    "quotedCost" INTEGER,
+    "externalId" TEXT,
+    "failureReason" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DeliveryCommand_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cash_register_turns" (
+    "id" TEXT NOT NULL,
+    "client_turn_id" TEXT NOT NULL,
+    "business_id" TEXT NOT NULL,
+    "opened_by_user_id" TEXT NOT NULL,
+    "closed_by_user_id" TEXT,
+    "opening_date" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "opening_amount" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "openingNotes" TEXT,
+    "closing_date" TIMESTAMPTZ,
+    "declared_closing_amount" DECIMAL(10,2),
+    "system_closing_amount" DECIMAL(10,2),
+    "difference" DECIMAL(10,2),
+    "closingNotes" TEXT,
+    "status" "CashRegisterStatus" NOT NULL DEFAULT 'OPEN',
+    "updated_at" TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT "cash_register_turns_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "financial_movements" (
+    "id" TEXT NOT NULL,
+    "client_movement_id" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "approved_by_user_id" TEXT,
+    "type" "FinancialMovementType" NOT NULL,
+    "status" "FinancialMovementStatus" NOT NULL DEFAULT 'CONFIRMED',
+    "amount" DECIMAL(10,2) NOT NULL,
+    "payment_method" "PaymentMethodTypeFinancial" NOT NULL,
+    "description" TEXT NOT NULL,
+    "notes" TEXT,
+    "external_reference" TEXT,
+    "sequence" INTEGER NOT NULL DEFAULT 1,
+    "date" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "order_id" TEXT,
+    "cash_register_turn_id" TEXT NOT NULL,
+    "reference_cash_register_turn_id" TEXT,
+
+    CONSTRAINT "financial_movements_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_AddressToOrder" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
@@ -700,6 +853,9 @@ CREATE INDEX "direcciones_habilitada_idx" ON "direcciones"("habilitada");
 CREATE INDEX "direcciones_usuario_id_habilitada_idx" ON "direcciones"("usuario_id", "habilitada");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "ordenes_id_temp_key" ON "ordenes"("id_temp");
+
+-- CreateIndex
 CREATE INDEX "ordenes_negocio_id_idx" ON "ordenes"("negocio_id");
 
 -- CreateIndex
@@ -710,6 +866,9 @@ CREATE INDEX "ordenes_deliveryCompanyId_idx" ON "ordenes"("deliveryCompanyId");
 
 -- CreateIndex
 CREATE INDEX "ordenes_creado_en_idx" ON "ordenes"("creado_en");
+
+-- CreateIndex
+CREATE INDEX "ordenes_eventos_estado_orden_id_idx" ON "ordenes_eventos_estado"("orden_id");
 
 -- CreateIndex
 CREATE INDEX "Notification_targetEntityId_targetEntityType_isRead_timesta_idx" ON "Notification"("targetEntityId", "targetEntityType", "isRead", "timestamp" DESC);
@@ -725,6 +884,51 @@ CREATE INDEX "PushSubscriptionTarget_targetEntityId_targetEntityType_idx" ON "Pu
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PushSubscriptionTarget_subscriptionId_targetEntityId_target_key" ON "PushSubscriptionTarget"("subscriptionId", "targetEntityId", "targetEntityType");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "macro_zones_name_key" ON "macro_zones"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "delivery_price_matrix_deliveryCompanyId_deliveryZoneId_macr_key" ON "delivery_price_matrix"("deliveryCompanyId", "deliveryZoneId", "macroZoneId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "address_zone_index_addressId_key" ON "address_zone_index"("addressId");
+
+-- CreateIndex
+CREATE INDEX "h3_indices_h3Index_idx" ON "h3_indices"("h3Index");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommand_businessId_idx" ON "DeliveryCommand"("businessId");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommand_orderId_idx" ON "DeliveryCommand"("orderId");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommand_status_idx" ON "DeliveryCommand"("status");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommand_command_idx" ON "DeliveryCommand"("command");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DeliveryCommand_businessId_orderId_key" ON "DeliveryCommand"("businessId", "orderId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cash_register_turns_client_turn_id_key" ON "cash_register_turns"("client_turn_id");
+
+-- CreateIndex
+CREATE INDEX "cash_register_turns_business_id_status_idx" ON "cash_register_turns"("business_id", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "financial_movements_client_movement_id_key" ON "financial_movements"("client_movement_id");
+
+-- CreateIndex
+CREATE INDEX "financial_movements_businessId_idx" ON "financial_movements"("businessId");
+
+-- CreateIndex
+CREATE INDEX "financial_movements_order_id_idx" ON "financial_movements"("order_id");
+
+-- CreateIndex
+CREATE INDEX "financial_movements_cash_register_turn_id_idx" ON "financial_movements"("cash_register_turn_id");
 
 -- CreateIndex
 CREATE INDEX "_AddressToOrder_B_index" ON "_AddressToOrder"("B");
@@ -832,7 +1036,10 @@ ALTER TABLE "direcciones" ADD CONSTRAINT "direcciones_usuario_id_fkey" FOREIGN K
 ALTER TABLE "direcciones" ADD CONSTRAINT "direcciones_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_usuario_id_fkey" FOREIGN KEY ("usuario_id") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_assigned_cash_register_turn_id_fkey" FOREIGN KEY ("assigned_cash_register_turn_id") REFERENCES "cash_register_turns"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_usuario_id_fkey" FOREIGN KEY ("usuario_id") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -845,6 +1052,9 @@ ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_direccion_retiro_id_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_deliveryCompanyId_fkey" FOREIGN KEY ("deliveryCompanyId") REFERENCES "DeliveryCompany"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ordenes_eventos_estado" ADD CONSTRAINT "ordenes_eventos_estado_orden_id_fkey" FOREIGN KEY ("orden_id") REFERENCES "ordenes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "items_orden" ADD CONSTRAINT "items_orden_id_orden_fkey" FOREIGN KEY ("id_orden") REFERENCES "ordenes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -869,6 +1079,39 @@ ALTER TABLE "DeliveryCompany" ADD CONSTRAINT "DeliveryCompany_ownerId_fkey" FORE
 
 -- AddForeignKey
 ALTER TABLE "DeliveryZone" ADD CONSTRAINT "DeliveryZone_deliveryCompanyId_fkey" FOREIGN KEY ("deliveryCompanyId") REFERENCES "DeliveryCompany"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "delivery_price_matrix" ADD CONSTRAINT "delivery_price_matrix_deliveryCompanyId_fkey" FOREIGN KEY ("deliveryCompanyId") REFERENCES "DeliveryCompany"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "delivery_price_matrix" ADD CONSTRAINT "delivery_price_matrix_deliveryZoneId_fkey" FOREIGN KEY ("deliveryZoneId") REFERENCES "DeliveryZone"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "delivery_price_matrix" ADD CONSTRAINT "delivery_price_matrix_macroZoneId_fkey" FOREIGN KEY ("macroZoneId") REFERENCES "macro_zones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "address_zone_index" ADD CONSTRAINT "address_zone_index_addressId_fkey" FOREIGN KEY ("addressId") REFERENCES "direcciones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "address_zone_index" ADD CONSTRAINT "address_zone_index_macroZoneId_fkey" FOREIGN KEY ("macroZoneId") REFERENCES "macro_zones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "address_zone_index" ADD CONSTRAINT "address_zone_index_deliveryZoneId_fkey" FOREIGN KEY ("deliveryZoneId") REFERENCES "DeliveryZone"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "h3_indices" ADD CONSTRAINT "h3_indices_macroZoneId_fkey" FOREIGN KEY ("macroZoneId") REFERENCES "macro_zones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "h3_indices" ADD CONSTRAINT "h3_indices_deliveryZoneId_fkey" FOREIGN KEY ("deliveryZoneId") REFERENCES "DeliveryZone"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "ordenes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_cash_register_turn_id_fkey" FOREIGN KEY ("cash_register_turn_id") REFERENCES "cash_register_turns"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_reference_cash_register_turn_id_fkey" FOREIGN KEY ("reference_cash_register_turn_id") REFERENCES "cash_register_turns"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_AddressToOrder" ADD CONSTRAINT "_AddressToOrder_A_fkey" FOREIGN KEY ("A") REFERENCES "direcciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;

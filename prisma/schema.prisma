@@ -45,7 +45,7 @@ enum ImageType {
 // Modelo para definir los diferentes estados de una entidad (Negocio, Usuario, Reserva, Pedido).
 // Permite una gestión centralizada y estandarizada de los estados a través de la aplicación.
 model Status {
-  id          String   @id @default(uuid()) @map("id")
+  id          String   @id @default(uuid())  @map("id")
   name        String   @map("nombre") // Nombre técnico/clave del estado (ej. "PENDING_REVIEW", "ACTIVE").
   displayName String   @map("nombre_visual") // Nombre amigable para mostrar en la UI (ej. "Pendiente de Revisión", "Activo").
   description String?  @map("descripcion") @db.Text // Descripción detallada del estado.
@@ -64,7 +64,7 @@ model Status {
 
 // Modelo de Usuario (Propietarios de Negocios, Clientes, Administradores).
 model User {
-  id           String   @id @default(uuid()) @map("id")
+  id           String   @id @default(uuid())  @map("id")
   firstName    String   @map("nombre")
   lastName     String   @map("apellido")
   email        String   @unique @map("email")
@@ -74,13 +74,13 @@ model User {
   createdAt    DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
 
-  statusId      String? @map("estado_id")
+  statusId      String? @map("estado_id") 
   currentStatus Status? @relation(fields: [statusId], references: [id], name: "UserStatus")
 
   businesses Business[] // Relación inversa: Un usuario puede ser propietario de muchos negocios.
 
   // ⭐ Campo que referencia a la imagen de avatar del usuario. Relación 1:1 con Image.
-  avatarId         String?            @unique @map("avatar_id")
+  avatarId         String?            @unique @map("avatar_id") 
   avatar           Image?             @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
   businessFollower BusinessFollower[]
   rating           Rating[]
@@ -97,7 +97,7 @@ model User {
 
 // Modelo Category. Almacena las categorías estandarizadas para los negocios.
 model Category {
-  id          String   @id @default(uuid()) @map("id")
+  id          String   @id @default(uuid())  @map("id")
   name        String   @unique @map("nombre") // Ej: "Restaurante", "Peluquería", "Gimnasio", "Servicios a Domicilio".
   description String?  @map("descripcion")
   active      Boolean  @default(true) @map("activo")
@@ -117,7 +117,7 @@ model Category {
 // Este modelo está diseñado para ser el núcleo de un futuro microservicio de imágenes.
 // Almacena los metadatos de TODAS las imágenes de la aplicación, sin importar su uso específico.
 model Image {
-  id           String   @id @default(uuid()) @map("id") // ID único global de la imagen. Otros modelos lo referencian.
+  id           String   @id @default(uuid())  @map("id") // ID único global de la imagen. Otros modelos lo referencian.
   name         String   @map("nombre") // <-- Título / nombre legible
   altText      String?  @map("alt") // <-- Texto alt (accesibilidad)
   description  String?  @map("descripcion")
@@ -157,8 +157,8 @@ model Image {
 // Esta tabla gestiona la relación Mucho a Mucho (M:N) entre Business e Image
 // para las imágenes de galería de un negocio.
 model BusinessImage {
-  businessId String  @map("negocio_id")
-  imageId    String  @map("imagen_id")
+  businessId String  @map("negocio_id") 
+  imageId    String  @map("imagen_id") 
   order      Int?    @map("orden") // Permite definir el orden de visualización en la galería.
   imageUrl   String? @map("url") // Redundancia para consulta rápida (copiada desde Image)
 
@@ -172,8 +172,8 @@ model BusinessImage {
 // --- TABLA INTERMEDIA: Para Relación N:M entre Business y Category ---
 // ⭐ NUEVO MODELO para gestionar la relación Mucho a Mucho (M:N) entre Business y Category.
 model BusinessCategory {
-  businessId String   @map("negocio_id")
-  categoryId String   @map("categoria_id")
+  businessId String   @map("negocio_id") 
+  categoryId String   @map("categoria_id") 
   assignedAt DateTime @default(now()) @map("fecha_asignacion") // Opcional: para saber cuándo se asignó
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -184,7 +184,7 @@ model BusinessCategory {
 }
 
 model Rating {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid()) 
   value     Int
   comment   String? // opcional
   createdAt DateTime @default(now())
@@ -199,12 +199,12 @@ model Rating {
 }
 
 model BusinessFollower {
-  id     String @id @default(uuid())
+  id     String @id @default(uuid()) 
   user   User   @relation(fields: [userId], references: [id])
-  userId String
+  userId String 
 
   business   Business @relation(fields: [businessId], references: [id])
-  businessId String
+  businessId String 
 
   createdAt DateTime @default(now())
 
@@ -212,8 +212,8 @@ model BusinessFollower {
 }
 
 model BusinessTag {
-  businessId String
-  tagId      String // Este 'tagId' es el ID de un Tag que existe en el microservicio de Tags
+  businessId String 
+  tagId      String  // Este 'tagId' es el ID de un Tag que existe en el microservicio de Tags
   assignedAt DateTime @default(now()) // Puedes añadir metadatos si es necesario
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -225,7 +225,7 @@ model BusinessTag {
 
 // Modelo Tag. Permite categorizar negocios (y posiblemente otras entidades en el futuro) con etiquetas.
 model Tag {
-  id          String        @id @default(uuid()) @map("id")
+  id          String        @id @default(uuid())  @map("id")
   name        String        @unique @map("nombre")
   active      Boolean       @default(true) @map("activo")
   createdAt   DateTime      @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
@@ -240,7 +240,7 @@ model Tag {
 
 // Modelo WeeklySchedule. Define los horarios de apertura y cierre regulares de un negocio por día de la semana.
 // model WeeklySchedule {
-//   id          String    @id @default(uuid()) @map("id")
+//   id          String    @id @default(uuid())  @map("id")
 //   businessId  String    @map("negocio_id")
 //   dayOfWeek   DayOfWeek @map("dia_semana")
 //   openingTime DateTime  @map("hora_apertura") @db.Time(0)
@@ -256,8 +256,8 @@ model Tag {
 
 // Modelo OfferedService. Define los servicios que un negocio ofrece (ej. "Corte de pelo", "Clase de yoga").
 model OfferedService {
-  id              String   @id @default(uuid()) @map("id")
-  businessId      String   @map("negocio_id")
+  id              String   @id @default(uuid())  @map("id")
+  businessId      String   @map("negocio_id") 
   name            String   @map("nombre")
   description     String?  @map("descripcion") @db.Text
   price           Decimal? @map("precio") @db.Decimal(10, 2)
@@ -272,8 +272,8 @@ model OfferedService {
 
 // --- Modelo de Negocio ---
 model Business {
-  id               String   @id @default(uuid()) @map("id")
-  ownerId          String   @map("propietario_id")
+  id               String   @id @default(uuid())  @map("id")
+  ownerId          String   @map("propietario_id") 
   name             String
   shortDescription String?  @map("descripcion_corta") @db.Text
   fullDescription  String?  @map("descripcion_completa") @db.Text
@@ -281,7 +281,7 @@ model Business {
   phone            String   @map("telefono")
   whatsapp         String
   email            String?
-  statusId         String?  @map("estado_id")
+  statusId         String?  @map("estado_id") 
   createdAt        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt        DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
   instagramUrl     String?  @map("url_instagram")
@@ -299,7 +299,7 @@ model Business {
 
   businessTags BusinessTag[]
 
-  logoId  String? @unique @map("logo_id")
+  logoId  String? @unique @map("logo_id") 
   logo    Image?  @relation("BusinessLogo", fields: [logoId], references: [id], onDelete: SetNull)
   logoUrl String? @map("logo_url") // Redundancia optimizada para acceso rápido
 
@@ -332,8 +332,8 @@ model Business {
 }
 
 model BusinessPaymentMethod {
-  id           String  @id @default(uuid()) @map("id")
-  businessId   String  @map("negocio_id")
+  id           String  @id @default(uuid())  @map("id")
+  businessId   String  @map("negocio_id") 
   alias        String  @map("alias") // alias bancario o nombre de cuenta
   account      String  @map("cuenta") // número de cuenta, CBU o QR
   holderName   String  @map("titular") // titular de la cuenta
@@ -351,17 +351,17 @@ model BusinessPaymentMethod {
 }
 
 model BusinessRole {
-  id          String             @id @default(uuid())
-  businessId  String
+  id          String             @id @default(uuid()) 
+  businessId  String 
   name        String // Nombre dinámico: "Manager", "Cajero", "Encargado de Stock"
   permissions PermissionEnum[] // Lista de permisos asociados a este rol
   employees   BusinessEmployee[]
 }
 
 model BusinessEmployee {
-  id         String                     @id @default(uuid())
-  userId     String
-  businessId String
+  id         String                     @id @default(uuid()) 
+  userId     String 
+  businessId String 
   roleId     String?
   role       BusinessRole?              @relation(fields: [roleId], references: [id])
   overrides  BusinessEmployeeOverride[]
@@ -373,8 +373,8 @@ model BusinessEmployee {
 }
 
 model BusinessEmployeeOverride {
-  id         String           @id @default(uuid())
-  employeeId String
+  id         String           @id @default(uuid()) 
+  employeeId String 
   permission PermissionEnum
   allowed    Boolean // true = habilita extra, false = revoca el permiso del rol
   employee   BusinessEmployee @relation(fields: [employeeId], references: [id])
@@ -423,9 +423,9 @@ enum PermissionEnum {
 // Empleados de cadeterías
 // -------------------------------------
 model DeliveryEmployee {
-  id                String               @id @default(uuid())
-  deliveryCompanyId String
-  userId            String
+  id                String               @id @default(uuid()) 
+  deliveryCompanyId String 
+  userId            String 
   role              DeliveryEmployeeRole
   permissions       Json?
   createdAt         DateTime             @default(now())
@@ -488,10 +488,10 @@ model SearchableBusiness {
 /// Si un negocio puede tener múltiples menús (ej. Desayuno, Almuerzo), esta relación
 /// debería ser de 1:N (Business a Menu), y 'businessId' iría en Menu.
 model Menu {
-  id   String @id @default(uuid()) @map("id") // ID único del menú
+  id   String @id @default(uuid())  @map("id") // ID único del menú
   name String @map("nombre") // Nombre del menú (ej. "Menú de McDonald's Lav")
 
-  businessId String   @map("negocio_id") // quitar cualquier @unique
+  businessId String   @map("negocio_id")  // quitar cualquier @unique
   business   Business @relation(fields: [businessId], references: [id])
 
   sections Seccion[] // Un menú tiene muchas secciones
@@ -507,13 +507,13 @@ model Menu {
 
 /// Representa una sección o categoría dentro de un menú (ej. "¡Volvió la salsa Tasty!").
 model Seccion {
-  id        String   @id @default(uuid()) @map("id") // ID único de la sección
+  id        String   @id @default(uuid())  @map("id") // ID único de la sección
   name      String   @map("nombre") // Nombre de la sección
   index     Int      @map("orden")
   imageUrls String[] @map("urls_imagenes")
 
   // Relación con Menu
-  menuId String @map("menu_id")
+  menuId String @map("menu_id") 
   menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   // ⭐ AJUSTADO: Relación con MenuProducto
@@ -529,7 +529,7 @@ model Seccion {
 
 /// Representa un producto que forma parte de un menú de un negocio.
 model MenuProduct {
-  id          String  @id @default(uuid()) @map("id") // Identificador único del producto de menú.
+  id          String  @id @default(uuid())  @map("id") // Identificador único del producto de menú.
   name        String  @map("nombre") // Nombre del producto (ej. "McCombo Mediano Doble Cuarto de libra").
   description String  @map("descripcion") @db.Text // Descripción detallada del producto.
   enabled     Boolean @default(true) @map("habilitado") // Si el producto está habilitado para la venta.
@@ -552,7 +552,7 @@ model MenuProduct {
 
   // --- Imágenes del producto ---
   // Relación con la imagen principal del producto
-  imageId  String? @map("imagen_id")
+  imageId  String? @map("imagen_id") 
   image    Image?  @relation("MenuProductImage", fields: [imageId], references: [id], onDelete: SetNull)
   imageUrl String? @map("imagen_url") // Redundancia optimizada
 
@@ -572,7 +572,7 @@ model MenuProduct {
   foodCategories MenuProductFoodCategory[] // Categorías culinarias (ej. "Hamburguesas", "Bebidas", "Postres").
 
   // Cada producto de menú pertenece a una sección del menú.
-  seccionId String  @map("seccion_id")
+  seccionId String  @map("seccion_id") 
   seccion   Seccion @relation(fields: [seccionId], references: [id], onDelete: Cascade)
 
   // Un producto de menú puede tener varios grupos de opciones de personalización.
@@ -594,7 +594,7 @@ model MenuProduct {
 
 // ⭐ NUEVO MODELO: Para categorizar MenuProducto con etiquetas predefinidas.
 model FoodCategory {
-  id           String                    @id @default(uuid()) @map("id")
+  id           String                    @id @default(uuid())  @map("id")
   name         String                    @unique @map("nombre")
   description  String?                   @map("descripcion")
   // ⭐ AJUSTADO: La relación inversa debe apuntar a la tabla intermedia correcta.
@@ -608,8 +608,8 @@ model FoodCategory {
 
 // ⭐ NUEVA TABLA INTERMEDIA: Relación M:N entre MenuProducto y FoodCategory.
 model MenuProductFoodCategory {
-  menuProductId  String @map("menu_producto_id")
-  foodCategoryId String @map("categoria_comida_id")
+  menuProductId  String @map("menu_producto_id") 
+  foodCategoryId String @map("categoria_comida_id") 
 
   menuProduct  MenuProduct  @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
   foodCategory FoodCategory @relation("FoodCategoryToMenuProducts", fields: [foodCategoryId], references: [id], onDelete: Cascade)
@@ -620,14 +620,14 @@ model MenuProductFoodCategory {
 
 /// Representa un grupo de opciones para personalizar un producto de menú (ej. "Acompañamientos", "Bebidas").
 model OpcionGrupo {
-  id           String @id @default(uuid()) @map("id")
+  id           String @id @default(uuid())  @map("id")
   name         String @map("nombre") // Nombre del grupo de opciones
   minQuantity  Int    @map("cantidad_minima") // Cantidad mínima de opciones a seleccionar
   maxQuantity  Int    @map("cantidad_maxima") // Cantidad máxima de opciones a seleccionar
   quantityType String @map("tipo_cantidad") // Tipo de cantidad ("FIXED", "MIN_MAX")
 
   // Relación con MenuProducto
-  menuProductId String      @map("menu_producto_id") // ⭐ AJUSTADO: Nombre del campo.
+  menuProductId String      @map("menu_producto_id")  // ⭐ AJUSTADO: Nombre del campo.
   menuProduct   MenuProduct @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
 
   // Relación con Opciones
@@ -644,7 +644,7 @@ model OpcionGrupo {
 
 /// Representa una opción dentro de un grupo (ej. "Papas Fritas Grandes", "Coca Cola Zero").
 model Opcion {
-  id       String  @id @default(uuid()) @map("id")
+  id       String  @id @default(uuid())  @map("id")
   legacyId Int?    @unique @map("legacy_id") // ID de un sistema heredado, opcional
   name     String  @map("nombre") // Nombre de la opción
   hasStock Boolean @map("tiene_stock") // Indica si la opción tiene stock
@@ -662,7 +662,7 @@ model Opcion {
   optionImages OptionImage[] // Relación a la tabla intermedia OptionImage
 
   // Relación con OpcionGrupo
-  optionGroupId String      @map("id_grupo_opcion")
+  optionGroupId String      @map("id_grupo_opcion") 
   optionGroup   OpcionGrupo @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
 
   isDeleted Boolean   @default(false) @map("borrado") // soft delete
@@ -676,8 +676,8 @@ model Opcion {
 
 /// Tabla intermedia para la relación M:N entre Opcion e Image.
 model OptionImage {
-  optionId String @map("opcion_id")
-  imageId  String @map("imagen_id")
+  optionId String @map("opcion_id") 
+  imageId  String @map("imagen_id") 
   order    Int?   @map("orden") // Orden de visualización de la imagen
   url      String
 
@@ -694,7 +694,7 @@ model OptionImage {
 // ============================================================================
 
 model Address {
-  id         String   @id @default(uuid()) @map("id")
+  id         String   @id @default(uuid())  @map("id")
   street     String   @map("calle")
   number     String?  @map("numero")
   apartment  String?  @map("departamento")
@@ -709,10 +709,10 @@ model Address {
   notes      String?  @map("notas")
 
   // Relaciones para dueños
-  userId String? @map("usuario_id")
+  userId String? @map("usuario_id") 
   user   User?   @relation("UserAddresses", fields: [userId], references: [id])
 
-  businessId String?   @map("negocio_id")
+  businessId String?   @map("negocio_id")   
   business   Business? @relation("BusinessAddresses", fields: [businessId], references: [id])
 
   // Relaciones con órdenes
@@ -734,13 +734,13 @@ model Address {
 
 /// Representa una orden de un cliente.
 model Order {
-  id                String  @id @default(uuid()) @map("id")
+  id                String  @id @default(uuid())  @map("id")
   idTemp            String? @unique @map("id_temp") // ID temporal para pedidos en proceso antes de confirmar
-  userId            String? @map("usuario_id")
-  businessId        String  @map("negocio_id")
-  deliveryAddressId String? @map("direccion_entrega_id") // opcional si es retiro
-  pickupAddressId   String? @map("direccion_retiro_id") // opcional si es entrega
-  deliveryCompanyId String? // ID de la empresa de delivery/cadetería
+  userId            String? @map("usuario_id") 
+  businessId        String  @map("negocio_id") 
+  deliveryAddressId String? @map("direccion_entrega_id")  // opcional si es retiro
+  pickupAddressId   String? @map("direccion_retiro_id")  // opcional si es entrega
+  deliveryCompanyId String?  // ID de la empresa de delivery/cadetería
 
   // --------------------------- SNAPSHOTS (Mantiene la info histórica) ---------------------------
   customerName             String   @map("cliente_nombre")
@@ -817,6 +817,13 @@ model Order {
   // 1, 2, 3...
   dailyNumber Int?
 
+  // La orden solo sabe en qué caja se inició el proceso o quién la atiende
+  assignedCashRegisterTurnId String?           @map("assigned_cash_register_turn_id") 
+  assignedCashRegisterTurn   CashRegisterTurn? @relation("AssignedCashTurn", fields: [assignedCashRegisterTurnId], references: [id])
+
+  // Los cobros reales viven aquí
+  financialMovements FinancialMovement[]
+
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
 
@@ -846,8 +853,8 @@ enum DeliveryStatus {
 }
 
 model OrderStateEvent {
-  id      String @id @default(uuid())
-  orderId String @map("orden_id")
+  id      String @id @default(uuid()) 
+  orderId String @map("orden_id") 
 
   // Qué tipo de estado cambió
   stateType StateType @map("tipo_estado") // ORDER, PAYMENT, DELIVERY
@@ -874,9 +881,9 @@ enum StateType {
 
 /// Representa un ítem individual dentro de una orden.
 model OrderItem {
-  id            String @id @default(uuid()) @map("id")
-  orderId       String @map("id_orden")
-  menuProductId String @map("id_menu_producto")
+  id            String @id @default(uuid())  @map("id")
+  orderId       String @map("id_orden") 
+  menuProductId String @map("id_menu_producto") 
 
   // Duplicar información clave del producto al momento de la compra para consistencia histórica
   productName        String  @map("nombre_producto")
@@ -895,15 +902,15 @@ model OrderItem {
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  ordersId  String?
+  ordersId  String? 
 
   @@map("items_orden")
 }
 
 /// Representa un descuento específico aplicado a una orden. Permite múltiples descuentos por orden.
 model OrderDiscount {
-  id      String  @id @default(uuid()) @map("id")
-  orderId String  @map("id_orden")
+  id      String  @id @default(uuid())  @map("id")
+  orderId String  @map("id_orden") 
   amount  Decimal @map("monto") @db.Decimal(10, 2) // Cantidad del descuento
   type    String  @map("tipo") // Ej. "SUBSIDIZED", "PROMO_CODE", "DELIVERY_DISCOUNT", "LOYALTY"
   notes   String? @map("notas") // Notas descriptivas del descuento (ej. "SUBSIDIZED_PRODUCT SUBTOTAL DISCOUNT")
@@ -913,31 +920,31 @@ model OrderDiscount {
 
   createdAt DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(3)
-  ordersId  String?
+  ordersId  String? 
 
   @@map("descuentos_orden")
 }
 
 model OrderOptionGroup {
-  id String @id @default(uuid())
+  id String @id @default(uuid()) 
 
-  opcionGrupoId String? // Referencia opcional al original
+  opcionGrupoId String?  // Referencia opcional al original
   groupName     String // Copia del nombre del grupo
   minQuantity   Int
   maxQuantity   Int
   quantityType  String // Copia del tipo ("FIXED", etc.)
 
   options     OrderOption[]
-  orderItemId String
+  orderItemId String 
   orderItem   OrderItem     @relation(fields: [orderItemId], references: [id])
 }
 
 model OrderOption {
-  id                 String           @id @default(uuid())
+  id                 String           @id @default(uuid()) 
   orderOptionGroup   OrderOptionGroup @relation(fields: [orderOptionGroupId], references: [id])
-  orderOptionGroupId String
+  orderOptionGroupId String 
 
-  opcionId          String? // Referencia opcional al original
+  opcionId          String?  // Referencia opcional al original
   optionName        String // Copia del nombre
   priceFinal        Decimal @db.Decimal(10, 2)
   priceWithoutTaxes Decimal @db.Decimal(10, 2)
@@ -960,7 +967,7 @@ enum NotificationPriority {
 }
 
 model Notification {
-  id        String                @id @default(uuid())
+  id        String                @id @default(uuid()) 
   category  NotificationCategory
   type      String
   title     String
@@ -981,7 +988,7 @@ model Notification {
 
 // 1. La tabla del DISPOSITIVO (¡Limpia!)
 model PushSubscription {
-  id String @id @default(uuid())
+  id String @id @default(uuid()) 
 
   // Endpoint es UNICO para el dispositivo, sin referencias a entidades aquí
   endpoint  String   @unique
@@ -995,14 +1002,14 @@ model PushSubscription {
 
 // 2. La tabla de ASOCIACIÓN (UNE dispositivo con entidad)
 model PushSubscriptionTarget {
-  id String @id @default(uuid())
+  id String @id @default(uuid()) 
 
   // Referencia a la Suscripción (Dispositivo)
-  subscriptionId String
+  subscriptionId String 
   subscription   PushSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   // Identificador Polimórfico de la Entidad (User ID, Business ID, etc.)
-  targetEntityId   String
+  targetEntityId   String 
   targetEntityType String // Puede ser 'USER' o 'BUSINESS'
 
   // Restricción: Un dispositivo solo puede suscribirse una vez a una entidad
@@ -1014,14 +1021,14 @@ model PushSubscriptionTarget {
 // Modelos
 
 model DeliveryCompany {
-  id       String         @id @default(uuid())
+  id       String         @id @default(uuid()) 
   name     String
   phone    String
   // Relación uno a muchos con el nuevo modelo de zonas
   zones    DeliveryZone[]
   isActive Boolean        @default(true)
 
-  ownerId String
+  ownerId String 
   orders  Order[] @relation("DeliveryCompanyOrder")
   owner   User    @relation(fields: [ownerId], references: [id])
 
@@ -1033,7 +1040,7 @@ model DeliveryCompany {
 }
 
 model DeliveryZone {
-  id    String  @id @default(uuid())
+  id    String  @id @default(uuid()) 
   name  String // Nombre de la zona (ej: "Centro", "Norte")
   price Decimal // Precio por entrega en esta zona
 
@@ -1048,7 +1055,7 @@ model DeliveryZone {
 
   // Relación con DeliveryCompany
   deliveryCompany   DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id])
-  deliveryCompanyId String
+  deliveryCompanyId String 
 
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
@@ -1111,7 +1118,7 @@ enum PaymentStatus {
 
 // 1. Representa las divisiones macro de la ciudad (ej: "Zona Cementerio", "Zona Plaza")
 model MacroZone {
-  id       String  @id @default(uuid())
+  id       String  @id @default(uuid()) 
   name     String  @unique // "CEMENTERIO", "PLAZA"
   geometry Json? // Polígono para el cálculo inicial automático
   isActive Boolean @default(true)
@@ -1127,10 +1134,10 @@ model MacroZone {
 // 2. La Matriz de Precios definitiva
 // Aquí configuras: Empresa + Barrio (Destino) + Macro (Origen) = Precio
 model DeliveryPriceMatrix {
-  id                String  @id @default(uuid())
-  deliveryCompanyId String
-  deliveryZoneId    String // ID del Barrio (Destino) - ej: San Isidro
-  macroZoneId       String // ID de la Macro-zona (Origen) - ej: Plaza
+  id                String  @id @default(uuid()) 
+  deliveryCompanyId String 
+  deliveryZoneId    String  // ID del Barrio (Destino) - ej: San Isidro
+  macroZoneId       String  // ID de la Macro-zona (Origen) - ej: Plaza
   price             Decimal // El precio resultante
 
   // Relaciones
@@ -1145,10 +1152,10 @@ model DeliveryPriceMatrix {
 // 3. El Índice de Direcciones (Cache Geográfico)
 // Esto evita usar Turf en cada pedido. Ya sabemos dónde está cada dirección.
 model AddressZoneIndex {
-  id             String  @id @default(uuid())
-  addressId      String  @unique
-  macroZoneId    String? // ¿Está en Plaza o Cementerio?
-  deliveryZoneId String? // ¿En qué barrio (San Isidro, Centro)?
+  id             String  @id @default(uuid()) 
+  addressId      String  @unique 
+  macroZoneId    String?  // ¿Está en Plaza o Cementerio?
+  deliveryZoneId String?  // ¿En qué barrio (San Isidro, Centro)?
 
   // Relaciones
   address   Address       @relation(fields: [addressId], references: [id])
@@ -1159,11 +1166,11 @@ model AddressZoneIndex {
 }
 
 model H3Index {
-  id      String @id @default(uuid())
+  id      String @id @default(uuid()) 
   h3Index String // El hexágono (Ej: '89e28308283ffff')
 
-  macroZoneId    String?
-  deliveryZoneId String?
+  macroZoneId    String? 
+  deliveryZoneId String? 
 
   // Relaciones (las que ya tenías)
   macroZone    MacroZone?    @relation(fields: [macroZoneId], references: [id])
@@ -1175,9 +1182,9 @@ model H3Index {
 
 model DeliveryCommand {
   // Identificación
-  id         String  @id @default(uuid())
-  businessId String // ID del negocio que envía el comando
-  orderId    String // ID de la orden local relacionada (si existe)
+  id         String @id @default(uuid()) 
+  businessId String  // ID del negocio que envía el comando
+  orderId    String  // ID de la orden local relacionada (si existe)
 
   // Comando y Estado
   command DeliveryCommandType
@@ -1203,11 +1210,11 @@ model DeliveryCommand {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  @@unique([businessId, orderId])
   @@index([businessId])
   @@index([orderId])
   @@index([status])
   @@index([command])
-  @@unique([businessId, orderId])
 }
 
 enum DeliveryCommandType {
@@ -1222,4 +1229,112 @@ enum DeliveryCommandStatus {
   COMPLETED // Comando finalizado con éxito (ya se cotizó o se despachó)
   ERROR // Ocurrió un problema en el proceso
   CANCELLED // El negocio anuló el comando antes de completarse
+}
+
+/// Estado del turno de caja.
+enum CashRegisterStatus {
+  OPEN
+  CLOSED
+}
+
+/// Tipo del movimiento financiero.
+enum FinancialMovementType {
+  SALE
+  REFUND
+  INCOME
+  EXPENSE
+}
+
+/// Estado del ciclo de vida del movimiento (Crucial para QR/Tarjetas).
+enum FinancialMovementStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+/// Medio por el cual se realizó el movimiento.
+enum PaymentMethodTypeFinancial {
+  CASH
+  TRANSFER
+  QR
+  DEBIT_CARD
+  CREDIT_CARD
+  MERCADO_PAGO
+  ACCOUNT
+  OTHER
+}
+
+model CashRegisterTurn {
+  // Identificación
+  id           String @id @default(uuid()) 
+  clientTurnId String @unique @map("client_turn_id") 
+  businessId   String @map("business_id") 
+
+  // Usuarios
+  openedByUserId String  @map("opened_by_user_id") 
+  closedByUserId String? @map("closed_by_user_id") 
+
+  // Apertura
+  openingDate   DateTime @default(now()) @map("opening_date") @db.Timestamptz
+  openingAmount Decimal  @default(0) @map("opening_amount") @db.Decimal(10, 2)
+  openingNotes  String?
+
+  // Cierre
+  closingDate           DateTime?          @map("closing_date") @db.Timestamptz
+  declaredClosingAmount Decimal?           @map("declared_closing_amount") @db.Decimal(10, 2)
+  systemClosingAmount   Decimal?           @map("system_closing_amount") @db.Decimal(10, 2)
+  difference            Decimal?           @db.Decimal(10, 2)
+  closingNotes          String?
+  status                CashRegisterStatus @default(OPEN)
+
+  // Relaciones
+  assignedOrders      Order[]             @relation("AssignedCashTurn")
+  financialMovements  FinancialMovement[] @relation("CurrentCashTurn")
+  referencedMovements FinancialMovement[] @relation("ReferenceCashTurn") // Historial de donde vinieron los refunds
+
+  // Offline First
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([businessId, status])
+  @@map("cash_register_turns")
+}
+
+model FinancialMovement {
+  // Identificación
+  id               String @id @default(uuid()) 
+  clientMovementId String @unique @map("client_movement_id")
+  businessId       String 
+
+  // Auditoría básica y avanzada
+  userId           String   // Quién lo operó en la pantalla
+  approvedByUserId String? @map("approved_by_user_id")  // Para supervisors aceptando devoluciones/gastos
+
+  // Movimiento
+  type          FinancialMovementType
+  status        FinancialMovementStatus    @default(CONFIRMED) // Por defecto confirmado, PENDING para integraciones
+  amount        Decimal                    @db.Decimal(10, 2)
+  paymentMethod PaymentMethodTypeFinancial @map("payment_method")
+
+  // Identificación y rastreo
+  description       String   @map("description") // Cambiado de 'concept' a 'description'
+  notes             String?
+  externalReference String?  @map("external_reference") // ID de MercadoPago, Stripe, CBU, etc.
+  sequence          Int      @default(1) // Orden cronológico dentro de la misma orden/turno
+  date              DateTime @default(now()) @db.Timestamptz
+
+  // Relaciones
+  orderId String? @map("order_id") 
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  cashRegisterTurnId String           @map("cash_register_turn_id") 
+  cashRegisterTurn   CashRegisterTurn @relation("CurrentCashTurn", fields: [cashRegisterTurnId], references: [id])
+
+  referenceCashRegisterTurnId String?           @map("reference_cash_register_turn_id") 
+  referenceCashRegisterTurn   CashRegisterTurn? @relation("ReferenceCashTurn", fields: [referenceCashRegisterTurnId], references: [id])
+
+  @@index([businessId])
+  @@index([orderId])
+  @@index([cashRegisterTurnId])
+  @@map("financial_movements")
 }
