@@ -686,8 +686,10 @@ export class OrderCommandService
                 userId: orderData.userId || null,
 
                 customerName: orderData.customerName,
-                
-                createdAt: orderData.createdAt ? new Date(orderData.createdAt) : new Date(),
+
+                createdAt: orderData.createdAt
+                  ? new Date(orderData.createdAt)
+                  : new Date(),
 
                 customerPhone: orderData.customerPhone,
 

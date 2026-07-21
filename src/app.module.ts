@@ -37,6 +37,7 @@ import { NotificationModule } from './notification/notification.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { HealthModule } from './health/health.module';
 import { DeliveryCommandModule } from './delivery-command/delivery-command.module';
+import { CashRegisterModule } from './cash-register/cash-register.module';
 
 
 @Module({
@@ -77,7 +78,8 @@ import { DeliveryCommandModule } from './delivery-command/delivery-command.modul
     UploadsImageGlobalModule,
     PushModule,
     NotificationModule,
-    DeliveryCommandModule
+    DeliveryCommandModule,
+    CashRegisterModule
   ],
   controllers: [AppController],
   providers: [
