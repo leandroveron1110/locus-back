@@ -6,170 +6,176 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class DeliveryPriceCalculatorService {
-  private readonly STORE_TTL = 1000 * 60 * 60 * 24 * 30; // 30 días
-  private readonly PRICE_TTL = 1000 * 60 * 60 * 24 * 180; // 6 meses
+  private readonly LONG_TTL = 15552000000; // 6 meses
 
   constructor(
-    private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async calculate(
-    storeAddressId: string,
-    clientLat: number,
-    clientLng: number,
-    deliveryCompanyId: string,
-  ) {
-    // =========================================================
-    // 1. CLIENT ZONE (SIEMPRE DB - RESOLUCIÓN BASE)
-    // =========================================================
-    const clientMatch = await this.prisma.h3Index.findFirst({
+async calculate(
+  storeAddressId: string,
+  clientLat: number,
+  clientLng: number,
+  deliveryCompanyId: string,
+) {
+  const clientH3 = latLngToCell(clientLat, clientLng, 9);
+
+  // =========================================================
+  // 1. OBTENER DATOS DE NEGOCIO Y CLIENTE EN PARALELO
+  // =========================================================
+  const [storeData, clientMatch] = await Promise.all([
+    this.getStoreData(storeAddressId),
+    this.prisma.h3Index.findFirst({
       where: {
-        h3Index: latLngToCell(clientLat, clientLng, 9),
+        h3Index: clientH3,
         deliveryZoneId: { not: null },
       },
       select: {
         deliveryZoneId: true,
+        macroZoneId: true,
         deliveryZone: {
           select: { name: true },
         },
       },
+    }),
+  ]);
+
+  if (!clientMatch?.deliveryZoneId || !clientMatch?.macroZoneId) {
+    throw new BadRequestException('Cliente fuera de cobertura');
+  }
+
+  const clientZoneId = clientMatch.deliveryZoneId;
+  const clientMacroId = clientMatch.macroZoneId;
+  const isSameMacro = storeData.macroId === clientMacroId;
+
+  // =========================================================
+  // 2. CACHÉ DEL PRECIO FINAL
+  // =========================================================
+  const priceKey = `price:${deliveryCompanyId}:${storeData.barrioId}:${clientZoneId}:${storeData.macroId}:${clientMacroId}`;
+
+  let finalPrice = await this.cacheManager.get<number>(priceKey);
+
+  // =========================================================
+  // 3. CÁLCULO DE TARIFA (SI NO ESTÁ EN CACHÉ)
+  // =========================================================
+  if (finalPrice === undefined) {
+    const prices = await this.prisma.deliveryPriceMatrix.findMany({
+      where: {
+        deliveryCompanyId,
+        deliveryZoneId: {
+          in: [storeData.barrioId, clientZoneId],
+        },
+        // Si es la misma macrozona, filtramos directamente en DB.
+        // Si no, trae todas las opciones posibles (los 4 registros).
+        ...(isSameMacro && { macroZoneId: storeData.macroId }),
+      },
+      select: {
+        price: true,
+      },
     });
 
-    console.log('Client match:', clientMatch);
-    if (!clientMatch?.deliveryZoneId) {
-      throw new BadRequestException('Cliente fuera de cobertura');
+    if (!prices.length) {
+      throw new BadRequestException('Ruta no configurada');
     }
 
-    const clientZoneId = clientMatch.deliveryZoneId;
-    const clientZoneName = clientMatch.deliveryZone?.name ?? 'Zona desconocida';
+    // Al filtrar en la query según el caso, la regla SIEMPRE se reduce 
+    // a obtener el precio máximo devuelto por la base de datos.
+    finalPrice = Math.max(...prices.map((p) => Number(p.price)));
 
-    // =========================================================
-    // 2. STORE ZONE (CACHE + DB fallback)
-    // =========================================================
-    const storeKey = `store_zone:${storeAddressId}`;
-
-    let storeZone = await this.cacheManager.get<{
-      zoneId: string;
-      macroId: string;
-    }>(storeKey);
- 
-    console.log(`El negocio esta guardado en cache? ${!!storeZone}`);
-    if (!storeZone) {
-      const storeAddress = await this.prisma.address.findUnique({
-        where: { id: storeAddressId },
-        select: {
-          latitude: true,
-          longitude: true,
-        },
-      });
-
-      if (!storeAddress?.latitude || !storeAddress?.longitude) {
-        throw new BadRequestException('Ubicación del negocio no válida');
-      }
-
-      const storeMatch = await this.prisma.h3Index.findFirst({
-        where: {
-          h3Index: latLngToCell(
-            Number(storeAddress.latitude),
-            Number(storeAddress.longitude),
-            9,
-          ),
-        },
-        select: {
-          deliveryZoneId: true,
-          macroZoneId: true,
-        },
-      });
-
-      if (!storeMatch?.deliveryZoneId || !storeMatch?.macroZoneId) {
-        throw new BadRequestException('Negocio fuera de zona de servicio');
-      }
-
-      storeZone = {
-        zoneId: storeMatch.deliveryZoneId,
-        macroId: storeMatch.macroZoneId,
-      };
-
-      await this.cacheManager.set(storeKey, storeZone, this.STORE_TTL);
+    if (!finalPrice || finalPrice <= 0) {
+      throw new BadRequestException('Ruta no tarifada');
     }
 
-    // =========================================================
-    // 3. PRICE CACHE (CORE DEL SISTEMA)
-    // =========================================================
-    const priceKey =
-      `price:${deliveryCompanyId}:${storeZone.zoneId}:${clientZoneId}`;
-      console.log(`Buscando precio en cache con key: ${priceKey}`);
-    console.log(`Store Zone: ${storeZone.zoneId}, Client Zone: ${clientZoneId}`);
-
-    let finalPrice = await this.cacheManager.get<number>(priceKey);
-    console.log(`El precio esta guardado en cache? ${!!finalPrice}`);
-
-    // =========================================================
-    // 4. CALCULO SOLO EN MISS
-    // =========================================================
-    if (finalPrice === undefined) {
-      const priceAgg = await this.prisma.deliveryPriceMatrix.groupBy({
-        by: ['deliveryZoneId'],
-        where: {
-          deliveryCompanyId,
-          deliveryZoneId: {
-            in: [storeZone.zoneId, clientZoneId],
-          },
-        },
-        _max: {
-          price: true,
-        },
-      });
-
-      if (!priceAgg.length) {
-        throw new BadRequestException('Ruta no configurada');
-      }
-
-      const maxPrices = priceAgg.map((p) => Number(p._max.price || 0));
-      finalPrice = Math.max(...maxPrices, 0);
-
-      if (!finalPrice) {
-        throw new BadRequestException('Ruta no tarifada');
-      }
-
-      await this.cacheManager.set(priceKey, finalPrice, this.PRICE_TTL);
-    }
-
-    // =========================================================
-    // 5. RESPONSE
-    // =========================================================
-    return {
-      price: finalPrice,
-      zoneName: clientZoneName,
-      clientZoneId,
-      storeZoneId: storeZone.zoneId,
-    };
+    await this.cacheManager.set(priceKey, finalPrice, this.LONG_TTL);
   }
+
+  // =========================================================
+  // 4. RESPUESTA
+  // =========================================================
+  return {
+    price: finalPrice,
+    zoneName: clientMatch.deliveryZone?.name,
+    h3: clientH3,
+    isSameMacro,
+  };
+}
+
+/**
+ * Método auxiliar privado para modularizar y mantener limpio el método principal.
+ */
+private async getStoreData(storeAddressId: string): Promise<{ barrioId: string; macroId: string }> {
+  const storeKey = `store_data:${storeAddressId}`;
+
+  const cached = await this.cacheManager.get<{ barrioId: string; macroId: string }>(storeKey);
+  if (cached) return cached;
+
+  const storeAddress = await this.prisma.address.findUnique({
+    where: { id: storeAddressId },
+    select: { latitude: true, longitude: true },
+  });
+
+  if (!storeAddress?.latitude || !storeAddress?.longitude) {
+    throw new BadRequestException('Ubicación del negocio no válida');
+  }
+
+  const storeH3 = latLngToCell(
+    Number(storeAddress.latitude),
+    Number(storeAddress.longitude),
+    9,
+  );
+
+  const storeMatch = await this.prisma.h3Index.findFirst({
+    where: { h3Index: storeH3 },
+    select: {
+      deliveryZoneId: true,
+      macroZoneId: true,
+    },
+  });
+
+  if (!storeMatch?.deliveryZoneId || !storeMatch?.macroZoneId) {
+    throw new BadRequestException('Negocio fuera de zona de servicio');
+  }
+
+  const storeData = {
+    barrioId: storeMatch.deliveryZoneId,
+    macroId: storeMatch.macroZoneId,
+  };
+
+  await this.cacheManager.set(storeKey, storeData, this.LONG_TTL);
+
+  return storeData;
+}
 
   async calculateForBusiness(
     businessId: string,
     clientLat: number,
     clientLng: number,
   ) {
-    const [storeAddress, deliveryCompany] = await Promise.all([
-      this.prisma.address.findFirst({
-        where: { businessId },
-        select: { id: true },
-      }),
-      this.prisma.deliveryCompany.findFirst({
-        select: { id: true },
-      }),
-    ]);
+    console.log(
+      `Calculando precio para negocio ${businessId} y cliente en (${clientLat}, ${clientLng})`,
+    );
+
+    // 1. Buscamos la dirección del negocio (Sin transacción)
+    const storeAddress = await this.prisma.address.findFirst({
+      where: { businessId: businessId },
+      select: { id: true },
+    });
 
     if (!storeAddress) {
       throw new BadRequestException('Negocio no encontrado');
     }
 
+    // 2. Buscamos la compañía de delivery (Ojo: aquí podrías filtrar por la activa o default)
+    const deliveryCompany = await this.prisma.deliveryCompany.findFirst({
+      select: { id: true },
+    });
+
     if (!deliveryCompany) {
       throw new BadRequestException('Compañía de delivery no encontrada');
     }
 
+    // 3. Llamamos al cálculo (Que ya maneja su propio caché y consultas)
     return this.calculate(
       storeAddress.id,
       clientLat,
