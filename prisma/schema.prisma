@@ -808,6 +808,10 @@ model Order {
 
   events OrderStateEvent[]
 
+  /// NULL = pedido inmediato.
+  /// Con valor = fecha y hora solicitada por el cliente.
+  scheduledAt DateTime? @map("programado_para")
+
   // El "Nombre de Guerra" (P-1, A-22)
   // Es String porque incluye el prefijo y es opcional para 
   // no romper pedidos viejos o integraciones externas
@@ -840,6 +844,7 @@ model Order {
   @@index([userId])
   @@index([deliveryCompanyId])
   @@index([createdAt])
+  @@index([businessId, scheduledAt])
   @@map("ordenes")
 }
 
