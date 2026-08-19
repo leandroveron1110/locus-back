@@ -67,6 +67,10 @@ export class CreateMenuProductDto {
 
   @IsDecimal()
   @IsOptional()
+  cost?: Decimal;
+
+  @IsDecimal()
+  @IsOptional()
   discountPercentage?: Decimal;
 
   @IsArray()

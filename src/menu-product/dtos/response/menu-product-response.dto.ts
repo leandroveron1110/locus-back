@@ -32,6 +32,7 @@ export class MenuProductDto {
   acceptsCash: boolean;
   acceptsTransfer: boolean;
   acceptsQr: boolean;
+  cost: number;
 
   static fromPrisma(
     product: MenuProduct & { optionGroups: any[]},
@@ -63,6 +64,7 @@ export class MenuProductDto {
     dto.acceptsCash = product.acceptsCash;
     dto.acceptsQr = product.acceptsQr;
     dto.acceptsTransfer = product.acceptsTransfer;
+    dto.cost = product.cost.toNumber(); // Convertir Decimal a number
     
     return dto;
   }

@@ -271,6 +271,7 @@ export class OrderCommandService
       }
 
       const basePrice = Number(product.finalPrice);
+      const costAtPurchase = Number(product.cost); // Nuevo campo de costo
       let itemTotalWithoptions = basePrice * item.quantity;
 
       const optionGroupsToCreate = item.optionGroups.map((group) => {
@@ -322,6 +323,7 @@ export class OrderCommandService
         productPaymentMethod: data.orderPaymentMethod,
         quantity: item.quantity,
         priceAtPurchase: basePrice,
+        costAtPurchase: costAtPurchase, // Guardamos el costo al momento de la compra
         notes: '',
         menuProductId: product.id,
         optionGroups: {

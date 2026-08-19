@@ -248,6 +248,7 @@ async syncOrdersByBusinessId(
           productName: true,
           quantity: true,
           priceAtPurchase: true,
+          costAtPurchase: true, // Incluir el costo al momento de la compra
           notes: true,
           optionGroups: {
             select: {

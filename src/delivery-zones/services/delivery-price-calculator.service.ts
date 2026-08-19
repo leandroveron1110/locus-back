@@ -110,11 +110,13 @@ private async getStoreData(storeAddressId: string): Promise<{ barrioId: string; 
   const cached = await this.cacheManager.get<{ barrioId: string; macroId: string }>(storeKey);
   if (cached) return cached;
 
+  console.log('CACHE STORE:', await this.cacheManager.get(storeKey));
   const storeAddress = await this.prisma.address.findUnique({
     where: { id: storeAddressId },
     select: { latitude: true, longitude: true },
   });
 
+  console.log(storeAddress, 'storeAddress');
   if (!storeAddress?.latitude || !storeAddress?.longitude) {
     throw new BadRequestException('Ubicación del negocio no válida');
   }
@@ -125,6 +127,11 @@ private async getStoreData(storeAddressId: string): Promise<{ barrioId: string; 
     9,
   );
 
+  console.log('================ STORE H3 DEBUG ================');
+console.log('LAT:', Number(storeAddress.latitude));
+console.log('LNG:', Number(storeAddress.longitude));
+console.log('H3:', storeH3);
+
   const storeMatch = await this.prisma.h3Index.findFirst({
     where: { h3Index: storeH3 },
     select: {
@@ -132,6 +139,9 @@ private async getStoreData(storeAddressId: string): Promise<{ barrioId: string; 
       macroZoneId: true,
     },
   });
+
+  console.log('H3 MATCH:', storeMatch);
+console.log('=================================================');
 
   if (!storeMatch?.deliveryZoneId || !storeMatch?.macroZoneId) {
     throw new BadRequestException('Negocio fuera de zona de servicio');

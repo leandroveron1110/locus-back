@@ -35,6 +35,7 @@ export class MenuProductService implements IMenuProductService {
         isMostOrdered: dto.isMostOrdered ?? false,
         isRecommended: dto.isRecommended ?? false,
         seccionId: seccionId,
+        cost: dtoCreate.cost ?? 0, // Valor por defecto si no se proporciona
       },
     });
   }

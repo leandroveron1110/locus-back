@@ -545,6 +545,8 @@ model MenuProduct {
   finalPriceWithoutTaxes Decimal? @map("precio_sin_impuestos") @db.Decimal(10, 2)
   taxesAmount            Decimal? @map("monto_impuestos") @db.Decimal(10, 2)
 
+// 🟢 NUEVO: Costo de reposición / elaboración del producto (ej: $2.000)
+  cost        Decimal  @default(0) @db.Decimal(10, 2)
   // --- Información de descuento del producto ---
   discountAmount     Decimal? @map("monto_descuento") @db.Decimal(10, 2)
   discountPercentage Decimal? @map("porcentaje_descuento") @db.Decimal(5, 2) // Para porcentajes (ej. 21.50).
@@ -897,6 +899,8 @@ model OrderItem {
 
   quantity        Int                @map("cantidad")
   priceAtPurchase Decimal            @map("precio_al_momento_compra") @db.Decimal(10, 2) // Precio unitario del producto al momento de la orden
+  // 🟢 NUEVO: Costo del producto al momento exacto de armar el pedido
+  costAtPurchase  Decimal   @default(0) @map("cost_at_purchase") @db.Decimal(10, 2)
   optionGroups    OrderOptionGroup[]
   notes           String?            @map("notas") // Notas específicas para este ítem (ej. "sin cebolla")
 
@@ -1244,10 +1248,11 @@ enum CashRegisterStatus {
 
 /// Tipo del movimiento financiero.
 enum FinancialMovementType {
-  SALE
-  REFUND
-  INCOME
-  EXPENSE
+  SALE       // 💵 Entrada de dinero por venta (+ $5.000) -> Afecta Caja
+  REFUND     // 💸 Devolución de dinero al cliente (- $1.000) -> Afecta Caja
+  INCOME     // 📥 Otros ingresos (Inyecciones de capital, etc.) (+ $10.000) -> Afecta Caja
+  EXPENSE    // 📤 Gastos operativos (Alquiler, sueldos, insumos) (- $3.000) -> Afecta Caja
+  COGS       // 📦 Costo de la mercadería vendida (- $2.000) -> NO afecta Caja (Solo Admin/Profit)
 }
 
 /// Estado del ciclo de vida del movimiento (Crucial para QR/Tarjetas).
@@ -1321,6 +1326,10 @@ model FinancialMovement {
   amount        Decimal                    @db.Decimal(10, 2)
   paymentMethod PaymentMethodTypeFinancial @map("payment_method")
 
+  // 🟢 NUEVO: Flag para saber si afecta el arqueo físico del turno de caja
+  // Si es INCOME/EXPENSE es true. Si es COGS es false.
+  affectsCashRegister Boolean @default(true) @map("affects_cash_register")
+
   // Identificación y rastreo
   description       String   @map("description") // Cambiado de 'concept' a 'description'
   notes             String?
@@ -1332,9 +1341,11 @@ model FinancialMovement {
   orderId String? @map("order_id") 
   order   Order?  @relation(fields: [orderId], references: [id])
 
-  cashRegisterTurnId String           @map("cash_register_turn_id") 
-  cashRegisterTurn   CashRegisterTurn @relation("CurrentCashTurn", fields: [cashRegisterTurnId], references: [id])
-
+  // 🟡 MODIFICADO: cashRegisterTurnId pasa a ser Opcional (String?)
+  // Un movimiento de COGS no debería distorsionar el conteo de un turno de caja específico.
+  cashRegisterTurnId String?           @map("cash_register_turn_id") 
+  cashRegisterTurn   CashRegisterTurn? @relation("CurrentCashTurn", fields: [cashRegisterTurnId], references: [id])
+  
   referenceCashRegisterTurnId String?           @map("reference_cash_register_turn_id") 
   referenceCashRegisterTurn   CashRegisterTurn? @relation("ReferenceCashTurn", fields: [referenceCashRegisterTurnId], references: [id])
 
