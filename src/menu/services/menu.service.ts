@@ -43,24 +43,24 @@ export class MenuService implements IMenuService {
   }
 
   // En tu backend: menus.service.ts
-  async getMenuVersion(businessId: string) {
-    // Obtenemos la fecha de la última actualización de cualquier producto de este negocio
-    const lastProductUpdate = await this.prisma.menuProduct.aggregate({
-      where: {
-        seccion: {
-          menu: { businessId },
-        },
-        isDeleted: false,
+async getMenuVersion(businessId: string) {
+  const lastProductUpdate = await this.prisma.menuProduct.aggregate({
+    where: {
+      seccion: {
+        menu: { businessId },
       },
-      _max: { updatedAt: true },
-    });
+    },
+    _max: {
+      updatedAt: true,
+    },
+  });
 
-    return {
-      lastUpdated:
-        lastProductUpdate._max.updatedAt?.toISOString() ||
-        new Date(0).toISOString(),
-    };
-  }
+  return {
+    lastUpdated:
+      lastProductUpdate._max.updatedAt?.toISOString() ||
+      new Date(0).toISOString(),
+  };
+}
 
   public async findAll() {
     const menus = await this.prisma.menu.findMany();

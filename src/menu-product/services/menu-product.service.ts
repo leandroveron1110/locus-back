@@ -42,6 +42,9 @@ export class MenuProductService implements IMenuProductService {
 
   async findAll(): Promise<MenuProduct[]> {
     return await this.prisma.menuProduct.findMany({
+      where: {
+        isDeleted: false
+      },
       include: {
         optionGroups: {
           include: {
@@ -59,6 +62,7 @@ export class MenuProductService implements IMenuProductService {
     return await this.prisma.menuProduct.findMany({
       where: {
         seccionId: seccionId,
+        isDeleted: false,
       },
       include: {
         optionGroups: {
@@ -86,6 +90,7 @@ export class MenuProductService implements IMenuProductService {
     const products = await this.prisma.menuProduct.findMany({
       where: {
         seccionId: { in: seccionIds },
+        isDeleted: false,
         enabled: true,
       },
       include: {
@@ -113,6 +118,7 @@ export class MenuProductService implements IMenuProductService {
     const products = await this.prisma.menuProduct.findMany({
       where: {
         seccionId: { in: seccionIds },
+        isDeleted: false,
       },
       include: {
         optionGroups: {
@@ -130,49 +136,51 @@ export class MenuProductService implements IMenuProductService {
   }
 
   // En su servicio (e.g., MenuProductService)
-async findPaginatedBySeccionId(
-  seccionId: string,
-  limit: number,
-  offset: number, 
-): Promise<MenuProductDto[]> {
-  // 1. Validaciones básicas (opcional)
-  if (limit <= 0 || offset < 0) {
-    throw new Error('Limit debe ser positivo y offset no negativo.');
-  }
+  async findPaginatedBySeccionId(
+    seccionId: string,
+    limit: number,
+    offset: number,
+  ): Promise<MenuProductDto[]> {
+    // 1. Validaciones básicas (opcional)
+    if (limit <= 0 || offset < 0) {
+      throw new Error('Limit debe ser positivo y offset no negativo.');
+    }
 
-  // 2. Ejecutar la consulta paginada
-  const products = await this.prisma.menuProduct.findMany({
-    // Condición: Solo productos de la sección dada
-    where: {
-      seccionId: seccionId,
-    },
-    // Paginación:
-    take: limit, // 'LIMIT' en SQL
-    skip: offset, // 'OFFSET' en SQL
-    
-    // Inclusiones: Mantenemos la carga completa de opciones y grupos
-    include: {
-      optionGroups: {
-        include: {
-          options: true,
+    // 2. Ejecutar la consulta paginada
+    const products = await this.prisma.menuProduct.findMany({
+      // Condición: Solo productos de la sección dada
+      where: {
+        seccionId: seccionId,
+        isDeleted: false
+      },
+      // Paginación:
+      take: limit, // 'LIMIT' en SQL
+      skip: offset, // 'OFFSET' en SQL
+
+      // Inclusiones: Mantenemos la carga completa de opciones y grupos
+      include: {
+        optionGroups: {
+          include: {
+            options: true,
+          },
         },
       },
-    },
-    
-    // Ordenamiento
-    orderBy: {
-      name: 'asc',
-    },
-  });
 
-  // 3. Transformación y retorno
-  return MenuProductDto.fromPrismaMany(products);
-}
+      // Ordenamiento
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    // 3. Transformación y retorno
+    return MenuProductDto.fromPrismaMany(products);
+  }
 
   async getMenuProductsByIds(ids: string[]): Promise<MenuProductDto[]> {
     const products = await this.prisma.menuProduct.findMany({
       where: {
         id: { in: ids },
+        isDeleted: false,
         enabled: true,
       },
       include: {
@@ -203,6 +211,7 @@ async findPaginatedBySeccionId(
     const product = await this.prisma.menuProduct.findUnique({
       where: {
         id: productId,
+        isDeleted: false
       },
       include: {
         optionGroups: {
@@ -231,7 +240,7 @@ async findPaginatedBySeccionId(
   }
 
   async findOne(id: string): Promise<MenuProduct> {
-    const product = await this.prisma.menuProduct.findUnique({ where: { id } });
+    const product = await this.prisma.menuProduct.findUnique({ where: { id, isDeleted: false } });
     if (!product) throw new NotFoundException('Menu product not found');
     return product;
   }
@@ -253,17 +262,27 @@ async findPaginatedBySeccionId(
   }
 
   async remove(id: string): Promise<MenuProduct> {
-    const exists = await this.prisma.menuProduct.findUnique({ where: { id } });
-    if (!exists) throw new NotFoundException('Menu product not found');
+    const exists = await this.prisma.menuProduct.findUnique({
+      where: { id },
+    });
 
-    return await this.prisma.menuProduct.delete({ where: { id } });
+    if (!exists) {
+      throw new NotFoundException('Menu product not found');
+    }
+
+    return await this.prisma.menuProduct.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+      },
+    });
   }
 
   async getMenuProductById(
     menuProductId: string,
   ): Promise<MenuProductWithOptions> {
     const product = await this.prisma.menuProduct.findUnique({
-      where: { id: menuProductId },
+      where: { id: menuProductId , isDeleted: false},
       include: {
         optionGroups: {
           include: { options: true },
