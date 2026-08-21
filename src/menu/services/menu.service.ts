@@ -43,27 +43,29 @@ export class MenuService implements IMenuService {
   }
 
   // En tu backend: menus.service.ts
-async getMenuVersion(businessId: string) {
-  const lastProductUpdate = await this.prisma.menuProduct.aggregate({
-    where: {
-      seccion: {
-        menu: { businessId },
+  async getMenuVersion(businessId: string) {
+    const lastProductUpdate = await this.prisma.menuProduct.aggregate({
+      where: {
+        seccion: {
+          menu: { businessId },
+        },
       },
-    },
-    _max: {
-      updatedAt: true,
-    },
-  });
+      _max: {
+        updatedAt: true,
+      },
+    });
 
-  return {
-    lastUpdated:
-      lastProductUpdate._max.updatedAt?.toISOString() ||
-      new Date(0).toISOString(),
-  };
-}
+    return {
+      lastUpdated:
+        lastProductUpdate._max.updatedAt?.toISOString() ||
+        new Date(0).toISOString(),
+    };
+  }
 
   public async findAll() {
-    const menus = await this.prisma.menu.findMany();
+    const menus = await this.prisma.menu.findMany({
+      where: { isDeleted: false },
+    });
     return menus;
   }
 
@@ -72,7 +74,7 @@ async getMenuVersion(businessId: string) {
     businessId: string,
   ): Promise<MenuWithSectionsDto[]> {
     const menus = await this.prisma.menu.findMany({
-      where: { businessId },
+      where: { businessId, isDeleted: false },
       include: {
         sections: {
           select: {
@@ -124,7 +126,7 @@ async getMenuVersion(businessId: string) {
     businessId: string,
   ): Promise<MenuWithSectionsDto[]> {
     const menus = await this.prisma.menu.findMany({
-      where: { businessId },
+      where: { businessId, isDeleted: false },
       include: {
         sections: {
           select: { id: true, index: true, name: true },
@@ -281,7 +283,7 @@ async getMenuVersion(businessId: string) {
   // READ ONE
   public async findOne(id: string) {
     const menu = await this.prisma.menu.findUnique({
-      where: { id },
+      where: { id, isDeleted: false },
     });
 
     if (!menu) {
@@ -327,8 +329,38 @@ async getMenuVersion(businessId: string) {
       throw new NotFoundException(`Menu with id '${id}' not found.`);
     }
 
-    return this.prisma.menu.delete({
-      where: { id },
+    return await this.prisma.$transaction(async (tx) => {
+      // 1. Eliminar lógicamente todos los productos
+      await tx.menuProduct.updateMany({
+        where: {
+          seccion: {
+            menuId: id,
+          },
+          isDeleted: false,
+        },
+        data: {
+          isDeleted: true,
+        },
+      });
+
+      // 2. Eliminar lógicamente todas las secciones
+      await tx.seccion.updateMany({
+        where: {
+          menuId: id,
+          isDeleted: false,
+        },
+        data: {
+          isDeleted: true,
+        },
+      });
+
+      // 3. Eliminar lógicamente el menú
+      return await tx.menu.update({
+        where: { id },
+        data: {
+          isDeleted: true,
+        },
+      });
     });
   }
 }

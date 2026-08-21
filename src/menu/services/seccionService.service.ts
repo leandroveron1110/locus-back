@@ -35,13 +35,15 @@ export class SeccionService implements ISeccionService {
 
   public async findAllByMenuId(menuId: string) {
     return this.prisma.seccion.findMany({
-      where: { menuId },
+      where: { menuId, isDeleted: false },
       orderBy: { index: 'asc' },
     });
   }
 
   public async findOne(id: string) {
-    const seccion = await this.prisma.seccion.findUnique({ where: { id } });
+    const seccion = await this.prisma.seccion.findUnique({
+      where: { id, isDeleted: false },
+    });
     if (!seccion)
       throw new NotFoundException(`Sección con id '${id}' no encontrada`);
     return seccion;
@@ -71,10 +73,33 @@ export class SeccionService implements ISeccionService {
   }
 
   public async deleteSeccion(id: string) {
-    const existing = await this.prisma.seccion.findUnique({ where: { id } });
-    if (!existing)
-      throw new NotFoundException(`Sección con id '${id}' no encontrada`);
+    const existing = await this.prisma.seccion.findUnique({
+      where: { id },
+    });
 
-    return this.prisma.seccion.delete({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`Sección con id '${id}' no encontrada`);
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      // 1. Eliminar lógicamente todos los productos de la sección
+      await tx.menuProduct.updateMany({
+        where: {
+          seccionId: id,
+          isDeleted: false,
+        },
+        data: {
+          isDeleted: true,
+        },
+      });
+
+      // 2. Eliminar lógicamente la sección
+      return await tx.seccion.update({
+        where: { id },
+        data: {
+          isDeleted: true,
+        },
+      });
+    });
   }
 }
