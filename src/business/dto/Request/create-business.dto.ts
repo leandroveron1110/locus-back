@@ -62,7 +62,6 @@ export class CreateBusinessDto {
   whatsapp: string;
 
   @IsOptional()
-  @IsEmail({}, { message: 'El email debe ser una dirección válida.' })
   email?: string;
 
   // --- URLs opcionales ---
@@ -85,14 +84,10 @@ export class CreateBusinessDto {
   // --- Geolocalización ---
   @IsOptional()
   @Type(() => Number)
-  @Min(-90, { message: 'La latitud debe ser >= -90.' })
-  @Max(90, { message: 'La latitud debe ser <= 90.' })
   latitude?: number;
 
   @IsOptional()
   @Type(() => Number)
-  @Min(-180, { message: 'La longitud debe ser >= -180.' })
-  @Max(180, { message: 'La longitud debe ser <= 180.' })
   longitude?: number;
 
   // --- Configuración general de formas de pago ---

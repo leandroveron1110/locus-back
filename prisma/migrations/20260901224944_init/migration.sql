@@ -53,7 +53,7 @@ CREATE TYPE "DeliveryCommandStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED
 CREATE TYPE "CashRegisterStatus" AS ENUM ('OPEN', 'CLOSED');
 
 -- CreateEnum
-CREATE TYPE "FinancialMovementType" AS ENUM ('SALE', 'REFUND', 'INCOME', 'EXPENSE');
+CREATE TYPE "FinancialMovementType" AS ENUM ('SALE', 'REFUND', 'INCOME', 'EXPENSE', 'COGS');
 
 -- CreateEnum
 CREATE TYPE "FinancialMovementStatus" AS ENUM ('PENDING', 'CONFIRMED', 'FAILED', 'CANCELLED');
@@ -370,6 +370,7 @@ CREATE TABLE "menu_productos" (
     "mascara_moneda" TEXT NOT NULL DEFAULT '$',
     "precio_sin_impuestos" DECIMAL(10,2),
     "monto_impuestos" DECIMAL(10,2),
+    "cost" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "monto_descuento" DECIMAL(10,2),
     "porcentaje_descuento" DECIMAL(5,2),
     "tipo_descuento" TEXT[],
@@ -523,6 +524,7 @@ CREATE TABLE "ordenes" (
     "origen" "OrderOrigin" NOT NULL DEFAULT 'APP',
     "es_prueba" BOOLEAN NOT NULL DEFAULT false,
     "notas" TEXT,
+    "programado_para" TIMESTAMP(3),
     "shortCode" TEXT,
     "dailyNumber" INTEGER,
     "assigned_cash_register_turn_id" TEXT,
@@ -554,6 +556,7 @@ CREATE TABLE "items_orden" (
     "url_imagen_producto" TEXT,
     "cantidad" INTEGER NOT NULL,
     "precio_al_momento_compra" DECIMAL(10,2) NOT NULL,
+    "cost_at_purchase" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "notas" TEXT,
     "metodo_pago_producto" "PaymentMethodType" NOT NULL DEFAULT 'TRANSFER',
     "fecha_creacion" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -772,13 +775,14 @@ CREATE TABLE "financial_movements" (
     "status" "FinancialMovementStatus" NOT NULL DEFAULT 'CONFIRMED',
     "amount" DECIMAL(10,2) NOT NULL,
     "payment_method" "PaymentMethodTypeFinancial" NOT NULL,
+    "affects_cash_register" BOOLEAN NOT NULL DEFAULT true,
     "description" TEXT NOT NULL,
     "notes" TEXT,
     "external_reference" TEXT,
     "sequence" INTEGER NOT NULL DEFAULT 1,
     "date" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "order_id" TEXT,
-    "cash_register_turn_id" TEXT NOT NULL,
+    "cash_register_turn_id" TEXT,
     "reference_cash_register_turn_id" TEXT,
 
     CONSTRAINT "financial_movements_pkey" PRIMARY KEY ("id")
@@ -866,6 +870,9 @@ CREATE INDEX "ordenes_deliveryCompanyId_idx" ON "ordenes"("deliveryCompanyId");
 
 -- CreateIndex
 CREATE INDEX "ordenes_creado_en_idx" ON "ordenes"("creado_en");
+
+-- CreateIndex
+CREATE INDEX "ordenes_negocio_id_programado_para_idx" ON "ordenes"("negocio_id", "programado_para");
 
 -- CreateIndex
 CREATE INDEX "ordenes_eventos_estado_orden_id_idx" ON "ordenes_eventos_estado"("orden_id");
@@ -1108,7 +1115,7 @@ ALTER TABLE "h3_indices" ADD CONSTRAINT "h3_indices_deliveryZoneId_fkey" FOREIGN
 ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "ordenes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_cash_register_turn_id_fkey" FOREIGN KEY ("cash_register_turn_id") REFERENCES "cash_register_turns"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_cash_register_turn_id_fkey" FOREIGN KEY ("cash_register_turn_id") REFERENCES "cash_register_turns"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_reference_cash_register_turn_id_fkey" FOREIGN KEY ("reference_cash_register_turn_id") REFERENCES "cash_register_turns"("id") ON DELETE SET NULL ON UPDATE CASCADE;

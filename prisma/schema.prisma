@@ -580,6 +580,8 @@ model MenuProduct {
   // Un producto de menú puede tener varios grupos de opciones de personalización.
   optionGroups OpcionGrupo[] // Relación 1:N con grupos de opciones.
 
+  options Opcion[]
+
   isDeleted Boolean     @default(false) @map("borrado") // soft delete
   deletedAt DateTime?   @map("fecha_borrado")
   createdAt DateTime    @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
@@ -662,6 +664,9 @@ model Opcion {
 
   // Imágenes de la opción: Usamos una tabla intermedia si se gestionan con tu modelo `Image`
   optionImages OptionImage[] // Relación a la tabla intermedia OptionImage
+
+  menuProductId String?
+  menuProduct   MenuProduct? @relation(fields: [menuProductId], references: [id], onDelete: Cascade)
 
   // Relación con OpcionGrupo
   optionGroupId String      @map("id_grupo_opcion") 
