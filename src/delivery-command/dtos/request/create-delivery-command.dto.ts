@@ -13,6 +13,8 @@ export class CreateDeliveryCommandDto {
   @IsEnum(DeliveryCommandType)
   command: DeliveryCommandType;
 
+  @IsNumber() @IsOptional() quotedCost?: number;
+
   // Origen
   @IsString() @IsOptional() originName?: string;
   @IsString() @IsOptional() originAddress?: string;

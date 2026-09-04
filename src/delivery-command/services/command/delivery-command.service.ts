@@ -46,6 +46,8 @@ export class DeliveryCommandsService {
           destinationLatitude: dto.destinationLatitude,
           destinationLongitude: dto.destinationLongitude,
           zoneId: dto.zoneId,
+          quotedCost: dto.quotedCost,
+          
           notes: dto.notes,
           status: DeliveryCommandStatus.PENDING, // Nace siempre en PENDING esperando proceso
           updatedAt: new Date(),
