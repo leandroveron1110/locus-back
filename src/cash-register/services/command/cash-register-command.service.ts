@@ -29,7 +29,7 @@ export class CashRegisterCommand {
     return this.open({
       businessId: dto.businessId,
       userId: dto.userId,
-      clientTurnId: dto.clientTurnId,
+      idTemp: dto.idTemp,
       openingAmount: 0,
       openingNotes: 'Caja inicializada automáticamente por el sistema.',
     });
@@ -37,7 +37,7 @@ export class CashRegisterCommand {
   async open(dto: OpenCashRegisterDto): Promise<CashRegisterTurn> {
     // 1. Validar idempotencia Offline-First: ¿Este turno ya se creó en el cliente y se sincronizó?
     const existingClientTurn = await this.repository.findByClientTurnId(
-      dto.clientTurnId,
+      dto.idTemp,
     );
     if (existingClientTurn) {
       return existingClientTurn;
@@ -53,11 +53,25 @@ export class CashRegisterCommand {
 
     // 3. Crear el nuevo turno
     return this.repository.create({
-      clientTurnId: dto.clientTurnId,
+      idTemp: dto.idTemp,
       businessId: dto.businessId,
       openedByUserId: dto.userId,
-      openingAmount: dto.openingAmount,
-      openingNotes: dto.openingNotes,
+      closedByUserId: "",
+      closingDate: new Date(),
+      closingNotes: "",
+      difference: null,
+      openingAmount: 0,
+      cashRegister: {
+        connect: {
+          idTemp: dto.idTemp
+        }
+      },
+      treasuryAccount: {
+        connect: {
+          idTemp: dto.idTemp
+        }
+      },
+
       status: 'OPEN',
     });
   }

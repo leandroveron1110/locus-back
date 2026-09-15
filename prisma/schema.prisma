@@ -1355,7 +1355,7 @@ model CashRegister {
 /// Sesiones de trabajo / Arqueos de caja de los empleados
 model CashRegisterTurn {
   id           String @id @default(uuid())
-  clientTurnId String @unique @map("client_turn_id")
+  idTemp String @unique @map("id_temp")
   businessId   String @map("business_id")
 
   // Relación con Caja Física y Tesorería

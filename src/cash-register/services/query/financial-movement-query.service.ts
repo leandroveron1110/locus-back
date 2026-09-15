@@ -42,18 +42,14 @@ export class FinancialMovementQuery {
   /**
    * Lista los movimientos de un turno específico.
    */
-  async findByTurnId(
-    turnId: string,
-  ): Promise<FinancialMovement[]> {
+  async findByTurnId(turnId: string): Promise<FinancialMovement[]> {
     return this.repository.findByTurnId(turnId);
   }
 
   /**
    * Buscar un movimiento por ID.
    */
-  async findById(
-    id: string,
-  ): Promise<FinancialMovement> {
+  async findById(id: string): Promise<FinancialMovement> {
     const movement = await this.repository.findById(id);
 
     if (!movement) {
@@ -72,9 +68,7 @@ export class FinancialMovementQuery {
     clientMovementId: string,
   ): Promise<FinancialMovement> {
     const movement =
-      await this.repository.findByClientMovementId(
-        clientMovementId,
-      );
+      await this.repository.findByClientMovementId(clientMovementId);
 
     if (!movement) {
       throw new NotFoundException(

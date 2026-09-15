@@ -23,12 +23,12 @@ export class CashRegisterRepository {
     });
   }
 
-  // Buscar por clientTurnId
+  // Buscar por idTemp
   async findByClientTurnId(
-    clientTurnId: string,
+    idTemp: string,
   ): Promise<CashRegisterTurn | null> {
     return this.prisma.cashRegisterTurn.findUnique({
-      where: { clientTurnId },
+      where: { idTemp },
     });
   }
 

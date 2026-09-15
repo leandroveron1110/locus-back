@@ -11,5 +11,5 @@ export class InitializeCashRegisterDto {
 
   @IsString()
   @IsNotEmpty()
-  clientTurnId: string;
+  idTemp: string;
 }

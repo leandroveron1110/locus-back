@@ -1,15 +1,24 @@
-import { IsNotEmpty, IsString, IsNumber, IsOptional, Min, IsUUID } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsOptional,
+  Min,
+  IsUUID,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class OpenCashRegisterDto {
-    @IsUUID()
-    businessId: string;
-  
-    @IsUUID()
-    userId: string;
-  @IsNotEmpty({ message: 'El clientTurnId es obligatorio para la sincronización offline.' })
+  @IsUUID()
+  businessId: string;
+
+  @IsUUID()
+  userId: string;
+  @IsNotEmpty({
+    message: 'El idTemp es obligatorio para la sincronización offline.',
+  })
   @IsString()
-  clientTurnId: string;
+  idTemp: string;
 
   @IsNotEmpty({ message: 'El monto de apertura es obligatorio.' })
   @IsNumber({}, { message: 'El monto de apertura debe ser un número válido.' })
