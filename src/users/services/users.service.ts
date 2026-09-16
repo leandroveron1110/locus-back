@@ -1,7 +1,7 @@
 // src/users/services/users.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { DeliveryEmployeeRole, User, UserRole } from '@prisma/client';
+import { User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs'; // Importa bcryptjs aquí
 import { CreateUserDto } from '../dto/Request/create-user.dto';
 import { UpdateUserDto } from '../dto/Request/update-user.dto';
@@ -83,13 +83,10 @@ async findAuthByUserId(userId: string) {
       throw new NotFoundException(`Usuario con el ID ${userId} no encontrado`);
     }
 
-    // 2️⃣ buscamos sus negocios usando EmployeesService
-    const businessEmployee = await this.employeesService.findBusinessesByUser(userId);
-
     // 3️⃣ devolvemos la data combinada
     return {
       ...user,
-      businessEmployee, // ⬅ viene con role y overrides gracias a EmployeesService
+      businessEmployee: []
     };
   }
 

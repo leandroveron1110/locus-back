@@ -69,29 +69,34 @@ export class UpdateBusinessEmployeeDto {
 
   @IsNotEmpty()
   @IsString()
-  roleId: string;
-  @IsNotEmpty()
-  @IsString()
   firstName: string;
+
   @IsNotEmpty()
   @IsString()
   lastName: string;
+
   @IsNotEmpty()
   @IsString()
   phone: string;
+
   @IsNotEmpty()
   @IsString()
   positionId: string;
+
   @IsBoolean()
   active: boolean;
+
   @IsEnum(EmployeePaymentType)
   paymentType: EmployeePaymentType;
+
   @IsNotEmpty()
   @IsNumber()
   paymentRate: Decimal;
+
   @IsNotEmpty()
   @IsString()
   username: string;
+
   @IsNotEmpty()
   @IsString()
   passwordHash: string;
