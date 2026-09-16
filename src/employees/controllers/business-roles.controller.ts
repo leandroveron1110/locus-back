@@ -1,41 +1,66 @@
-import { Controller, Post, Patch, Get, Body, Param } from "@nestjs/common";
-import { RolesService } from "../services/roles.service";
 import {
-  CreateBusinessRoleDto,
-  UpdateBusinessRoleDto,
-} from "../dto/request/business-role.dto";
-import { Public } from "src/auth/decorators/public.decorator";
-import { Roles } from "src/auth/decorators/roles.decorator";
-import { UserRole } from "@prisma/client";
-import { Permissions } from "src/auth/decorators/permissions.decorator";
-import { BusinessRoles } from "src/common/enums/rolees-permissions";
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 
-@Controller("roles")
-export class RolesController {
-  constructor(private readonly rolesService: RolesService) {}
+import { PermissionEnum } from '@prisma/client';
+import { BusinessRoleService } from '../services/business-role.service';
+
+@Controller('business-roles')
+export class BusinessRoleController {
+  constructor(
+    private readonly businessRoleService: BusinessRoleService,
+  ) {}
 
   @Post()
-  @Roles(UserRole.OWNER)
-  createRole(@Body() dto: CreateBusinessRoleDto) {
-    return this.rolesService.createRole(dto);
+  create(
+    @Body()
+    body: {
+      businessId: string;
+      name: string;
+      permissions?: PermissionEnum[];
+    },
+  ) {
+    return this.businessRoleService.create(
+      body.businessId,
+      body.name,
+      body.permissions,
+    );
   }
 
-  @Patch(":roleId")
-  @Roles(UserRole.OWNER)
-  updateRole(@Param("roleId") roleId: string, @Body() dto: UpdateBusinessRoleDto) {
-    return this.rolesService.updateRole(roleId, dto);
+  @Get(':id')
+  findById(@Param('id') id: string) {
+    return this.businessRoleService.findById(id);
   }
 
-  @Get("business/:businessId")
-  @Roles(UserRole.OWNER)
-  @Permissions(BusinessRoles.MANAGER)
-  listRoles(@Param("businessId") businessId: string) {
-    return this.rolesService.listRoles(businessId);
+  @Get('business/:businessId')
+  findByBusinessId(
+    @Param('businessId') businessId: string,
+  ) {
+    return this.businessRoleService.findByBusinessId(
+      businessId,
+    );
   }
 
-  @Get(":roleId")
-  @Roles(UserRole.OWNER)
-  getRole(@Param("roleId") roleId: string) {
-    return this.rolesService.getRoleById(roleId);
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      permissions?: PermissionEnum[];
+    },
+  ) {
+    return this.businessRoleService.update(id, body);
+  }
+
+  @Delete(':id')
+  delete(@Param('id') id: string) {
+    return this.businessRoleService.delete(id);
   }
 }

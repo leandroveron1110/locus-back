@@ -78,6 +78,7 @@ export class UsersController {
   // Un 'OWNER' normalmente solo debería poder actualizar su propio perfil (requiere lógica adicional en el servicio/controlador).
   // Un 'ADMIN' puede actualizar cualquier perfil.
   @Patch(':id')
+  @Public()
   // @UseGuards(JwtAuthGuard, RolesGuard) // <--- ¡NUEVO! Requiere autenticación JWT y verificación de rol
   // @Roles(UserRole.OWNER, UserRole.ADMIN) // <--- ¡NUEVO! Solo Dueños y Administradores pueden actualizar
   async update(
