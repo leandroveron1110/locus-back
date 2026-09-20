@@ -1,21 +1,26 @@
 import { Module } from '@nestjs/common';
-import { CashRegisterController } from './controller/cash-register.controller';
 import { CashRegisterRepository } from './repositories/cash-register.repository';
-import { FinancialMovementRepository } from './repositories/financial-movement.repository';
+// import { FinancialMovementRepository } from './repositories/financial-movement.repository';
 import { CashRegisterCommand } from './services/command/cash-register-command.service';
-import { FinancialMovementCommand } from './services/command/financial-movement-command.service';
+// import { FinancialMovementCommand } from './services/command/financial-movement-command.service';
 import { CashRegisterQuery } from './services/query/cash-register-query.service';
-import { FinancialMovementQuery } from './services/query/financial-movement-query.service';
+// import { FinancialMovementQuery } from './services/query/financial-movement-query.service';
+import { CashRegisterPaymentMethodController } from './controller/cash-register-payment-method/cash-register-payment-method.controller';
+import { CashRegisterController } from './controller/cash-register/cash-register.controller';
+import { CashRegisterPaymentMethodService } from './services/cash-register-payment-method/cash-register-payment-method.service';
+import { CashRegisterService } from './services/cash-register/cash-register.service';
 
 @Module({
-  controllers: [CashRegisterController],
+  controllers: [CashRegisterPaymentMethodController, CashRegisterController],
   providers: [
     CashRegisterRepository,
-    FinancialMovementRepository,
+    // FinancialMovementRepository,
     CashRegisterCommand,
-    FinancialMovementCommand,
+    // FinancialMovementCommand,
     CashRegisterQuery,
-    FinancialMovementQuery,
+    // FinancialMovementQuery,
+    CashRegisterPaymentMethodService,
+    CashRegisterService,
   ],
 })
 export class CashRegisterModule {}

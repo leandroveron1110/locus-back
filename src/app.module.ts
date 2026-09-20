@@ -38,6 +38,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { HealthModule } from './health/health.module';
 import { DeliveryCommandModule } from './delivery-command/delivery-command.module';
 import { CashRegisterModule } from './cash-register/cash-register.module';
+import { TreasuryAccountModule } from './TreasuryAccount/treasury-account.module';
 
 
 @Module({
@@ -54,6 +55,7 @@ import { CashRegisterModule } from './cash-register/cash-register.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    TreasuryAccountModule,
     CategoriesModule,
     TargsModule,
     BusinessModule,
