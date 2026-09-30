@@ -2,7 +2,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateDeliveryCommandDto } from '../../dtos/request/create-delivery-command.dto';
-import { DeliveryCommandStatus, DeliveryCommandType } from '@prisma/client';
+import { DeliveryCommandStatusX, DeliveryCommandTypeX } from '@prisma/client';
 import { th } from 'zod/v4/locales';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class DeliveryCommandsService {
     }
 
     try {
-      const deliveryCommand = await this.prisma.deliveryCommand.upsert({
+      const deliveryCommand = await this.prisma.deliveryCommandX.upsert({
         where: {
           businessId_orderId: {
             businessId: dto.businessId,
@@ -28,8 +28,8 @@ export class DeliveryCommandsService {
           command: dto.command,
           // Si el front manda DISPATCH, vuelve a PENDING para que Base lo atienda.
           // Si vuelve a mandar QUOTE (F5/Doble click), no tocamos el estado actual.
-          status: dto.command === DeliveryCommandType.DISPATCH 
-            ? DeliveryCommandStatus.PENDING 
+          status: dto.command === DeliveryCommandTypeX.DISPATCH 
+            ? DeliveryCommandStatusX.PENDING 
             : undefined,
           updatedAt: new Date(),
         },
@@ -49,7 +49,7 @@ export class DeliveryCommandsService {
           quotedCost: dto.quotedCost,
           
           notes: dto.notes,
-          status: DeliveryCommandStatus.PENDING, // Nace siempre en PENDING esperando proceso
+          status: DeliveryCommandStatusX.PENDING, // Nace siempre en PENDING esperando proceso
           updatedAt: new Date(),
         },
       });
@@ -63,9 +63,9 @@ export class DeliveryCommandsService {
 
   async update(
     id: string, 
-    updateData: { status: DeliveryCommandStatus; quotedCost?: number; externalId?: string; failureReason?: string }
+    updateData: { status: DeliveryCommandStatusX; quotedCost?: number; externalId?: string; failureReason?: string }
   ) {
-    return this.prisma.deliveryCommand.update({
+    return this.prisma.deliveryCommandX.update({
       where: { id },
       data: {...updateData, updatedAt: new Date()},
     });

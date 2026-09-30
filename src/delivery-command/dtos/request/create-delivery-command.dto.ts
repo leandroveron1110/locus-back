@@ -1,6 +1,6 @@
 // dto/create-delivery-command.dto.ts
 import { IsEnum, IsString, IsOptional, IsNumber } from 'class-validator';
-import { DeliveryCommandStatus, DeliveryCommandType } from '@prisma/client';
+import { DeliveryCommandStatusX, DeliveryCommandType, DeliveryCommandTypeX } from '@prisma/client';
 
 export class CreateDeliveryCommandDto {
   @IsString()
@@ -10,8 +10,8 @@ export class CreateDeliveryCommandDto {
   @IsOptional()
   orderId?: string;
 
-  @IsEnum(DeliveryCommandType)
-  command: DeliveryCommandType;
+  @IsEnum(DeliveryCommandTypeX)
+  command: DeliveryCommandTypeX;
 
   @IsNumber() @IsOptional() quotedCost?: number;
 
@@ -32,8 +32,8 @@ export class CreateDeliveryCommandDto {
 
 
 export class FindDeliveryCommandsDto {
-  command?: DeliveryCommandType;
-  status?: DeliveryCommandStatus;
+  command?: DeliveryCommandTypeX;
+  status?: DeliveryCommandStatusX;
   businessId?: string;
   orderId?: string;
   zoneId?: string;

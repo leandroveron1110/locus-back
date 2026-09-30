@@ -2,8 +2,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
-  DeliveryCommandStatus,
-  DeliveryCommandType,
+  DeliveryCommandStatusX,
+  DeliveryCommandTypeX,
   Prisma,
 } from '@prisma/client';
 import { FindDeliveryCommandsDto } from 'src/delivery-command/dtos/request/create-delivery-command.dto';
@@ -24,11 +24,11 @@ export class DeliveryQueriesService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return this.prisma.deliveryCommand.findMany({
+    return this.prisma.deliveryCommandX.findMany({
       where: {
         businessId,
-        command: DeliveryCommandType.QUOTE,
-        status: DeliveryCommandStatus.COMPLETED,
+        command: DeliveryCommandTypeX.QUOTE,
+        status: DeliveryCommandStatusX.COMPLETED,
         createdAt: { gte: today },
       },
       select: {
@@ -51,11 +51,11 @@ export class DeliveryQueriesService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return this.prisma.deliveryCommand.findMany({
+    return this.prisma.deliveryCommandX.findMany({
       where: {
         businessId,
-        command: DeliveryCommandType.DISPATCH,
-        status: DeliveryCommandStatus.COMPLETED,
+        command: DeliveryCommandTypeX.DISPATCH,
+        status: DeliveryCommandStatusX.COMPLETED,
         createdAt: { gte: today },
       },
       select: {
@@ -146,7 +146,7 @@ export class DeliveryQueriesService {
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 50;
 
-    const where: Prisma.DeliveryCommandWhereInput = {};
+    const where: Prisma.DeliveryCommandXWhereInput = {};
 
     if (filters.command) {
       where.command = filters.command;
@@ -181,7 +181,7 @@ export class DeliveryQueriesService {
     }
 
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.deliveryCommand.findMany({
+      this.prisma.deliveryCommandX.findMany({
         where,
         orderBy: {
           createdAt: 'asc',
@@ -190,7 +190,7 @@ export class DeliveryQueriesService {
         take: limit,
       }),
 
-      this.prisma.deliveryCommand.count({
+      this.prisma.deliveryCommandX.count({
         where,
       }),
     ]);

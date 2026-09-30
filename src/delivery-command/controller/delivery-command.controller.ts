@@ -11,7 +11,7 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
 } from '@nestjs/common';
-import { DeliveryCommandStatus, DeliveryCommandType } from '@prisma/client';
+import { DeliveryCommandStatusX, DeliveryCommandTypeX } from '@prisma/client';
 import { DeliveryCommandsService } from '../services/command/delivery-command.service';
 import { DeliveryQueriesService } from '../services/query/delivery-queries.service';
 import {
@@ -43,7 +43,7 @@ export class DeliveryCommandsController {
     @Param('id') id: string,
     @Body()
     body: {
-      status: DeliveryCommandStatus;
+      status: DeliveryCommandStatusX;
       quotedCost?: number;
       externalId?: string;
       failureReason?: string;
