@@ -104,10 +104,10 @@ export class DeliveryCommandsController {
   @Public()
   async findMany(
     @Query('command')
-    command?: DeliveryCommandType,
+    command?: DeliveryCommandTypeX,
 
     @Query('status')
-    status?: DeliveryCommandStatus,
+    status?: DeliveryCommandStatusX,
 
     @Query('businessId')
     businessId?: string,
