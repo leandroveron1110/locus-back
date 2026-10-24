@@ -27,8 +27,9 @@ export class DeliveryQueriesService {
     return this.prisma.deliveryCommandX.findMany({
       where: {
         businessId,
-        command: DeliveryCommandTypeX.QUOTE,
-        status: DeliveryCommandStatusX.COMPLETED,
+        status: {
+          notIn: [DeliveryCommandStatusX.FINISHED, DeliveryCommandStatusX.CANCELLED]
+        },
         createdAt: { gte: today },
       },
       select: {

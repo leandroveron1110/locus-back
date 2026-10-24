@@ -1219,11 +1219,15 @@ enum DeliveryCommandTypeX {
 }
 
 enum DeliveryCommandStatusX {
-  PENDING
-  PROCESSING
-  COMPLETED
-  ERROR
-  CANCELLED
+  PENDING         // Creado/Modificado por el negocio, esperando acción de logística
+  PROCESSING      // Logística está calculando o procesando
+  QUOTED          // Cotizado (logística puso el precio, el negocio lo ve)
+  RE_QUOTE        // El negocio pidió cambiar algo / corregir precio
+  DISPATCHED      // En camino / Despachado
+  COMPLETED       // Envío finalizado con éxito
+  ERROR           // Hubo un fallo
+  CANCELLED       // Cancelado
+  FINISHED        // <- NUEVO: Estado final definitivo. Ninguno de los dos toca más este registro.
 }
 
 enum DeliveryDispatchStatus {

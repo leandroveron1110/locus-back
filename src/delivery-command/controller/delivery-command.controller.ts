@@ -52,6 +52,15 @@ export class DeliveryCommandsController {
     return this.commandsService.update(id, body);
   }
 
+  @Patch('business/:businessId/order/:orderId')
+  @Public()
+  updateFinished(
+    @Param('businessId') businessId: string,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.commandsService.updateFinished(businessId, orderId);
+  }
+
   // ==========================================================================
   // LECTURAS (QUERIES)
   // ==========================================================================
@@ -130,18 +139,16 @@ export class DeliveryCommandsController {
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe)
     limit?: number,
   ) {
-    
-      return this.queriesService.findMany({
-        command,
-        status,
-        businessId,
-        orderId,
-        zoneId,
-        from: from ? new Date(from) : undefined,
-        to: to ? new Date(to) : undefined,
-        page,
-        limit,
-      });
-    
+    return this.queriesService.findMany({
+      command,
+      status,
+      businessId,
+      orderId,
+      zoneId,
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+      page,
+      limit,
+    });
   }
 }
