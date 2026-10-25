@@ -1306,3 +1306,63 @@ enum TreasuryAccountType {
   DIGITAL_WALLET
   SAFE_BOX
 }
+
+
+model DeliveryCommandV2 {
+  id                   String                 @id @default(uuid())
+  businessId           String
+  orderId              String
+  
+  // --- DOBLE ESTADO (Separación de incumbencias V2) ---
+  businessStatus       BusinessCommandStatusV2  @default(PENDING)
+  logisticsStatus      LogisticsCommandStatusV2 @default(PENDING)
+
+  // Ubicaciones y logística base
+  originName           String?
+  originAddress        String?
+  originLatitude       Float?
+  originLongitude      Float?
+  destinationAddress   String?
+  destinationLatitude  Float?
+  destinationLongitude Float?
+  zoneId               String?
+  notes                String?
+  quotedCost           Int?                   // Abierto y editable por logística
+  externalId           String?
+  failureReason        String?
+  
+  // Propiedades operativas
+  requiredCouriers     Int                    @default(1)    // Cantidad de personal necesario
+  isShareable          Boolean                @default(true) // Indica si se puede combinar en el mismo viaje
+
+  // Tiempos
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  // Índices y restricciones independientes para la V2
+  @@unique([businessId, orderId])
+  @@index([businessId])
+  @@index([orderId])
+  @@index([businessStatus])
+  @@index([logisticsStatus])
+}
+
+// --- ENUMS EXCLUSIVOS PARA LA V2 ---
+
+enum BusinessCommandStatusV2 {
+  PENDING             
+  QUOTE_REQUESTED     
+  REVIEWING_QUOTE     
+  DISPATCH_REQUESTED  
+  COMPLETED           
+  CANCELLED           
+}
+
+enum LogisticsCommandStatusV2 {
+  PENDING             
+  QUOTED              
+  ACCEPTED            
+  IN_TRANSIT          
+  COMPLETED           
+  REJECTED            
+}

@@ -37,6 +37,12 @@ export class DeliveryCommandsController {
     return this.commandsService.create(dto);
   }
 
+  @Delete()
+  @Public()
+  deleteALl() {
+    return this.commandsService.deleteALl();
+  }
+
   @Patch(':id')
   @Public()
   update(
@@ -59,6 +65,15 @@ export class DeliveryCommandsController {
     @Param('orderId') orderId: string,
   ) {
     return this.commandsService.updateFinished(businessId, orderId);
+  }
+
+  @Patch('cancel/business/:businessId/order/:orderId')
+  @Public()
+  cancelByBussiness(
+    @Param('businessId') businessId: string,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.commandsService.cancelByBussiness(businessId, orderId);
   }
 
   // ==========================================================================

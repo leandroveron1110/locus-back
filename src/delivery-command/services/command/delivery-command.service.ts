@@ -67,6 +67,24 @@ export class DeliveryCommandsService {
     }
   }
 
+  async deleteALl() {
+    return this.prisma.deliveryCommandX.deleteMany();
+  }
+
+  async cancelByBussiness(businessId: string, orderId: string){
+    return this.prisma.deliveryCommandX.update({
+      where: {
+        businessId_orderId: {
+          businessId,
+          orderId
+        }
+      },
+      data: {
+        status: DeliveryCommandStatusX.CANCELLED
+      }
+    })
+  }
+
   async update(
     id: string,
     updateData: {
