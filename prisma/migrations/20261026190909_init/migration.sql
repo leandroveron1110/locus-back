@@ -8,7 +8,13 @@ CREATE TYPE "UserRole" AS ENUM ('CLIENT', 'OWNER', 'ADMIN');
 CREATE TYPE "ImageType" AS ENUM ('MENU_PRODUCT', 'AVATAR', 'GENERAL', 'GALLERY');
 
 -- CreateEnum
-CREATE TYPE "PermissionEnum" AS ENUM ('CREATE_EMPLOYEE', 'EDIT_EMPLOYEE', 'DELETE_EMPLOYEE', 'CREATE_PRODUCT', 'EDIT_PRODUCT', 'DELETE_PRODUCT', 'MANAGE_PRODUCTS', 'CREATE_BUSINESS', 'EDIT_BUSINESS', 'DELETE_BUSINESS', 'VIEW_DASHBOARD', 'CLOSE_CASH_REGISTER', 'VIEW_REPORTS', 'MANAGE_DELIVERY_ZONES', 'VIEW_ORDERS', 'CREATE_ORDER', 'EDIT_ORDER', 'CANCEL_ORDER', 'PROCESS_ORDER', 'DELIVER_ORDER', 'COMPLETE_ORDER');
+CREATE TYPE "PermissionEnum" AS ENUM ('CREATE_EMPLOYEE', 'EDIT_EMPLOYEE', 'DELETE_EMPLOYEE', 'MANAGE_EMPLOYEE_ROLES', 'CREATE_PRODUCT', 'EDIT_PRODUCT', 'DELETE_PRODUCT', 'MANAGE_PRODUCTS', 'MANAGE_STOCK', 'CREATE_MENU_SECTION', 'EDIT_MENU_SECTION', 'DELETE_MENU_SECTION', 'MANAGE_MENU', 'EDIT_BUSINESS', 'DELETE_BUSINESS', 'VIEW_DASHBOARD', 'VIEW_REPORTS', 'MANAGE_BUSINESS_SETTINGS', 'MANAGE_DELIVERY_ZONES', 'VIEW_ORDERS', 'CREATE_ORDER', 'EDIT_ORDER', 'CANCEL_ORDER', 'PROCESS_ORDER', 'DELIVER_ORDER', 'COMPLETE_ORDER', 'VIEW_CASH_REGISTERS', 'CREATE_CASH_REGISTER', 'EDIT_CASH_REGISTER', 'MANAGE_CASH_REGISTERS', 'OPEN_CASH_REGISTER', 'CLOSE_CASH_REGISTER', 'VIEW_CASH_REGISTER_HISTORY', 'VIEW_TREASURY', 'CREATE_TREASURY_ACCOUNT', 'EDIT_TREASURY_ACCOUNT', 'MANAGE_TREASURY_ACCOUNTS', 'CREATE_FINANCIAL_MOVEMENT', 'VIEW_FINANCIAL_MOVEMENTS', 'CREATE_INTERNAL_TRANSFER', 'VIEW_CUSTOMERS', 'CREATE_CUSTOMER', 'EDIT_CUSTOMER', 'MANAGE_PAYMENT_METHODS');
+
+-- CreateEnum
+CREATE TYPE "EmployeePaymentType" AS ENUM ('DAILY', 'HOURLY', 'MONTHLY');
+
+-- CreateEnum
+CREATE TYPE "EmployeeSettlementStatus" AS ENUM ('PENDING', 'PAID', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "DeliveryEmployeeRole" AS ENUM ('DRIVER', 'DISPATCHER');
@@ -44,22 +50,43 @@ CREATE TYPE "CadetPaymentPayer" AS ENUM ('BUSINESS', 'CLIENT');
 CREATE TYPE "PaymentStatus" AS ENUM ('IN_PROGRESS', 'PENDING', 'CONFIRMED', 'REJECTED', 'REFUNDED');
 
 -- CreateEnum
-CREATE TYPE "DeliveryCommandType" AS ENUM ('QUOTE', 'DISPATCH', 'CANCEL');
+CREATE TYPE "DeliveryCommandTypeX" AS ENUM ('QUOTE', 'DISPATCH', 'CANCEL');
 
 -- CreateEnum
-CREATE TYPE "DeliveryCommandStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'ERROR', 'CANCELLED');
+CREATE TYPE "DeliveryCommandStatusX" AS ENUM ('PENDING', 'PROCESSING', 'QUOTED', 'RE_QUOTE', 'DISPATCHED', 'COMPLETED', 'ERROR', 'CANCELLED', 'FINISHED');
+
+-- CreateEnum
+CREATE TYPE "DeliveryDispatchStatus" AS ENUM ('DRAFT', 'QUOTED', 'REQUESTED', 'REJECTED', 'ACCEPTED', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED', 'FAILED');
+
+-- CreateEnum
+CREATE TYPE "DeliveryCommandType" AS ENUM ('REQUEST_QUOTE', 'REQUEST_DISPATCH', 'CANCEL_DISPATCH', 'SYNC_STATUS');
+
+-- CreateEnum
+CREATE TYPE "CommandExecutionStatus" AS ENUM ('PENDING', 'ACKNOWLEDGED', 'REJECTED', 'FAILED', 'COMPLETED');
+
+-- CreateEnum
+CREATE TYPE "CommandActor" AS ENUM ('BUSINESS', 'LOGISTICS', 'SYSTEM');
 
 -- CreateEnum
 CREATE TYPE "CashRegisterStatus" AS ENUM ('OPEN', 'CLOSED');
 
 -- CreateEnum
-CREATE TYPE "FinancialMovementType" AS ENUM ('SALE', 'REFUND', 'INCOME', 'EXPENSE', 'COGS');
+CREATE TYPE "FinancialMovementType" AS ENUM ('SALE', 'REFUND', 'INCOME', 'EXPENSE', 'COGS', 'MERMAS', 'INTERNAL_TRANSFER', 'INTERNAL_TRANSFER_OUT', 'INTERNAL_TRANSFER_IN');
 
 -- CreateEnum
 CREATE TYPE "FinancialMovementStatus" AS ENUM ('PENDING', 'CONFIRMED', 'FAILED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "PaymentMethodTypeFinancial" AS ENUM ('CASH', 'TRANSFER', 'QR', 'DEBIT_CARD', 'CREDIT_CARD', 'MERCADO_PAGO', 'ACCOUNT', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "TreasuryAccountType" AS ENUM ('CASH', 'BANK', 'DIGITAL_WALLET', 'SAFE_BOX');
+
+-- CreateEnum
+CREATE TYPE "BusinessCommandStatusV2" AS ENUM ('PENDING', 'QUOTE_REQUESTED', 'REVIEWING_QUOTE', 'DISPATCH_REQUESTED', 'COMPLETED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "LogisticsCommandStatusV2" AS ENUM ('PENDING', 'QUOTED', 'ACCEPTED', 'IN_TRANSIT', 'COMPLETED', 'REJECTED');
 
 -- CreateTable
 CREATE TABLE "estados" (
@@ -272,13 +299,22 @@ CREATE TABLE "BusinessRole" (
 );
 
 -- CreateTable
-CREATE TABLE "BusinessEmployee" (
+CREATE TABLE "empleados_negocio" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
     "businessId" TEXT NOT NULL,
+    "userId" TEXT,
+    "nombre" TEXT NOT NULL,
+    "apellido" TEXT NOT NULL,
+    "telefono" TEXT,
+    "positionId" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "tipo_pago" "EmployeePaymentType" NOT NULL DEFAULT 'DAILY',
+    "valor_pago" DECIMAL(12,2) NOT NULL,
+    "username" TEXT,
+    "passwordHash" TEXT,
     "roleId" TEXT,
 
-    CONSTRAINT "BusinessEmployee_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "empleados_negocio_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -289,6 +325,40 @@ CREATE TABLE "BusinessEmployeeOverride" (
     "allowed" BOOLEAN NOT NULL,
 
     CONSTRAINT "BusinessEmployeeOverride_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "puestos" (
+    "id" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+
+    CONSTRAINT "puestos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "jornadas_empleado" (
+    "id" TEXT NOT NULL,
+    "employeeId" TEXT NOT NULL,
+    "inicio" TIMESTAMP(3) NOT NULL,
+    "fin" TIMESTAMP(3),
+    "fecha_creacion" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "jornadas_empleado_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "liquidaciones_empleados" (
+    "id" TEXT NOT NULL,
+    "employeeId" TEXT NOT NULL,
+    "periodo_inicio" TIMESTAMP(3) NOT NULL,
+    "periodo_fin" TIMESTAMP(3) NOT NULL,
+    "monto" DECIMAL(12,2) NOT NULL,
+    "status" "EmployeeSettlementStatus" NOT NULL DEFAULT 'PENDING',
+    "fecha_pago" TIMESTAMP(3),
+    "fecha_creacion" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "liquidaciones_empleados_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -446,6 +516,7 @@ CREATE TABLE "opciones" (
     "fecha_borrado" TIMESTAMP(3),
     "fecha_creacion" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "fecha_actualizacion" TIMESTAMPTZ(3) NOT NULL,
+    "menuProductId" TEXT,
 
     CONSTRAINT "opciones_pkey" PRIMARY KEY ("id")
 );
@@ -520,7 +591,6 @@ CREATE TABLE "ordenes" (
     "cadete_cobra_orden" BOOLEAN DEFAULT false,
     "tipo_entrega" "DeliveryType" NOT NULL DEFAULT 'DELIVERY',
     "estado" "OrderStatus" NOT NULL DEFAULT 'PENDING',
-    "estado_envio" "DeliveryStatus" NOT NULL DEFAULT 'NOT_APPLICABLE',
     "origen" "OrderOrigin" NOT NULL DEFAULT 'APP',
     "es_prueba" BOOLEAN NOT NULL DEFAULT false,
     "notas" TEXT,
@@ -530,6 +600,7 @@ CREATE TABLE "ordenes" (
     "assigned_cash_register_turn_id" TEXT,
     "creado_en" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "actualizado_en" TIMESTAMP(3) NOT NULL,
+    "estado_envio" "DeliveryStatus" NOT NULL DEFAULT 'NOT_APPLICABLE',
 
     CONSTRAINT "ordenes_pkey" PRIMARY KEY ("id")
 );
@@ -719,12 +790,12 @@ CREATE TABLE "h3_indices" (
 );
 
 -- CreateTable
-CREATE TABLE "DeliveryCommand" (
+CREATE TABLE "DeliveryCommandX" (
     "id" TEXT NOT NULL,
     "businessId" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
-    "command" "DeliveryCommandType" NOT NULL,
-    "status" "DeliveryCommandStatus" NOT NULL DEFAULT 'PENDING',
+    "command" "DeliveryCommandTypeX" NOT NULL,
+    "status" "DeliveryCommandStatusX" NOT NULL DEFAULT 'PENDING',
     "originName" TEXT,
     "originAddress" TEXT,
     "originLatitude" DOUBLE PRECISION,
@@ -740,26 +811,123 @@ CREATE TABLE "DeliveryCommand" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
+    CONSTRAINT "DeliveryCommandX_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DeliveryDispatch" (
+    "id" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "provider" TEXT NOT NULL DEFAULT 'INTERNAL',
+    "externalId" TEXT,
+    "status" "DeliveryDispatchStatus" NOT NULL DEFAULT 'DRAFT',
+    "quotedCost" INTEGER,
+    "quoteExpiresAt" TIMESTAMP(3),
+    "originName" TEXT,
+    "originAddress" TEXT,
+    "originLatitude" DOUBLE PRECISION,
+    "originLongitude" DOUBLE PRECISION,
+    "destinationName" TEXT,
+    "destinationAddress" TEXT,
+    "destinationLatitude" DOUBLE PRECISION,
+    "destinationLongitude" DOUBLE PRECISION,
+    "zoneId" TEXT,
+    "originPaymentAmount" INTEGER NOT NULL DEFAULT 0,
+    "originPaymentDeferred" BOOLEAN NOT NULL DEFAULT false,
+    "courierName" TEXT,
+    "courierPhone" TEXT,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DeliveryDispatch_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DeliveryCommand" (
+    "id" TEXT NOT NULL,
+    "deliveryDispatchId" TEXT NOT NULL,
+    "actor" "CommandActor" NOT NULL,
+    "command" "DeliveryCommandType" NOT NULL,
+    "status" "CommandExecutionStatus" NOT NULL DEFAULT 'PENDING',
+    "idempotencyKey" TEXT,
+    "payload" JSONB,
+    "response" JSONB,
+    "failureReason" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     CONSTRAINT "DeliveryCommand_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "treasury_accounts" (
+    "id" TEXT NOT NULL,
+    "id_temp" TEXT,
+    "business_id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "type" "TreasuryAccountType" NOT NULL DEFAULT 'CASH',
+    "currency" TEXT NOT NULL DEFAULT 'ARS',
+    "current_balance" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "treasury_accounts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cash_registers" (
+    "id" TEXT NOT NULL,
+    "id_temp" TEXT,
+    "business_id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "default_treasury_account_id" TEXT NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "default_treasury_account_id_temp" TEXT,
+
+    CONSTRAINT "cash_registers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cash_register_payment_methods" (
+    "id" TEXT NOT NULL,
+    "id_temp" TEXT,
+    "business_id" TEXT NOT NULL,
+    "cash_register_id" TEXT NOT NULL,
+    "payment_method" "PaymentMethodTypeFinancial" NOT NULL,
+    "treasury_account_id" TEXT NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "treasury_account_id_temp" TEXT NOT NULL,
+    "cash_register_id_temp" TEXT NOT NULL,
+
+    CONSTRAINT "cash_register_payment_methods_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "cash_register_turns" (
     "id" TEXT NOT NULL,
-    "client_turn_id" TEXT NOT NULL,
     "business_id" TEXT NOT NULL,
     "opened_by_user_id" TEXT NOT NULL,
     "closed_by_user_id" TEXT,
-    "opening_date" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "opening_date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "opening_amount" DECIMAL(10,2) NOT NULL DEFAULT 0,
-    "openingNotes" TEXT,
-    "closing_date" TIMESTAMPTZ,
+    "closing_date" TIMESTAMP(3),
     "declared_closing_amount" DECIMAL(10,2),
     "system_closing_amount" DECIMAL(10,2),
     "difference" DECIMAL(10,2),
-    "closingNotes" TEXT,
     "status" "CashRegisterStatus" NOT NULL DEFAULT 'OPEN',
-    "updated_at" TIMESTAMPTZ NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "cash_register_id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "opening_notes" TEXT,
+    "treasury_account_id" TEXT NOT NULL,
+    "id_temp" TEXT NOT NULL,
+    "closingNotes" TEXT,
 
     CONSTRAINT "cash_register_turns_pkey" PRIMARY KEY ("id")
 );
@@ -767,25 +935,58 @@ CREATE TABLE "cash_register_turns" (
 -- CreateTable
 CREATE TABLE "financial_movements" (
     "id" TEXT NOT NULL,
-    "client_movement_id" TEXT NOT NULL,
-    "businessId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
     "approved_by_user_id" TEXT,
     "type" "FinancialMovementType" NOT NULL,
     "status" "FinancialMovementStatus" NOT NULL DEFAULT 'CONFIRMED',
-    "amount" DECIMAL(10,2) NOT NULL,
-    "payment_method" "PaymentMethodTypeFinancial" NOT NULL,
+    "amount" DECIMAL(12,2) NOT NULL,
+    "payment_method" "PaymentMethodTypeFinancial",
     "affects_cash_register" BOOLEAN NOT NULL DEFAULT true,
     "description" TEXT NOT NULL,
     "notes" TEXT,
     "external_reference" TEXT,
     "sequence" INTEGER NOT NULL DEFAULT 1,
-    "date" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "order_id" TEXT,
     "cash_register_turn_id" TEXT,
     "reference_cash_register_turn_id" TEXT,
+    "business_id" TEXT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fixed_expense_id_temp" TEXT,
+    "pending_commitment_id_temp" TEXT,
+    "transfer_group_id" TEXT,
+    "treasury_account_id" TEXT,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "id_temp" TEXT,
 
     CONSTRAINT "financial_movements_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DeliveryCommandV2" (
+    "id" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "businessStatus" "BusinessCommandStatusV2" NOT NULL DEFAULT 'PENDING',
+    "logisticsStatus" "LogisticsCommandStatusV2" NOT NULL DEFAULT 'PENDING',
+    "originName" TEXT,
+    "originAddress" TEXT,
+    "originLatitude" DOUBLE PRECISION,
+    "originLongitude" DOUBLE PRECISION,
+    "destinationAddress" TEXT,
+    "destinationLatitude" DOUBLE PRECISION,
+    "destinationLongitude" DOUBLE PRECISION,
+    "zoneId" TEXT,
+    "notes" TEXT,
+    "quotedCost" INTEGER,
+    "externalId" TEXT,
+    "failureReason" TEXT,
+    "requiredCouriers" INTEGER NOT NULL DEFAULT 1,
+    "isShareable" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DeliveryCommandV2_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -833,7 +1034,16 @@ CREATE UNIQUE INDEX "tags_nombre_key" ON "tags"("nombre");
 CREATE UNIQUE INDEX "negocios_logo_id_key" ON "negocios"("logo_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BusinessEmployee_businessId_userId_key" ON "BusinessEmployee"("businessId", "userId");
+CREATE UNIQUE INDEX "empleados_negocio_businessId_username_key" ON "empleados_negocio"("businessId", "username");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "puestos_businessId_nombre_key" ON "puestos"("businessId", "nombre");
+
+-- CreateIndex
+CREATE INDEX "jornadas_empleado_employeeId_inicio_idx" ON "jornadas_empleado"("employeeId", "inicio");
+
+-- CreateIndex
+CREATE INDEX "liquidaciones_empleados_employeeId_periodo_inicio_periodo_f_idx" ON "liquidaciones_empleados"("employeeId", "periodo_inicio", "periodo_fin");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "menus_negocio_id_nombre_key" ON "menus"("negocio_id", "nombre");
@@ -905,58 +1115,142 @@ CREATE UNIQUE INDEX "address_zone_index_addressId_key" ON "address_zone_index"("
 CREATE INDEX "h3_indices_h3Index_idx" ON "h3_indices"("h3Index");
 
 -- CreateIndex
-CREATE INDEX "DeliveryCommand_businessId_idx" ON "DeliveryCommand"("businessId");
+CREATE INDEX "DeliveryCommandX_businessId_idx" ON "DeliveryCommandX"("businessId");
 
 -- CreateIndex
-CREATE INDEX "DeliveryCommand_orderId_idx" ON "DeliveryCommand"("orderId");
+CREATE INDEX "DeliveryCommandX_orderId_idx" ON "DeliveryCommandX"("orderId");
 
 -- CreateIndex
-CREATE INDEX "DeliveryCommand_status_idx" ON "DeliveryCommand"("status");
+CREATE INDEX "DeliveryCommandX_status_idx" ON "DeliveryCommandX"("status");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommandX_command_idx" ON "DeliveryCommandX"("command");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DeliveryCommandX_businessId_orderId_key" ON "DeliveryCommandX"("businessId", "orderId");
+
+-- CreateIndex
+CREATE INDEX "DeliveryDispatch_businessId_idx" ON "DeliveryDispatch"("businessId");
+
+-- CreateIndex
+CREATE INDEX "DeliveryDispatch_orderId_idx" ON "DeliveryDispatch"("orderId");
+
+-- CreateIndex
+CREATE INDEX "DeliveryDispatch_status_idx" ON "DeliveryDispatch"("status");
+
+-- CreateIndex
+CREATE INDEX "DeliveryDispatch_externalId_idx" ON "DeliveryDispatch"("externalId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DeliveryDispatch_businessId_orderId_key" ON "DeliveryDispatch"("businessId", "orderId");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommand_deliveryDispatchId_idx" ON "DeliveryCommand"("deliveryDispatchId");
 
 -- CreateIndex
 CREATE INDEX "DeliveryCommand_command_idx" ON "DeliveryCommand"("command");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "DeliveryCommand_businessId_orderId_key" ON "DeliveryCommand"("businessId", "orderId");
+CREATE INDEX "DeliveryCommand_status_idx" ON "DeliveryCommand"("status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "cash_register_turns_client_turn_id_key" ON "cash_register_turns"("client_turn_id");
+CREATE INDEX "DeliveryCommand_idempotencyKey_idx" ON "DeliveryCommand"("idempotencyKey");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DeliveryCommand_deliveryDispatchId_idempotencyKey_key" ON "DeliveryCommand"("deliveryDispatchId", "idempotencyKey");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "treasury_accounts_id_temp_key" ON "treasury_accounts"("id_temp");
+
+-- CreateIndex
+CREATE INDEX "treasury_accounts_business_id_idx" ON "treasury_accounts"("business_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cash_registers_id_temp_key" ON "cash_registers"("id_temp");
+
+-- CreateIndex
+CREATE INDEX "cash_registers_business_id_idx" ON "cash_registers"("business_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cash_register_payment_methods_id_temp_key" ON "cash_register_payment_methods"("id_temp");
+
+-- CreateIndex
+CREATE INDEX "cash_register_payment_methods_business_id_idx" ON "cash_register_payment_methods"("business_id");
+
+-- CreateIndex
+CREATE INDEX "cash_register_payment_methods_cash_register_id_idx" ON "cash_register_payment_methods"("cash_register_id");
+
+-- CreateIndex
+CREATE INDEX "cash_register_payment_methods_cash_register_id_temp_idx" ON "cash_register_payment_methods"("cash_register_id_temp");
+
+-- CreateIndex
+CREATE INDEX "cash_register_payment_methods_treasury_account_id_idx" ON "cash_register_payment_methods"("treasury_account_id");
+
+-- CreateIndex
+CREATE INDEX "cash_register_payment_methods_treasury_account_id_temp_idx" ON "cash_register_payment_methods"("treasury_account_id_temp");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cash_register_payment_methods_cash_register_id_payment_meth_key" ON "cash_register_payment_methods"("cash_register_id", "payment_method");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cash_register_turns_id_temp_key" ON "cash_register_turns"("id_temp");
 
 -- CreateIndex
 CREATE INDEX "cash_register_turns_business_id_status_idx" ON "cash_register_turns"("business_id", "status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "financial_movements_client_movement_id_key" ON "financial_movements"("client_movement_id");
+CREATE INDEX "cash_register_turns_cash_register_id_idx" ON "cash_register_turns"("cash_register_id");
 
 -- CreateIndex
-CREATE INDEX "financial_movements_businessId_idx" ON "financial_movements"("businessId");
+CREATE UNIQUE INDEX "financial_movements_id_temp_key" ON "financial_movements"("id_temp");
 
 -- CreateIndex
-CREATE INDEX "financial_movements_order_id_idx" ON "financial_movements"("order_id");
+CREATE INDEX "financial_movements_business_id_idx" ON "financial_movements"("business_id");
 
 -- CreateIndex
 CREATE INDEX "financial_movements_cash_register_turn_id_idx" ON "financial_movements"("cash_register_turn_id");
 
 -- CreateIndex
-CREATE INDEX "_AddressToOrder_B_index" ON "_AddressToOrder"("B");
+CREATE INDEX "financial_movements_treasury_account_id_idx" ON "financial_movements"("treasury_account_id");
 
--- AddForeignKey
-ALTER TABLE "usuarios" ADD CONSTRAINT "usuarios_estado_id_fkey" FOREIGN KEY ("estado_id") REFERENCES "estados"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- CreateIndex
+CREATE INDEX "financial_movements_transfer_group_id_idx" ON "financial_movements"("transfer_group_id");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommandV2_businessId_idx" ON "DeliveryCommandV2"("businessId");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommandV2_orderId_idx" ON "DeliveryCommandV2"("orderId");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommandV2_businessStatus_idx" ON "DeliveryCommandV2"("businessStatus");
+
+-- CreateIndex
+CREATE INDEX "DeliveryCommandV2_logisticsStatus_idx" ON "DeliveryCommandV2"("logisticsStatus");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DeliveryCommandV2_businessId_orderId_key" ON "DeliveryCommandV2"("businessId", "orderId");
+
+-- CreateIndex
+CREATE INDEX "_AddressToOrder_B_index" ON "_AddressToOrder"("B");
 
 -- AddForeignKey
 ALTER TABLE "usuarios" ADD CONSTRAINT "usuarios_avatar_id_fkey" FOREIGN KEY ("avatar_id") REFERENCES "imagenes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "negocio_imagenes" ADD CONSTRAINT "negocio_imagenes_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "usuarios" ADD CONSTRAINT "usuarios_estado_id_fkey" FOREIGN KEY ("estado_id") REFERENCES "estados"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "negocio_imagenes" ADD CONSTRAINT "negocio_imagenes_imagen_id_fkey" FOREIGN KEY ("imagen_id") REFERENCES "imagenes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "negocio_categorias" ADD CONSTRAINT "negocio_categorias_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "negocio_imagenes" ADD CONSTRAINT "negocio_imagenes_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "negocio_categorias" ADD CONSTRAINT "negocio_categorias_categoria_id_fkey" FOREIGN KEY ("categoria_id") REFERENCES "categorias"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "negocio_categorias" ADD CONSTRAINT "negocio_categorias_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Rating" ADD CONSTRAINT "Rating_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "negocios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -965,10 +1259,10 @@ ALTER TABLE "Rating" ADD CONSTRAINT "Rating_businessId_fkey" FOREIGN KEY ("busin
 ALTER TABLE "Rating" ADD CONSTRAINT "Rating_userId_fkey" FOREIGN KEY ("userId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BusinessFollower" ADD CONSTRAINT "BusinessFollower_userId_fkey" FOREIGN KEY ("userId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "BusinessFollower" ADD CONSTRAINT "BusinessFollower_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "negocios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BusinessFollower" ADD CONSTRAINT "BusinessFollower_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "negocios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "BusinessFollower" ADD CONSTRAINT "BusinessFollower_userId_fkey" FOREIGN KEY ("userId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "negocio_tag" ADD CONSTRAINT "negocio_tag_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "negocios"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -980,28 +1274,40 @@ ALTER TABLE "negocio_tag" ADD CONSTRAINT "negocio_tag_tagId_fkey" FOREIGN KEY ("
 ALTER TABLE "servicios_ofrecidos" ADD CONSTRAINT "servicios_ofrecidos_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "negocios" ADD CONSTRAINT "negocios_propietario_id_fkey" FOREIGN KEY ("propietario_id") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "negocios" ADD CONSTRAINT "negocios_estado_id_fkey" FOREIGN KEY ("estado_id") REFERENCES "estados"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "negocios" ADD CONSTRAINT "negocios_logo_id_fkey" FOREIGN KEY ("logo_id") REFERENCES "imagenes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "negocios" ADD CONSTRAINT "negocios_estado_id_fkey" FOREIGN KEY ("estado_id") REFERENCES "estados"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "negocios" ADD CONSTRAINT "negocios_propietario_id_fkey" FOREIGN KEY ("propietario_id") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "metodos_pago_negocio" ADD CONSTRAINT "metodos_pago_negocio_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BusinessEmployee" ADD CONSTRAINT "BusinessEmployee_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "BusinessRole"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "empleados_negocio" ADD CONSTRAINT "empleados_negocio_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "negocios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BusinessEmployee" ADD CONSTRAINT "BusinessEmployee_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "negocios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "empleados_negocio" ADD CONSTRAINT "empleados_negocio_positionId_fkey" FOREIGN KEY ("positionId") REFERENCES "puestos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BusinessEmployee" ADD CONSTRAINT "BusinessEmployee_userId_fkey" FOREIGN KEY ("userId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "empleados_negocio" ADD CONSTRAINT "empleados_negocio_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "BusinessRole"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BusinessEmployeeOverride" ADD CONSTRAINT "BusinessEmployeeOverride_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "BusinessEmployee"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "empleados_negocio" ADD CONSTRAINT "empleados_negocio_userId_fkey" FOREIGN KEY ("userId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "BusinessEmployeeOverride" ADD CONSTRAINT "BusinessEmployeeOverride_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "empleados_negocio"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "puestos" ADD CONSTRAINT "puestos_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "negocios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "jornadas_empleado" ADD CONSTRAINT "jornadas_empleado_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "empleados_negocio"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "liquidaciones_empleados" ADD CONSTRAINT "liquidaciones_empleados_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "empleados_negocio"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "DeliveryEmployee" ADD CONSTRAINT "DeliveryEmployee_deliveryCompanyId_fkey" FOREIGN KEY ("deliveryCompanyId") REFERENCES "DeliveryCompany"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1022,10 +1328,10 @@ ALTER TABLE "menu_productos" ADD CONSTRAINT "menu_productos_imagen_id_fkey" FORE
 ALTER TABLE "menu_productos" ADD CONSTRAINT "menu_productos_seccion_id_fkey" FOREIGN KEY ("seccion_id") REFERENCES "secciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "menu_producto_categorias_comida" ADD CONSTRAINT "menu_producto_categorias_comida_menu_producto_id_fkey" FOREIGN KEY ("menu_producto_id") REFERENCES "menu_productos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "menu_producto_categorias_comida" ADD CONSTRAINT "menu_producto_categorias_comida_categoria_comida_id_fkey" FOREIGN KEY ("categoria_comida_id") REFERENCES "categorias_comida"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "menu_producto_categorias_comida" ADD CONSTRAINT "menu_producto_categorias_comida_categoria_comida_id_fkey" FOREIGN KEY ("categoria_comida_id") REFERENCES "categorias_comida"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "menu_producto_categorias_comida" ADD CONSTRAINT "menu_producto_categorias_comida_menu_producto_id_fkey" FOREIGN KEY ("menu_producto_id") REFERENCES "menu_productos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "opciones_grupos" ADD CONSTRAINT "opciones_grupos_menu_producto_id_fkey" FOREIGN KEY ("menu_producto_id") REFERENCES "menu_productos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1034,22 +1340,22 @@ ALTER TABLE "opciones_grupos" ADD CONSTRAINT "opciones_grupos_menu_producto_id_f
 ALTER TABLE "opciones" ADD CONSTRAINT "opciones_id_grupo_opcion_fkey" FOREIGN KEY ("id_grupo_opcion") REFERENCES "opciones_grupos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "opcion_imagenes" ADD CONSTRAINT "opcion_imagenes_opcion_id_fkey" FOREIGN KEY ("opcion_id") REFERENCES "opciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "opciones" ADD CONSTRAINT "opciones_menuProductId_fkey" FOREIGN KEY ("menuProductId") REFERENCES "menu_productos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "direcciones" ADD CONSTRAINT "direcciones_usuario_id_fkey" FOREIGN KEY ("usuario_id") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "opcion_imagenes" ADD CONSTRAINT "opcion_imagenes_opcion_id_fkey" FOREIGN KEY ("opcion_id") REFERENCES "opciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "direcciones" ADD CONSTRAINT "direcciones_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "direcciones" ADD CONSTRAINT "direcciones_usuario_id_fkey" FOREIGN KEY ("usuario_id") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_assigned_cash_register_turn_id_fkey" FOREIGN KEY ("assigned_cash_register_turn_id") REFERENCES "cash_register_turns"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_usuario_id_fkey" FOREIGN KEY ("usuario_id") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_deliveryCompanyId_fkey" FOREIGN KEY ("deliveryCompanyId") REFERENCES "DeliveryCompany"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_direccion_entrega_id_fkey" FOREIGN KEY ("direccion_entrega_id") REFERENCES "direcciones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1058,16 +1364,19 @@ ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_direccion_entrega_id_fkey" FOREIGN
 ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_direccion_retiro_id_fkey" FOREIGN KEY ("direccion_retiro_id") REFERENCES "direcciones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_deliveryCompanyId_fkey" FOREIGN KEY ("deliveryCompanyId") REFERENCES "DeliveryCompany"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_negocio_id_fkey" FOREIGN KEY ("negocio_id") REFERENCES "negocios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ordenes" ADD CONSTRAINT "ordenes_usuario_id_fkey" FOREIGN KEY ("usuario_id") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ordenes_eventos_estado" ADD CONSTRAINT "ordenes_eventos_estado_orden_id_fkey" FOREIGN KEY ("orden_id") REFERENCES "ordenes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "items_orden" ADD CONSTRAINT "items_orden_id_orden_fkey" FOREIGN KEY ("id_orden") REFERENCES "ordenes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "items_orden" ADD CONSTRAINT "items_orden_id_menu_producto_fkey" FOREIGN KEY ("id_menu_producto") REFERENCES "menu_productos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "items_orden" ADD CONSTRAINT "items_orden_id_menu_producto_fkey" FOREIGN KEY ("id_menu_producto") REFERENCES "menu_productos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "items_orden" ADD CONSTRAINT "items_orden_id_orden_fkey" FOREIGN KEY ("id_orden") REFERENCES "ordenes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "descuentos_orden" ADD CONSTRAINT "descuentos_orden_id_orden_fkey" FOREIGN KEY ("id_orden") REFERENCES "ordenes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1100,25 +1409,46 @@ ALTER TABLE "delivery_price_matrix" ADD CONSTRAINT "delivery_price_matrix_macroZ
 ALTER TABLE "address_zone_index" ADD CONSTRAINT "address_zone_index_addressId_fkey" FOREIGN KEY ("addressId") REFERENCES "direcciones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "address_zone_index" ADD CONSTRAINT "address_zone_index_macroZoneId_fkey" FOREIGN KEY ("macroZoneId") REFERENCES "macro_zones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "address_zone_index" ADD CONSTRAINT "address_zone_index_deliveryZoneId_fkey" FOREIGN KEY ("deliveryZoneId") REFERENCES "DeliveryZone"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "h3_indices" ADD CONSTRAINT "h3_indices_macroZoneId_fkey" FOREIGN KEY ("macroZoneId") REFERENCES "macro_zones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "address_zone_index" ADD CONSTRAINT "address_zone_index_macroZoneId_fkey" FOREIGN KEY ("macroZoneId") REFERENCES "macro_zones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "h3_indices" ADD CONSTRAINT "h3_indices_deliveryZoneId_fkey" FOREIGN KEY ("deliveryZoneId") REFERENCES "DeliveryZone"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "ordenes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "h3_indices" ADD CONSTRAINT "h3_indices_macroZoneId_fkey" FOREIGN KEY ("macroZoneId") REFERENCES "macro_zones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DeliveryCommand" ADD CONSTRAINT "DeliveryCommand_deliveryDispatchId_fkey" FOREIGN KEY ("deliveryDispatchId") REFERENCES "DeliveryDispatch"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cash_registers" ADD CONSTRAINT "cash_registers_default_treasury_account_id_fkey" FOREIGN KEY ("default_treasury_account_id") REFERENCES "treasury_accounts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cash_register_payment_methods" ADD CONSTRAINT "cash_register_payment_methods_cash_register_id_fkey" FOREIGN KEY ("cash_register_id") REFERENCES "cash_registers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cash_register_payment_methods" ADD CONSTRAINT "cash_register_payment_methods_treasury_account_id_fkey" FOREIGN KEY ("treasury_account_id") REFERENCES "treasury_accounts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cash_register_turns" ADD CONSTRAINT "cash_register_turns_cash_register_id_fkey" FOREIGN KEY ("cash_register_id") REFERENCES "cash_registers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cash_register_turns" ADD CONSTRAINT "cash_register_turns_treasury_account_id_fkey" FOREIGN KEY ("treasury_account_id") REFERENCES "treasury_accounts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_cash_register_turn_id_fkey" FOREIGN KEY ("cash_register_turn_id") REFERENCES "cash_register_turns"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "ordenes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_reference_cash_register_turn_id_fkey" FOREIGN KEY ("reference_cash_register_turn_id") REFERENCES "cash_register_turns"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_treasury_account_id_fkey" FOREIGN KEY ("treasury_account_id") REFERENCES "treasury_accounts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_AddressToOrder" ADD CONSTRAINT "_AddressToOrder_A_fkey" FOREIGN KEY ("A") REFERENCES "direcciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;

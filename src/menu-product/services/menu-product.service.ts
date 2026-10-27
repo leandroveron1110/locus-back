@@ -7,6 +7,7 @@ import { IMenuProductService } from '../interfaces/menu-product-service.interfac
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MenuProductDto } from '../dtos/response/menu-product-response.dto';
 import { MenuProductWithOptions } from '../types/menu-product.type';
+import { ImportMenuProductDto } from '../dtos/request/import-menu-products.dto';
 
 @Injectable()
 export class MenuProductService implements IMenuProductService {
@@ -40,10 +41,48 @@ export class MenuProductService implements IMenuProductService {
     });
   }
 
+  async createMany(
+    products: ImportMenuProductDto[],
+    seccionId: string,
+  ): Promise<MenuProduct[]> {
+    return this.prisma.$transaction(async (tx) => {
+      const createdProducts: MenuProduct[] = [];
+
+      for (const product of products) {
+        const {
+          id: _id,
+          seccionId: _oldSeccionId,
+          optionGroups: _optionGroups,
+          ...data
+        } = product;
+
+        const created = await tx.menuProduct.create({
+          data: {
+            ...data,
+
+            // Reemplazamos el seccionId del JSON.
+            seccionId,
+
+            description: data.description || '',
+            enabled: data.enabled ?? true,
+            hasOptions: false,
+            isMostOrdered: data.isMostOrdered ?? false,
+            isRecommended: data.isRecommended ?? false,
+            cost: data.cost ?? 0,
+          },
+        });
+
+        createdProducts.push(created);
+      }
+
+      return createdProducts;
+    });
+  }
+
   async findAll(): Promise<MenuProduct[]> {
     return await this.prisma.menuProduct.findMany({
       where: {
-        isDeleted: false
+        isDeleted: false,
       },
       include: {
         optionGroups: {
@@ -151,7 +190,7 @@ export class MenuProductService implements IMenuProductService {
       // Condición: Solo productos de la sección dada
       where: {
         seccionId: seccionId,
-        isDeleted: false
+        isDeleted: false,
       },
       // Paginación:
       take: limit, // 'LIMIT' en SQL
@@ -211,7 +250,7 @@ export class MenuProductService implements IMenuProductService {
     const product = await this.prisma.menuProduct.findUnique({
       where: {
         id: productId,
-        isDeleted: false
+        isDeleted: false,
       },
       include: {
         optionGroups: {
@@ -240,7 +279,9 @@ export class MenuProductService implements IMenuProductService {
   }
 
   async findOne(id: string): Promise<MenuProduct> {
-    const product = await this.prisma.menuProduct.findUnique({ where: { id, isDeleted: false } });
+    const product = await this.prisma.menuProduct.findUnique({
+      where: { id, isDeleted: false },
+    });
     if (!product) throw new NotFoundException('Menu product not found');
     return product;
   }
@@ -282,7 +323,7 @@ export class MenuProductService implements IMenuProductService {
     menuProductId: string,
   ): Promise<MenuProductWithOptions> {
     const product = await this.prisma.menuProduct.findUnique({
-      where: { id: menuProductId , isDeleted: false},
+      where: { id: menuProductId, isDeleted: false },
       include: {
         optionGroups: {
           include: { options: true },

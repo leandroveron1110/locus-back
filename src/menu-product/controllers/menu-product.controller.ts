@@ -22,6 +22,7 @@ import { UserRole } from '@prisma/client';
 import { ProductPermissions } from 'src/common/enums/rolees-permissions';
 import { AccessStrategy } from 'src/auth/decorators/access-strategy.decorator';
 import { AccessStrategyEnum } from 'src/auth/decorators/access-strategy.enum';
+import { ImportMenuProductDto } from '../dtos/request/import-menu-products.dto';
 
 @Controller('menu-products')
 @UsePipes(
@@ -46,6 +47,20 @@ export class MenuProductController {
   @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
   async create(@Body() dto: CreateMenuProductDto) {
     return await this.menuProductService.create(dto);
+  }
+
+  @Post('bulk/:seccionId')
+  @Roles(UserRole.OWNER)
+  @Permissions(
+    ProductPermissions.MANAGE_PRODUCTS,
+    ProductPermissions.EDIT_PRODUCT,
+  )
+  @AccessStrategy(AccessStrategyEnum.ROLE_OR_ANY_PERMISSION)
+  async createMany(
+    @Param('seccionId') seccionId: string,
+    @Body() products: ImportMenuProductDto[],
+  ) {
+    return await this.menuProductService.createMany(products, seccionId);
   }
 
   @Get()
@@ -86,7 +101,7 @@ export class MenuProductController {
       parsedOffset,
     );
 
-    return products
+    return products;
   }
 
   @Get(':id')

@@ -4,9 +4,15 @@ import { MenuProduct } from '@prisma/client';
 import { CreateMenuProductDto } from '../dtos/request/menu-producto-request.dto';
 import { MenuProductDto } from '../dtos/response/menu-product-response.dto';
 import { MenuProductWithOptions } from '../types/menu-product.type';
+import { ImportMenuProductDto } from '../dtos/request/import-menu-products.dto';
 
 export interface IMenuProductService {
   create(dto: CreateMenuProductDto): Promise<MenuProduct>;
+
+  createMany(
+      products: ImportMenuProductDto[],
+      seccionId: string,
+    ): Promise<MenuProduct[]>
 
   findAll(): Promise<MenuProduct[]>;
 
