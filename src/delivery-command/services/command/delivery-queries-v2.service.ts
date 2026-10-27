@@ -1,7 +1,10 @@
 // delivery-commands-v2.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { BusinessCommandStatusV2, LogisticsCommandStatusV2 } from '@prisma/client';
+import {
+  BusinessCommandStatusV2,
+  LogisticsCommandStatusV2,
+} from '@prisma/client';
 import { CreateDeliveryCommandDtoV2 } from 'src/delivery-command/dtos/request/create-delivery-command-v2.dto';
 
 @Injectable()
@@ -17,11 +20,11 @@ export class DeliveryCommandsV2Service {
     }
 
     // Determinamos el estado inicial del negocio según la acción que mande el DTO
-    const initialBusinessStatus = 
-      dto.action === 'DISPATCH' 
-        ? BusinessCommandStatusV2.DISPATCH_REQUESTED 
-        : dto.action === 'QUOTE' 
-          ? BusinessCommandStatusV2.QUOTE_REQUESTED 
+    const initialBusinessStatus =
+      dto.action === 'DISPATCH'
+        ? BusinessCommandStatusV2.DISPATCH_REQUESTED
+        : dto.action === 'QUOTE'
+          ? BusinessCommandStatusV2.QUOTE_REQUESTED
           : BusinessCommandStatusV2.PENDING;
 
     try {
@@ -35,11 +38,11 @@ export class DeliveryCommandsV2Service {
         // Si ya existía la orden: reciclamos el registro de forma atómica
         update: {
           businessStatus: initialBusinessStatus,
-          // Si el front vuelve a pedir un DISPATCH, podemos resetear la logística a PENDING si se requiere re-atención, 
+          // Si el front vuelve a pedir un DISPATCH, podemos resetear la logística a PENDING si se requiere re-atención,
           // o dejarlo condicional. Acá lo adaptamos al nuevo flujo:
-          logisticsStatus: 
-            dto.action === 'DISPATCH' 
-              ? LogisticsCommandStatusV2.PENDING 
+          logisticsStatus:
+            dto.action === 'DISPATCH'
+              ? LogisticsCommandStatusV2.PENDING
               : undefined,
           updatedAt: new Date(),
           destinationAddress: dto.destinationAddress,
@@ -55,7 +58,7 @@ export class DeliveryCommandsV2Service {
           orderId: dto.orderId,
           businessStatus: initialBusinessStatus,
           logisticsStatus: LogisticsCommandStatusV2.PENDING, // Nace en pendiente para el operador logístico
-          
+
           originName: dto.originName,
           originAddress: dto.originAddress,
           originLatitude: dto.originLatitude,
@@ -66,7 +69,7 @@ export class DeliveryCommandsV2Service {
           zoneId: dto.zoneId,
           quotedCost: dto.quotedCost,
           notes: dto.notes,
-          
+
           requiredCouriers: dto.requiredCouriers ?? 1,
           isShareable: dto.isShareable ?? true,
           updatedAt: new Date(),
@@ -76,7 +79,9 @@ export class DeliveryCommandsV2Service {
       return deliveryCommand.id;
     } catch (error) {
       console.error(error);
-      throw new BadRequestException('Error creating/updating delivery command V2');
+      throw new BadRequestException(
+        'Error creating/updating delivery command V2',
+      );
     }
   }
 
@@ -127,14 +132,13 @@ export class DeliveryCommandsV2Service {
           orderId: orderId,
         },
       },
-      data: { 
-        businessStatus: BusinessCommandStatusV2.COMPLETED, 
+      data: {
+        businessStatus: BusinessCommandStatusV2.COMPLETED,
         logisticsStatus: LogisticsCommandStatusV2.COMPLETED,
-        updatedAt: new Date(), 
+        updatedAt: new Date(),
       },
     });
   }
-
 
   /**
    * Base: Pone el precio a una cotización urgente solicitada por el negocio.
@@ -164,6 +168,28 @@ export class DeliveryCommandsV2Service {
   }
 
   /**
+   * Base: actualiza direccion lat y long.
+   */
+  async baseSaveDestinationCoords(
+    id: string,
+    dto: {
+      destinationAddress: string;
+      destinationLatitude: number;
+      destinationLongitude: number;
+    },
+  ) {
+    return this.prisma.deliveryCommandV2.update({
+      where: { id },
+      data: {
+        destinationAddress: dto.destinationAddress,
+        destinationLatitude: dto.destinationLatitude,
+        destinationLongitude: dto.destinationLongitude,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  /**
    * Base: Marca el pedido en tránsito (el cadete salió a buscarlo/llevarlo).
    */
   async baseSetInTransit(id: string) {
@@ -171,6 +197,19 @@ export class DeliveryCommandsV2Service {
       where: { id },
       data: {
         logisticsStatus: LogisticsCommandStatusV2.IN_TRANSIT,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Base: Marca el pedido en tránsito (el cadete salió a buscarlo/llevarlo).
+   */
+  async baseSetComplet(id: string) {
+    return this.prisma.deliveryCommandV2.update({
+      where: { id },
+      data: {
+        logisticsStatus: LogisticsCommandStatusV2.COMPLETED,
         updatedAt: new Date(),
       },
     });

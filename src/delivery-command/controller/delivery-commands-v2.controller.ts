@@ -11,7 +11,10 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
 } from '@nestjs/common';
-import { BusinessCommandStatusV2, LogisticsCommandStatusV2 } from '@prisma/client';
+import {
+  BusinessCommandStatusV2,
+  LogisticsCommandStatusV2,
+} from '@prisma/client';
 import { CreateDeliveryCommandDtoV2 } from '../dtos/request/create-delivery-command-v2.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { DeliveryCommandsV2Service } from '../services/command/delivery-queries-v2.service';
@@ -65,6 +68,12 @@ export class DeliveryCommandsV2Controller {
     return this.commandsService.baseSetInTransit(id);
   }
 
+  @Patch(':id/base/in-completed')
+  @Public()
+  baseSetComplet(@Param('id') id: string) {
+    return this.commandsService.baseSetComplet(id);
+  }
+
   @Patch(':id')
   @Public()
   update(
@@ -81,6 +90,20 @@ export class DeliveryCommandsV2Controller {
     },
   ) {
     return this.commandsService.update(id, body);
+  }
+
+  @Patch('coords/:id')
+  @Public()
+  baseSaveDestinationCoords(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      destinationAddress: string;
+      destinationLatitude: number;
+      destinationLongitude: number;
+    },
+  ) {
+    return this.commandsService.baseSaveDestinationCoords(id, body);
   }
 
   @Patch('business/:businessId/order/:orderId')
