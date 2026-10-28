@@ -70,6 +70,12 @@ export class DeliveryCommandsV2Controller {
     return this.commandsService.baseSetInTransit(id);
   }
 
+    @Patch(':id/base/assigned')
+  @Public()
+  baseSetAssigned(@Param('id') id: string) {
+    return this.commandsService.baseSetAssigned(id);
+  }
+
   @Patch(':id/base/in-completed')
   @Public()
   baseSetComplet(@Param('id') id: string) {

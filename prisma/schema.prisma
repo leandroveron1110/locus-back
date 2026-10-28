@@ -1219,15 +1219,15 @@ enum DeliveryCommandTypeX {
 }
 
 enum DeliveryCommandStatusX {
-  PENDING         // Creado/Modificado por el negocio, esperando acción de logística
-  PROCESSING      // Logística está calculando o procesando
-  QUOTED          // Cotizado (logística puso el precio, el negocio lo ve)
-  RE_QUOTE        // El negocio pidió cambiar algo / corregir precio
-  DISPATCHED      // En camino / Despachado
-  COMPLETED       // Envío finalizado con éxito
-  ERROR           // Hubo un fallo
-  CANCELLED       // Cancelado
-  FINISHED        // <- NUEVO: Estado final definitivo. Ninguno de los dos toca más este registro.
+  PENDING // Creado/Modificado por el negocio, esperando acción de logística
+  PROCESSING // Logística está calculando o procesando
+  QUOTED // Cotizado (logística puso el precio, el negocio lo ve)
+  RE_QUOTE // El negocio pidió cambiar algo / corregir precio
+  DISPATCHED // En camino / Despachado
+  COMPLETED // Envío finalizado con éxito
+  ERROR // Hubo un fallo
+  CANCELLED // Cancelado
+  FINISHED // <- NUEVO: Estado final definitivo. Ninguno de los dos toca más este registro.
 }
 
 enum DeliveryDispatchStatus {
@@ -1307,15 +1307,14 @@ enum TreasuryAccountType {
   SAFE_BOX
 }
 
-
 model DeliveryCommandV2 {
-  id                   String                 @id @default(uuid())
-  businessId           String
-  orderId              String
-  
+  id         String @id @default(uuid())
+  businessId String
+  orderId    String
+
   // --- DOBLE ESTADO (Separación de incumbencias V2) ---
-  businessStatus       BusinessCommandStatusV2  @default(PENDING)
-  logisticsStatus      LogisticsCommandStatusV2 @default(PENDING)
+  businessStatus  BusinessCommandStatusV2  @default(PENDING)
+  logisticsStatus LogisticsCommandStatusV2 @default(PENDING)
 
   // Ubicaciones y logística base
   originName           String?
@@ -1327,17 +1326,17 @@ model DeliveryCommandV2 {
   destinationLongitude Float?
   zoneId               String?
   notes                String?
-  quotedCost           Int?                   // Abierto y editable por logística
+  quotedCost           Int? // Abierto y editable por logística
   externalId           String?
   failureReason        String?
-  
+
   // Propiedades operativas
-  requiredCouriers     Int                    @default(1)    // Cantidad de personal necesario
-  isShareable          Boolean                @default(true) // Indica si se puede combinar en el mismo viaje
+  requiredCouriers Int     @default(1) // Cantidad de personal necesario
+  isShareable      Boolean @default(true) // Indica si se puede combinar en el mismo viaje
 
   // Tiempos
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Índices y restricciones independientes para la V2
   @@unique([businessId, orderId])
@@ -1350,19 +1349,20 @@ model DeliveryCommandV2 {
 // --- ENUMS EXCLUSIVOS PARA LA V2 ---
 
 enum BusinessCommandStatusV2 {
-  PENDING             
-  QUOTE_REQUESTED     
-  REVIEWING_QUOTE     
-  DISPATCH_REQUESTED  
-  COMPLETED           
-  CANCELLED           
+  PENDING
+  QUOTE_REQUESTED
+  REVIEWING_QUOTE
+  DISPATCH_REQUESTED
+  COMPLETED
+  CANCELLED
 }
 
 enum LogisticsCommandStatusV2 {
-  PENDING             
-  QUOTED              
-  ACCEPTED            
-  IN_TRANSIT          
-  COMPLETED           
-  REJECTED            
+  PENDING
+  QUOTED
+  ACCEPTED
+  ASSIGNED
+  IN_TRANSIT
+  COMPLETED
+  REJECTED
 }

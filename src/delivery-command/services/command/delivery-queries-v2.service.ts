@@ -193,6 +193,19 @@ export class DeliveryCommandsV2Service {
   /**
    * Base: Marca el pedido en tránsito (el cadete salió a buscarlo/llevarlo).
    */
+  async baseSetAssigned(id: string) {
+    return this.prisma.deliveryCommandV2.update({
+      where: { id },
+      data: {
+        logisticsStatus: LogisticsCommandStatusV2.ASSIGNED,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Base: Marca el pedido en tránsito (el cadete salió a buscarlo/llevarlo).
+   */
   async baseSetInTransit(id: string) {
     return this.prisma.deliveryCommandV2.update({
       where: { id },
