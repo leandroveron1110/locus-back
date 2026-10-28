@@ -27,7 +27,10 @@ export class DeliveryQueriesV2Service {
       where: {
         businessId,
         businessStatus: {
-          notIn: [BusinessCommandStatusV2.COMPLETED, BusinessCommandStatusV2.CANCELLED],
+          notIn: [
+            BusinessCommandStatusV2.COMPLETED,
+            BusinessCommandStatusV2.CANCELLED,
+          ],
         },
         createdAt: { gte: today },
       },
@@ -120,14 +123,6 @@ export class DeliveryQueriesV2Service {
     });
   }
 
-  /**
-   * 2. Cola de Despachos Pendientes para Base (Pedidos listos para buscar/retirar)
-   * Pedidos que el negocio marcó para despachar y la logística ya aceptó o procesa.
-   */
-/**
-   * 2. Cola de Despachos Pendientes para Base (Pedidos listos para buscar/retirar)
-   * Trae todos los despachos solicitados por el negocio que sigan activos (excluyendo los finalizados/cancelados).
-   */
   async getBasePendingDispatches(filters: {
     zoneId?: string;
     limit?: number;
@@ -145,8 +140,8 @@ export class DeliveryQueriesV2Service {
         businessStatus: BusinessCommandStatusV2.DISPATCH_REQUESTED,
         logisticsStatus: {
           notIn: [
-            LogisticsCommandStatusV2.COMPLETED, 
-            LogisticsCommandStatusV2.REJECTED
+            LogisticsCommandStatusV2.COMPLETED,
+            LogisticsCommandStatusV2.REJECTED,
           ],
         },
         createdAt: { gte: todayStart },
@@ -173,6 +168,76 @@ export class DeliveryQueriesV2Service {
       orderBy: { createdAt: 'asc' },
       skip,
       take: limit,
+    });
+  }
+
+  /**
+   * Sincronización incremental del estado actual de los comandos logísticos.
+   *
+   * Devuelve comandos modificados desde la última sincronización,
+   * excluyendo los que ya están completados o cancelados.
+   *
+   * Sin paginación ni historial de eventos.
+   */
+  async getBusinessUpdates(businessId: string, lastSyncAt?: Date) {
+    return this.prisma.deliveryCommandV2.findMany({
+      where: {
+        businessId,
+
+        // Solo comandos que todavía pueden requerir alguna acción.
+        businessStatus: {
+          notIn: [
+            BusinessCommandStatusV2.COMPLETED,
+            BusinessCommandStatusV2.CANCELLED,
+          ],
+        },
+
+        // Evitamos devolver despachos cuya operación logística terminó.
+        logisticsStatus: {
+          notIn: [
+            LogisticsCommandStatusV2.COMPLETED,
+            LogisticsCommandStatusV2.REJECTED,
+          ],
+        },
+
+        // Si no se envía lastSyncAt, se devuelven todos los comandos activos.
+        ...(lastSyncAt
+          ? {
+              updatedAt: {
+                gt: lastSyncAt,
+              },
+            }
+          : {}),
+      },
+
+      select: {
+        id: true,
+        businessId: true,
+        orderId: true,
+
+        originName: true,
+        originAddress: true,
+        originLatitude: true,
+        originLongitude: true,
+
+        destinationAddress: true,
+        destinationLatitude: true,
+        destinationLongitude: true,
+
+        zoneId: true,
+        quotedCost: true,
+        requiredCouriers: true,
+        isShareable: true,
+        notes: true,
+
+        businessStatus: true,
+        logisticsStatus: true,
+
+        createdAt: true,
+        updatedAt: true,
+      },
+
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
     });
   }
 

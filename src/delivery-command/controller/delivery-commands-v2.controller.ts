@@ -10,6 +10,7 @@ import {
   Delete,
   DefaultValuePipe,
   ParseIntPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   BusinessCommandStatusV2,
@@ -19,6 +20,7 @@ import { CreateDeliveryCommandDtoV2 } from '../dtos/request/create-delivery-comm
 import { Public } from 'src/auth/decorators/public.decorator';
 import { DeliveryCommandsV2Service } from '../services/command/delivery-queries-v2.service';
 import { DeliveryQueriesV2Service } from '../services/query/delivery-queries-v2.service';
+import { GetBusinessUpdatesQueryDto } from '../dtos/request/get-business-updates-query.dto';
 
 @Controller('delivery-commands-v2')
 export class DeliveryCommandsV2Controller {
@@ -140,6 +142,20 @@ export class DeliveryCommandsV2Controller {
   @Public()
   getBusinessDispatchesAccepted(@Param('businessId') businessId: string) {
     return this.queriesService.getBusinessDispatchesAccepted(businessId);
+  }
+
+  @Get('business/updates')
+  @Public()
+  async getBusinessUpdates(@Query() query: GetBusinessUpdatesQueryDto) {
+    const lastSyncAt = query.lastSyncAt
+      ? new Date(query.lastSyncAt)
+      : undefined;
+
+    if (lastSyncAt && Number.isNaN(lastSyncAt.getTime())) {
+      throw new BadRequestException('lastSyncAt no es una fecha válida');
+    }
+
+    return this.queriesService.getBusinessUpdates(query.businessId, lastSyncAt);
   }
 
   // ==========================================================================

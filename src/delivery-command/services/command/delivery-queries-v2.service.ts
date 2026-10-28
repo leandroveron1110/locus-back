@@ -49,6 +49,7 @@ export class DeliveryCommandsV2Service {
           destinationLatitude: dto.destinationLatitude,
           destinationLongitude: dto.destinationLongitude,
           notes: dto.notes,
+          quotedCost: dto.quotedCost,
           requiredCouriers: dto.requiredCouriers ?? 1,
           isShareable: dto.isShareable ?? true,
         },
@@ -76,7 +77,7 @@ export class DeliveryCommandsV2Service {
         },
       });
 
-      return deliveryCommand.id;
+      return deliveryCommand;
     } catch (error) {
       console.error(error);
       throw new BadRequestException(
