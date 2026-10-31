@@ -1,5 +1,5 @@
 // delivery-commands-v2.service.ts
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   BusinessCommandStatusV2,
@@ -12,13 +12,6 @@ export class DeliveryCommandsV2Service {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateDeliveryCommandDtoV2) {
-    // Regla estricta: Sin orderId de la caja, no hay comando de delivery
-    if (!dto.orderId) {
-      throw new BadRequestException(
-        'orderId is required for creating a delivery command V2',
-      );
-    }
-
     // Determinamos el estado inicial del negocio según la acción que mande el DTO
     const initialBusinessStatus =
       dto.action === 'DISPATCH'
@@ -28,54 +21,68 @@ export class DeliveryCommandsV2Service {
           : BusinessCommandStatusV2.PENDING;
 
     try {
-      const deliveryCommand = await this.prisma.deliveryCommandV2.upsert({
-        where: {
-          businessId_orderId: {
+      let existingCommand: any = null;
+
+      // Si viene con orderId, buscamos si ya existe para reciclar el registro de forma atómica
+      if (dto.orderId) {
+        existingCommand = await this.prisma.deliveryCommandV2.findFirst({
+          where: {
             businessId: dto.businessId,
             orderId: dto.orderId,
           },
-        },
-        // Si ya existía la orden: reciclamos el registro de forma atómica
-        update: {
-          businessStatus: initialBusinessStatus,
-          // Si el front vuelve a pedir un DISPATCH, podemos resetear la logística a PENDING si se requiere re-atención,
-          // o dejarlo condicional. Acá lo adaptamos al nuevo flujo:
-          logisticsStatus:
-            dto.action === 'DISPATCH'
-              ? LogisticsCommandStatusV2.PENDING
-              : undefined,
-          updatedAt: new Date(),
-          destinationAddress: dto.destinationAddress,
-          destinationLatitude: dto.destinationLatitude,
-          destinationLongitude: dto.destinationLongitude,
-          notes: dto.notes,
-          quotedCost: dto.quotedCost,
-          requiredCouriers: dto.requiredCouriers ?? 1,
-          isShareable: dto.isShareable ?? true,
-        },
-        // Si es la primera vez que entra este UUID de orden: se inserta limpio
-        create: {
-          businessId: dto.businessId,
-          orderId: dto.orderId,
-          businessStatus: initialBusinessStatus,
-          logisticsStatus: LogisticsCommandStatusV2.PENDING, // Nace en pendiente para el operador logístico
+        });
+      }
 
-          originName: dto.originName,
-          originAddress: dto.originAddress,
-          originLatitude: dto.originLatitude,
-          originLongitude: dto.originLongitude,
-          destinationAddress: dto.destinationAddress,
-          destinationLatitude: dto.destinationLatitude,
-          destinationLongitude: dto.destinationLongitude,
-          zoneId: dto.zoneId,
-          quotedCost: dto.quotedCost,
-          notes: dto.notes,
+      let deliveryCommand;
 
-          requiredCouriers: dto.requiredCouriers ?? 1,
-          isShareable: dto.isShareable ?? true,
-          updatedAt: new Date(),
-        },
-      });
+      if (existingCommand) {
+        // Actualizamos el registro existente
+        deliveryCommand = await this.prisma.deliveryCommandV2.update({
+          where: { id: existingCommand.id },
+          data: {
+            businessStatus: initialBusinessStatus,
+            logisticsStatus:
+              dto.action === 'DISPATCH'
+                ? LogisticsCommandStatusV2.PENDING
+                : undefined,
+            updatedAt: new Date(),
+            destinationAddress: dto.destinationAddress,
+            destinationLatitude: dto.destinationLatitude,
+            destinationLongitude: dto.destinationLongitude,
+            notes: dto.notes,
+            quotedCost: dto.quotedCost,
+            paymentAmount: dto.paymentAmount ?? null, // <--- Actualizamos el monto de pago si viene
+            requiredCouriers: dto.requiredCouriers ?? 1,
+            isShareable: dto.isShareable ?? true,
+          },
+        });
+      } else {
+        // Creamos un registro nuevo (sea porque es un pedido sin orderId o porque no existía la orden)
+        deliveryCommand = await this.prisma.deliveryCommandV2.create({
+          data: {
+            businessId: dto.businessId,
+            orderId: dto.orderId ?? null, // Explícitamente null si no viene
+            businessStatus: initialBusinessStatus,
+            logisticsStatus: LogisticsCommandStatusV2.PENDING,
+
+            originName: dto.originName,
+            originAddress: dto.originAddress,
+            originLatitude: dto.originLatitude,
+            originLongitude: dto.originLongitude,
+            destinationAddress: dto.destinationAddress,
+            destinationLatitude: dto.destinationLatitude,
+            destinationLongitude: dto.destinationLongitude,
+            zoneId: dto.zoneId,
+            quotedCost: dto.quotedCost,
+            notes: dto.notes,
+            paymentAmount: dto.paymentAmount ?? null, // <--- Guardamos el monto de pago
+
+            requiredCouriers: dto.requiredCouriers ?? 1,
+            isShareable: dto.isShareable ?? true,
+            updatedAt: new Date(),
+          },
+        });
+      }
 
       return deliveryCommand;
     } catch (error) {
@@ -91,12 +98,21 @@ export class DeliveryCommandsV2Service {
   }
 
   async cancelByBusiness(businessId: string, orderId: string) {
+    // Buscamos primero el comando de manera segura ya que orderId puede ser null o repetirse conceptualmente
+    const command = await this.prisma.deliveryCommandV2.findFirst({
+      where: {
+        businessId,
+        orderId,
+      },
+    });
+
+    if (!command) {
+      throw new NotFoundException('Delivery command not found for cancellation');
+    }
+
     return this.prisma.deliveryCommandV2.update({
       where: {
-        businessId_orderId: {
-          businessId,
-          orderId,
-        },
+        id: command.id,
       },
       data: {
         businessStatus: BusinessCommandStatusV2.CANCELLED,
@@ -115,6 +131,7 @@ export class DeliveryCommandsV2Service {
       failureReason?: string;
       requiredCouriers?: number;
       isShareable?: boolean;
+      paymentAmount?: number;
     },
   ) {
     return this.prisma.deliveryCommandV2.update({
@@ -126,12 +143,20 @@ export class DeliveryCommandsV2Service {
   }
 
   async updateFinished(businessId: string, orderId: string) {
+    const command = await this.prisma.deliveryCommandV2.findFirst({
+      where: {
+        businessId,
+        orderId,
+      },
+    });
+
+    if (!command) {
+      throw new NotFoundException('Delivery command not found to finish');
+    }
+
     return this.prisma.deliveryCommandV2.update({
       where: {
-        businessId_orderId: {
-          businessId: businessId,
-          orderId: orderId,
-        },
+        id: command.id,
       },
       data: {
         businessStatus: BusinessCommandStatusV2.COMPLETED,
@@ -191,7 +216,7 @@ export class DeliveryCommandsV2Service {
   }
 
   /**
-   * Base: Marca el pedido en tránsito (el cadete salió a buscarlo/llevarlo).
+   * Base: Marca el pedido como asignado.
    */
   async baseSetAssigned(id: string) {
     return this.prisma.deliveryCommandV2.update({
@@ -204,7 +229,7 @@ export class DeliveryCommandsV2Service {
   }
 
   /**
-   * Base: Marca el pedido en tránsito (el cadete salió a buscarlo/llevarlo).
+   * Base: Marca el pedido en tránsito.
    */
   async baseSetInTransit(id: string) {
     return this.prisma.deliveryCommandV2.update({
@@ -217,7 +242,7 @@ export class DeliveryCommandsV2Service {
   }
 
   /**
-   * Base: Marca el pedido en tránsito (el cadete salió a buscarlo/llevarlo).
+   * Base: Marca el pedido como completado.
    */
   async baseSetComplet(id: string) {
     return this.prisma.deliveryCommandV2.update({

@@ -10,8 +10,9 @@ export class CreateDeliveryCommandDtoV2 {
   @IsString()
   businessId: string;
 
+  @IsOptional()
   @IsString()
-  orderId: string;
+  orderId?: string;
 
   @IsOptional()
   @IsEnum(DeliveryCommandActionV2)
@@ -56,6 +57,10 @@ export class CreateDeliveryCommandDtoV2 {
   @IsOptional()
   @IsInt()
   quotedCost?: number;
+
+  @IsOptional()
+  @IsInt()
+  paymentAmount?: number;
 
   // --- NUEVAS PROPIEDADES V2 ---
 

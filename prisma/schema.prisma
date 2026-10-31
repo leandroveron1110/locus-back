@@ -1310,7 +1310,7 @@ enum TreasuryAccountType {
 model DeliveryCommandV2 {
   id         String @id @default(uuid())
   businessId String
-  orderId    String
+  orderId    String?
 
   // --- DOBLE ESTADO (Separación de incumbencias V2) ---
   businessStatus  BusinessCommandStatusV2  @default(PENDING)
@@ -1330,6 +1330,9 @@ model DeliveryCommandV2 {
   externalId           String?
   failureReason        String?
 
+  // --- CAMBIO DE PAGO ---
+  paymentAmount        Int?    // Si tiene valor (> 0), el cadete sabe que debe llevar plata / pagar
+
   // Propiedades operativas
   requiredCouriers Int     @default(1) // Cantidad de personal necesario
   isShareable      Boolean @default(true) // Indica si se puede combinar en el mismo viaje
@@ -1339,7 +1342,6 @@ model DeliveryCommandV2 {
   updatedAt DateTime @updatedAt
 
   // Índices y restricciones independientes para la V2
-  @@unique([businessId, orderId])
   @@index([businessId])
   @@index([orderId])
   @@index([businessStatus])
