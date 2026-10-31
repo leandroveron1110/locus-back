@@ -175,6 +175,30 @@ export class DeliveryCommandsV2Service {
     });
   }
 
+  async updateFinishedManual(businessId: string, id: string) {
+    const command = await this.prisma.deliveryCommandV2.findFirst({
+      where: {
+        businessId,
+        id,
+      },
+    });
+
+    if (!command) {
+      throw new NotFoundException('Delivery command not found to finish');
+    }
+
+    return this.prisma.deliveryCommandV2.update({
+      where: {
+        id: command.id,
+      },
+      data: {
+        businessStatus: BusinessCommandStatusV2.COMPLETED,
+        logisticsStatus: LogisticsCommandStatusV2.COMPLETED,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
   /**
    * Base: Pone el precio a una cotización urgente solicitada por el negocio.
    */

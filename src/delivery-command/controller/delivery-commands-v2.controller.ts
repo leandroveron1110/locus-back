@@ -128,6 +128,15 @@ export class DeliveryCommandsV2Controller {
     return this.commandsService.updateFinished(businessId, orderId);
   }
 
+  @Patch('business/:businessId/manual/:id')
+  @Public()
+  updateFinishedManual(
+    @Param('businessId') businessId: string,
+    @Param('id') id: string,
+  ) {
+    return this.commandsService.updateFinishedManual(businessId, id);
+  }
+
   @Patch('cancel/business/:businessId/order/:orderId')
   @Public()
   cancelByBusiness(
