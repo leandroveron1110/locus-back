@@ -70,10 +70,15 @@ export class DeliveryCommandsV2Controller {
     return this.commandsService.baseSetInTransit(id);
   }
 
-    @Patch(':id/base/assigned')
+  @Patch(':id/base/assigned')
   @Public()
-  baseSetAssigned(@Param('id') id: string) {
-    return this.commandsService.baseSetAssigned(id);
+  baseSetAssigned(
+    @Param('id') id: string,
+    @Body('count') count?: number, // Recibe la cantidad opcional desde el body (ej: { count: 2 })
+  ) {
+    // Si no mandan count, por defecto asigna 1
+    const couriersToAdd = count && count > 0 ? count : 1;
+    return this.commandsService.baseAssignCouriers(id, couriersToAdd);
   }
 
   @Patch(':id/base/in-completed')

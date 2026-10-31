@@ -70,6 +70,10 @@ export class CreateDeliveryCommandDtoV2 {
   requiredCouriers?: number; // Cuántos cadetes necesita (por defecto 1)
 
   @IsOptional()
+  @IsInt()
+  assignedCouriers?: number;
+
+  @IsOptional()
   @IsBoolean()
   isShareable?: boolean;     // Si se puede combinar con otro pedido en la misma moto
 }

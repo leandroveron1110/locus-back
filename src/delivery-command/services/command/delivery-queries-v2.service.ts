@@ -1,5 +1,9 @@
 // delivery-commands-v2.service.ts
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   BusinessCommandStatusV2,
@@ -53,6 +57,7 @@ export class DeliveryCommandsV2Service {
             quotedCost: dto.quotedCost,
             paymentAmount: dto.paymentAmount ?? null, // <--- Actualizamos el monto de pago si viene
             requiredCouriers: dto.requiredCouriers ?? 1,
+            assignedCouriers: dto.assignedCouriers ?? 0,
             isShareable: dto.isShareable ?? true,
           },
         });
@@ -78,6 +83,7 @@ export class DeliveryCommandsV2Service {
             paymentAmount: dto.paymentAmount ?? null, // <--- Guardamos el monto de pago
 
             requiredCouriers: dto.requiredCouriers ?? 1,
+            assignedCouriers: dto.assignedCouriers ?? 0,
             isShareable: dto.isShareable ?? true,
             updatedAt: new Date(),
           },
@@ -107,7 +113,9 @@ export class DeliveryCommandsV2Service {
     });
 
     if (!command) {
-      throw new NotFoundException('Delivery command not found for cancellation');
+      throw new NotFoundException(
+        'Delivery command not found for cancellation',
+      );
     }
 
     return this.prisma.deliveryCommandV2.update({
@@ -130,6 +138,7 @@ export class DeliveryCommandsV2Service {
       externalId?: string;
       failureReason?: string;
       requiredCouriers?: number;
+      assignedCouriers?: number;
       isShareable?: boolean;
       paymentAmount?: number;
     },
@@ -216,13 +225,37 @@ export class DeliveryCommandsV2Service {
   }
 
   /**
-   * Base: Marca el pedido como asignado.
+   * Base: Asigna una cantidad de cadetes a un comando V2 (soporta asignaciones parciales).
    */
-  async baseSetAssigned(id: string) {
+  async baseAssignCouriers(id: string, couriersToAdd: number = 1) {
+    // 1. Buscamos el comando actual en la base de datos
+    const command = await this.prisma.deliveryCommandV2.findUnique({
+      where: { id },
+    });
+
+    if (!command) {
+      throw new NotFoundException('Delivery command not found');
+    }
+
+    // 2. Calculamos el nuevo total de asignados (asegurándonos de no superar los requeridos)
+    const newAssignedCount = Math.min(
+      command.requiredCouriers,
+      command.assignedCouriers + couriersToAdd,
+    );
+
+    // 3. Si ya se cubrieron todos los cadetes pedidos, pasamos el estado a ASSIGNED.
+    // Si aún faltan, mantenemos el estado logístico actual (por ejemplo, ACCEPTED).
+    const newLogisticsStatus =
+      newAssignedCount >= command.requiredCouriers
+        ? LogisticsCommandStatusV2.ASSIGNED
+        : command.logisticsStatus;
+
+    // 4. Actualizamos el registro en Prisma
     return this.prisma.deliveryCommandV2.update({
       where: { id },
       data: {
-        logisticsStatus: LogisticsCommandStatusV2.ASSIGNED,
+        assignedCouriers: newAssignedCount,
+        logisticsStatus: newLogisticsStatus,
         updatedAt: new Date(),
       },
     });

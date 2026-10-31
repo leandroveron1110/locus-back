@@ -1308,7 +1308,7 @@ enum TreasuryAccountType {
 }
 
 model DeliveryCommandV2 {
-  id         String @id @default(uuid())
+  id         String  @id @default(uuid())
   businessId String
   orderId    String?
 
@@ -1331,10 +1331,11 @@ model DeliveryCommandV2 {
   failureReason        String?
 
   // --- CAMBIO DE PAGO ---
-  paymentAmount        Int?    // Si tiene valor (> 0), el cadete sabe que debe llevar plata / pagar
+  paymentAmount Int? // Si tiene valor (> 0), el cadete sabe que debe llevar plata / pagar
 
   // Propiedades operativas
-  requiredCouriers Int     @default(1) // Cantidad de personal necesario
+  requiredCouriers Int     @default(1) // Cuántos cadetes pidió el comercio
+  assignedCouriers Int     @default(0) // <--- NUEVO: Cuántos cadetes aceptó/asignó la logística hasta ahora
   isShareable      Boolean @default(true) // Indica si se puede combinar en el mismo viaje
 
   // Tiempos
