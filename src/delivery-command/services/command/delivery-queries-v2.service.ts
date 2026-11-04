@@ -1,33 +1,65 @@
-// delivery-commands-v2.service.ts
+
 import {
   Injectable,
   BadRequestException,
   NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+} from "@nestjs/common";
+
+import { PrismaService } from "src/prisma/prisma.service";
+
 import {
   BusinessCommandStatusV2,
   LogisticsCommandStatusV2,
-} from '@prisma/client';
-import { CreateDeliveryCommandDtoV2 } from 'src/delivery-command/dtos/request/create-delivery-command-v2.dto';
+} from "@prisma/client";
+
+import { CreateDeliveryCommandDtoV2 } from "src/delivery-command/dtos/request/create-delivery-command-v2.dto";
+
+import { EventPublisherService } from "src/realtime/services/event-publisher.service";
+import { REALTIME_ROOMS } from "src/realtime/rooms/realtime-room.types";
+import { REALTIME_EVENTS } from "src/realtime/contracts/realtime-event.contract";
 
 @Injectable()
 export class DeliveryCommandsV2Service {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventPublisher: EventPublisherService,
+  ) {}
+
+  // --------------------------------------------------
+  // REALTIME
+  // --------------------------------------------------
+
+  private publishCreated(command: unknown) {
+    this.eventPublisher.emitToRoom(
+      REALTIME_ROOMS.DELIVERY_OPERATIONS,
+      REALTIME_EVENTS.DELIVERY_COMMAND_CREATED,
+      command,
+    );
+  }
+
+  private publishUpdated(command: unknown) {
+    this.eventPublisher.emitToRoom(
+      REALTIME_ROOMS.DELIVERY_OPERATIONS,
+      REALTIME_EVENTS.DELIVERY_COMMAND_UPDATED,
+      command,
+    );
+  }
+
+  // --------------------------------------------------
+  // CREATE
+  // --------------------------------------------------
 
   async create(dto: CreateDeliveryCommandDtoV2) {
-    // Determinamos el estado inicial del negocio según la acción que mande el DTO
     const initialBusinessStatus =
-      dto.action === 'DISPATCH'
+      dto.action === "DISPATCH"
         ? BusinessCommandStatusV2.DISPATCH_REQUESTED
-        : dto.action === 'QUOTE'
+        : dto.action === "QUOTE"
           ? BusinessCommandStatusV2.QUOTE_REQUESTED
           : BusinessCommandStatusV2.PENDING;
 
     try {
       let existingCommand: any = null;
 
-      // Si viene con orderId, buscamos si ya existe para reciclar el registro de forma atómica
       if (dto.orderId) {
         existingCommand = await this.prisma.deliveryCommandV2.findFirst({
           where: {
@@ -38,35 +70,42 @@ export class DeliveryCommandsV2Service {
       }
 
       let deliveryCommand;
+      let wasCreated = false;
 
       if (existingCommand) {
-        // Actualizamos el registro existente
         deliveryCommand = await this.prisma.deliveryCommandV2.update({
-          where: { id: existingCommand.id },
+          where: {
+            id: existingCommand.id,
+          },
           data: {
             businessStatus: initialBusinessStatus,
+
             logisticsStatus:
-              dto.action === 'DISPATCH'
+              dto.action === "DISPATCH"
                 ? LogisticsCommandStatusV2.PENDING
                 : undefined,
+
             updatedAt: new Date(),
+
             destinationAddress: dto.destinationAddress,
             destinationLatitude: dto.destinationLatitude,
             destinationLongitude: dto.destinationLongitude,
+
             notes: dto.notes,
             quotedCost: dto.quotedCost,
-            paymentAmount: dto.paymentAmount ?? null, // <--- Actualizamos el monto de pago si viene
+            paymentAmount: dto.paymentAmount ?? null,
+
             requiredCouriers: dto.requiredCouriers ?? 1,
             assignedCouriers: dto.assignedCouriers ?? 0,
             isShareable: dto.isShareable ?? true,
           },
         });
       } else {
-        // Creamos un registro nuevo (sea porque es un pedido sin orderId o porque no existía la orden)
         deliveryCommand = await this.prisma.deliveryCommandV2.create({
           data: {
             businessId: dto.businessId,
-            orderId: dto.orderId ?? null, // Explícitamente null si no viene
+            orderId: dto.orderId ?? null,
+
             businessStatus: initialBusinessStatus,
             logisticsStatus: LogisticsCommandStatusV2.PENDING,
 
@@ -74,37 +113,58 @@ export class DeliveryCommandsV2Service {
             originAddress: dto.originAddress,
             originLatitude: dto.originLatitude,
             originLongitude: dto.originLongitude,
+
             destinationAddress: dto.destinationAddress,
             destinationLatitude: dto.destinationLatitude,
             destinationLongitude: dto.destinationLongitude,
+
             zoneId: dto.zoneId,
+
             quotedCost: dto.quotedCost,
             notes: dto.notes,
-            paymentAmount: dto.paymentAmount ?? null, // <--- Guardamos el monto de pago
+            paymentAmount: dto.paymentAmount ?? null,
 
             requiredCouriers: dto.requiredCouriers ?? 1,
             assignedCouriers: dto.assignedCouriers ?? 0,
             isShareable: dto.isShareable ?? true,
+
             updatedAt: new Date(),
           },
         });
+
+        wasCreated = true;
+      }
+
+      // Publicamos únicamente después de persistir.
+      if (wasCreated) {
+        this.publishCreated(deliveryCommand);
+      } else {
+        this.publishUpdated(deliveryCommand);
       }
 
       return deliveryCommand;
     } catch (error) {
       console.error(error);
+
       throw new BadRequestException(
-        'Error creating/updating delivery command V2',
+        "Error creating/updating delivery command V2",
       );
     }
   }
+
+  // --------------------------------------------------
+  // DELETE
+  // --------------------------------------------------
 
   async deleteAll() {
     return this.prisma.deliveryCommandV2.deleteMany();
   }
 
+  // --------------------------------------------------
+  // CANCEL
+  // --------------------------------------------------
+
   async cancelByBusiness(businessId: string, orderId: string) {
-    // Buscamos primero el comando de manera segura ya que orderId puede ser null o repetirse conceptualmente
     const command = await this.prisma.deliveryCommandV2.findFirst({
       where: {
         businessId,
@@ -114,11 +174,11 @@ export class DeliveryCommandsV2Service {
 
     if (!command) {
       throw new NotFoundException(
-        'Delivery command not found for cancellation',
+        "Delivery command not found for cancellation",
       );
     }
 
-    return this.prisma.deliveryCommandV2.update({
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
       where: {
         id: command.id,
       },
@@ -127,7 +187,15 @@ export class DeliveryCommandsV2Service {
         updatedAt: new Date(),
       },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
+
+  // --------------------------------------------------
+  // GENERIC UPDATE
+  // --------------------------------------------------
 
   async update(
     id: string,
@@ -143,13 +211,24 @@ export class DeliveryCommandsV2Service {
       paymentAmount?: number;
     },
   ) {
-    return this.prisma.deliveryCommandV2.update({
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
       where: {
-        id: id,
+        id,
       },
-      data: { ...updateData, updatedAt: new Date() },
+      data: {
+        ...updateData,
+        updatedAt: new Date(),
+      },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
+
+  // --------------------------------------------------
+  // FINISHED
+  // --------------------------------------------------
 
   async updateFinished(businessId: string, orderId: string) {
     const command = await this.prisma.deliveryCommandV2.findFirst({
@@ -160,10 +239,12 @@ export class DeliveryCommandsV2Service {
     });
 
     if (!command) {
-      throw new NotFoundException('Delivery command not found to finish');
+      throw new NotFoundException(
+        "Delivery command not found to finish",
+      );
     }
 
-    return this.prisma.deliveryCommandV2.update({
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
       where: {
         id: command.id,
       },
@@ -173,6 +254,10 @@ export class DeliveryCommandsV2Service {
         updatedAt: new Date(),
       },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
 
   async updateFinishedManual(businessId: string, id: string) {
@@ -184,10 +269,12 @@ export class DeliveryCommandsV2Service {
     });
 
     if (!command) {
-      throw new NotFoundException('Delivery command not found to finish');
+      throw new NotFoundException(
+        "Delivery command not found to finish",
+      );
     }
 
-    return this.prisma.deliveryCommandV2.update({
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
       where: {
         id: command.id,
       },
@@ -197,38 +284,57 @@ export class DeliveryCommandsV2Service {
         updatedAt: new Date(),
       },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
 
-  /**
-   * Base: Pone el precio a una cotización urgente solicitada por el negocio.
-   */
+  // --------------------------------------------------
+  // BASE: QUOTE
+  // --------------------------------------------------
+
   async baseQuoteOrder(id: string, quotedCost: number) {
-    return this.prisma.deliveryCommandV2.update({
-      where: { id },
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
+      where: {
+        id,
+      },
       data: {
         quotedCost,
         logisticsStatus: LogisticsCommandStatusV2.QUOTED,
         updatedAt: new Date(),
       },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
 
-  /**
-   * Base: Toma el control / acepta un despacho solicitado por el negocio.
-   */
+  // --------------------------------------------------
+  // BASE: ACCEPT DISPATCH
+  // --------------------------------------------------
+
   async baseAcceptDispatch(id: string) {
-    return this.prisma.deliveryCommandV2.update({
-      where: { id },
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
+      where: {
+        id,
+      },
       data: {
         logisticsStatus: LogisticsCommandStatusV2.ACCEPTED,
         updatedAt: new Date(),
       },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
 
-  /**
-   * Base: actualiza direccion lat y long.
-   */
+  // --------------------------------------------------
+  // BASE: DESTINATION COORDINATES
+  // --------------------------------------------------
+
   async baseSaveDestinationCoords(
     id: string,
     dto: {
@@ -237,8 +343,10 @@ export class DeliveryCommandsV2Service {
       destinationLongitude: number;
     },
   ) {
-    return this.prisma.deliveryCommandV2.update({
-      where: { id },
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
+      where: {
+        id,
+      },
       data: {
         destinationAddress: dto.destinationAddress,
         destinationLatitude: dto.destinationLatitude,
@@ -246,68 +354,93 @@ export class DeliveryCommandsV2Service {
         updatedAt: new Date(),
       },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
 
-  /**
-   * Base: Asigna una cantidad de cadetes a un comando V2 (soporta asignaciones parciales).
-   */
-  async baseAssignCouriers(id: string, couriersToAdd: number = 1) {
-    // 1. Buscamos el comando actual en la base de datos
+  // --------------------------------------------------
+  // BASE: ASSIGN COURIERS
+  // --------------------------------------------------
+
+  async baseAssignCouriers(
+    id: string,
+    couriersToAdd: number = 1,
+  ) {
     const command = await this.prisma.deliveryCommandV2.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!command) {
-      throw new NotFoundException('Delivery command not found');
+      throw new NotFoundException("Delivery command not found");
     }
 
-    // 2. Calculamos el nuevo total de asignados (asegurándonos de no superar los requeridos)
     const newAssignedCount = Math.min(
       command.requiredCouriers,
       command.assignedCouriers + couriersToAdd,
     );
 
-    // 3. Si ya se cubrieron todos los cadetes pedidos, pasamos el estado a ASSIGNED.
-    // Si aún faltan, mantenemos el estado logístico actual (por ejemplo, ACCEPTED).
     const newLogisticsStatus =
       newAssignedCount >= command.requiredCouriers
         ? LogisticsCommandStatusV2.ASSIGNED
         : command.logisticsStatus;
 
-    // 4. Actualizamos el registro en Prisma
-    return this.prisma.deliveryCommandV2.update({
-      where: { id },
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
+      where: {
+        id,
+      },
       data: {
         assignedCouriers: newAssignedCount,
         logisticsStatus: newLogisticsStatus,
         updatedAt: new Date(),
       },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
 
-  /**
-   * Base: Marca el pedido en tránsito.
-   */
+  // --------------------------------------------------
+  // BASE: IN TRANSIT
+  // --------------------------------------------------
+
   async baseSetInTransit(id: string) {
-    return this.prisma.deliveryCommandV2.update({
-      where: { id },
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
+      where: {
+        id,
+      },
       data: {
         logisticsStatus: LogisticsCommandStatusV2.IN_TRANSIT,
         updatedAt: new Date(),
       },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
 
-  /**
-   * Base: Marca el pedido como completado.
-   */
+  // --------------------------------------------------
+  // BASE: COMPLETED
+  // --------------------------------------------------
+
   async baseSetComplet(id: string) {
-    return this.prisma.deliveryCommandV2.update({
-      where: { id },
+    const updatedCommand = await this.prisma.deliveryCommandV2.update({
+      where: {
+        id,
+      },
       data: {
         logisticsStatus: LogisticsCommandStatusV2.COMPLETED,
         updatedAt: new Date(),
       },
     });
+
+    this.publishUpdated(updatedCommand);
+
+    return updatedCommand;
   }
 }

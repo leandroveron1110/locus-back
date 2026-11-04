@@ -39,6 +39,7 @@ import { HealthModule } from './health/health.module';
 import { DeliveryCommandModule } from './delivery-command/delivery-command.module';
 import { CashRegisterModule } from './cash-register/cash-register.module';
 import { TreasuryAccountModule } from './TreasuryAccount/treasury-account.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 
 @Module({
@@ -51,6 +52,7 @@ import { TreasuryAccountModule } from './TreasuryAccount/treasury-account.module
       ttl: 0,         // 0 significa que no expira por defecto (ideal para tus zonas)
       max: 10000,     // Cantidad máxima de elementos en memoria
     }),
+    RealtimeModule,
     HealthModule,
     PrismaModule,
     AuthModule,
