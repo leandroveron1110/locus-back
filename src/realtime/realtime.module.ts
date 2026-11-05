@@ -8,6 +8,7 @@ import { RoomAuthorizationService } from './services/room-authorization.service'
 import { SocketIoRealtimeTransport } from './services/socket-io-realtime-transport.service';
 
 import { RealtimeTransport } from './ports/realtime-transport.port';
+import { BusinessGateway } from './gateways/business.gateway';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RealtimeTransport } from './ports/realtime-transport.port';
 
   providers: [
     EventGateway,
+    BusinessGateway,
     RoomAuthorizationService,
     SocketIoRealtimeTransport,
     {

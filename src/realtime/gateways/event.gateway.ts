@@ -14,7 +14,7 @@ import { Namespace, Socket } from 'socket.io';
 
 import { RoomAuthorizationService } from '../services/room-authorization.service';
 
-import { REALTIME_ROOMS, RealtimeRoom } from '../rooms/realtime-room.types';
+import { DeliveryRoom, REALTIME_ROOMS, RealtimeRoom } from '../rooms/realtime-room.types';
 
 interface JoinRoomPayload {
   room?: string;
@@ -82,7 +82,7 @@ export class EventGateway
     const room = data.room;
 
     const isAllowedRoom = Object.values(REALTIME_ROOMS).includes(
-      room as RealtimeRoom,
+      room as DeliveryRoom,
     );
 
     if (!isAllowedRoom) {
@@ -122,7 +122,7 @@ export class EventGateway
     if (
       !data ||
       typeof data.room !== 'string' ||
-      !Object.values(REALTIME_ROOMS).includes(data.room as RealtimeRoom)
+      !Object.values(REALTIME_ROOMS).includes(data.room as DeliveryRoom)
     ) {
       return {
         success: false,

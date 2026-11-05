@@ -3,7 +3,6 @@ import { JwtService } from '@nestjs/jwt';
 import { Socket } from 'socket.io';
 
 import {
-  REALTIME_PERMISSIONS,
   REALTIME_ROOMS,
   RealtimeIdentity,
   RealtimeRoom,
@@ -20,12 +19,7 @@ export class RoomAuthorizationService {
 
   async authenticate(client: Socket): Promise<RealtimeIdentity> {
     const token = this.extractToken(client);
-    console.log(
-      'authenticate',
-      token,
-      client.handshake.auth,
-      client.handshake.headers,
-    );
+    
     if (!token) {
       throw new Error('Token no proporcionado');
     }
@@ -37,15 +31,8 @@ export class RoomAuthorizationService {
       throw new Error('Identidad inválida');
     }
 
-    // const permissions = Array.isArray(payload.permissions)
-    //   ? payload.permissions.filter(
-    //       (permission): permission is string => typeof permission === 'string',
-    //     )
-    //   : [];
-
     const identity: RealtimeIdentity = {
       userId: payload.sub,
-    //   permissions,
     };
 
     client.data.realtimeIdentity = identity;
@@ -54,7 +41,6 @@ export class RoomAuthorizationService {
   }
 
   canJoinRoom(client: Socket, room: RealtimeRoom): boolean {
-    console.log('canJoinRoom', room, client.data.realtimeIdentity);
     const identity = client.data.realtimeIdentity as
       | RealtimeIdentity
       | undefined;
@@ -63,25 +49,19 @@ export class RoomAuthorizationService {
       return false;
     }
 
-    switch (room) {
-      case REALTIME_ROOMS.DELIVERY_OPERATIONS:
-        return true; // Reemplazar por validación de pertenencia.
-      default:
-        return false;
+    // 1. Validar acceso a la sala de Delivery
+    if (room === REALTIME_ROOMS.DELIVERY_OPERATIONS) {
+      return true; 
     }
 
-    // en la v2 agregaremos un sistema de permisos más robusto, 
-    // por ahora solo permitimos el acceso a la sala de operaciones 
-    // de delivery para todos los usuarios autenticados
-    // switch (room) {
-    //   case REALTIME_ROOMS.DELIVERY_OPERATIONS:
-    //     return identity.permissions.includes(
-    //       REALTIME_PERMISSIONS.DELIVERY_OPERATIONS_READ,
-    //     );
+    // 2. Validar acceso a salas dinámicas de Negocios (ej: business:uuid:operations)
+    if (room.startsWith('business:')) {
+      // V1: Permitimos el acceso si está autenticado. 
+      // (En la V2 aquí puedes extraer el ID con room.split(':')[1] y validar en DB si el usuario es dueño)
+      return true;
+    }
 
-    //   default:
-    //     return false;
-    // }
+    return false;
   }
 
   private extractToken(client: Socket): string | null {
