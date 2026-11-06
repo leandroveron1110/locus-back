@@ -1,22 +1,28 @@
-
 import {
   Injectable,
   BadRequestException,
   NotFoundException,
-} from "@nestjs/common";
+} from '@nestjs/common';
 
-import { PrismaService } from "src/prisma/prisma.service";
+import { PrismaService } from 'src/prisma/prisma.service';
 
 import {
   BusinessCommandStatusV2,
   LogisticsCommandStatusV2,
-} from "@prisma/client";
+} from '@prisma/client';
 
-import { CreateDeliveryCommandDtoV2 } from "src/delivery-command/dtos/request/create-delivery-command-v2.dto";
+import { CreateDeliveryCommandDtoV2 } from 'src/delivery-command/dtos/request/create-delivery-command-v2.dto';
 
-import { EventPublisherService } from "src/realtime/services/event-publisher.service";
-import { REALTIME_ROOMS } from "src/realtime/rooms/realtime-room.types";
-import { REALTIME_EVENTS } from "src/realtime/contracts/realtime-event.contract";
+import { EventPublisherService } from 'src/realtime/services/event-publisher.service';
+import {
+  BUSINESS_REALTIME_ROOMS,
+  REALTIME_ROOMS,
+} from 'src/realtime/rooms/realtime-room.types';
+import {
+  BUSINESS_EVENTS,
+  BusinessEventType,
+  DELIVERY_EVENTS,
+} from 'src/realtime/contracts/realtime-event.contract';
 
 @Injectable()
 export class DeliveryCommandsV2Service {
@@ -26,13 +32,13 @@ export class DeliveryCommandsV2Service {
   ) {}
 
   // --------------------------------------------------
-  // REALTIME
+  // REALTIME HELPERS
   // --------------------------------------------------
 
   private publishCreated(command: unknown) {
     this.eventPublisher.emitToRoom(
       REALTIME_ROOMS.DELIVERY_OPERATIONS,
-      REALTIME_EVENTS.DELIVERY_COMMAND_CREATED,
+      DELIVERY_EVENTS.DELIVERY_COMMAND_CREATED,
       command,
     );
   }
@@ -40,20 +46,32 @@ export class DeliveryCommandsV2Service {
   private publishUpdated(command: unknown) {
     this.eventPublisher.emitToRoom(
       REALTIME_ROOMS.DELIVERY_OPERATIONS,
-      REALTIME_EVENTS.DELIVERY_COMMAND_UPDATED,
+      DELIVERY_EVENTS.DELIVERY_COMMAND_UPDATED,
       command,
     );
   }
 
+  private emitBusinessEvent(
+    businessId: string,
+    event: BusinessEventType,
+    payload: unknown,
+  ) {
+    this.eventPublisher.emitToRoom(
+      BUSINESS_REALTIME_ROOMS.operations(businessId),
+      event,
+      payload,
+    );
+  }
+
   // --------------------------------------------------
-  // CREATE
+  // CREATE / QUOTE / DISPATCH
   // --------------------------------------------------
 
   async create(dto: CreateDeliveryCommandDtoV2) {
     const initialBusinessStatus =
-      dto.action === "DISPATCH"
+      dto.action === 'DISPATCH'
         ? BusinessCommandStatusV2.DISPATCH_REQUESTED
-        : dto.action === "QUOTE"
+        : dto.action === 'QUOTE'
           ? BusinessCommandStatusV2.QUOTE_REQUESTED
           : BusinessCommandStatusV2.PENDING;
 
@@ -74,27 +92,20 @@ export class DeliveryCommandsV2Service {
 
       if (existingCommand) {
         deliveryCommand = await this.prisma.deliveryCommandV2.update({
-          where: {
-            id: existingCommand.id,
-          },
+          where: { id: existingCommand.id },
           data: {
             businessStatus: initialBusinessStatus,
-
             logisticsStatus:
-              dto.action === "DISPATCH"
+              dto.action === 'DISPATCH'
                 ? LogisticsCommandStatusV2.PENDING
                 : undefined,
-
             updatedAt: new Date(),
-
             destinationAddress: dto.destinationAddress,
             destinationLatitude: dto.destinationLatitude,
             destinationLongitude: dto.destinationLongitude,
-
             notes: dto.notes,
             quotedCost: dto.quotedCost,
             paymentAmount: dto.paymentAmount ?? null,
-
             requiredCouriers: dto.requiredCouriers ?? 1,
             assignedCouriers: dto.assignedCouriers ?? 0,
             isShareable: dto.isShareable ?? true,
@@ -105,29 +116,22 @@ export class DeliveryCommandsV2Service {
           data: {
             businessId: dto.businessId,
             orderId: dto.orderId ?? null,
-
             businessStatus: initialBusinessStatus,
             logisticsStatus: LogisticsCommandStatusV2.PENDING,
-
             originName: dto.originName,
             originAddress: dto.originAddress,
             originLatitude: dto.originLatitude,
             originLongitude: dto.originLongitude,
-
             destinationAddress: dto.destinationAddress,
             destinationLatitude: dto.destinationLatitude,
             destinationLongitude: dto.destinationLongitude,
-
             zoneId: dto.zoneId,
-
             quotedCost: dto.quotedCost,
             notes: dto.notes,
             paymentAmount: dto.paymentAmount ?? null,
-
             requiredCouriers: dto.requiredCouriers ?? 1,
             assignedCouriers: dto.assignedCouriers ?? 0,
             isShareable: dto.isShareable ?? true,
-
             updatedAt: new Date(),
           },
         });
@@ -135,19 +139,31 @@ export class DeliveryCommandsV2Service {
         wasCreated = true;
       }
 
-      // Publicamos únicamente después de persistir.
+      // Publicamos según corresponda
       if (wasCreated) {
         this.publishCreated(deliveryCommand);
+        this.emitBusinessEvent(
+          dto.businessId,
+          BUSINESS_EVENTS.BUSINESS_CREATE_COMMAND,
+          deliveryCommand,
+        );
       } else {
         this.publishUpdated(deliveryCommand);
+
+        // Si la acción fue cotizar, disparamos el evento específico de quote
+        const specificEvent =
+          dto.action === 'QUOTE'
+            ? BUSINESS_EVENTS.BUSINESS_QUOTE_COMMAND
+            : BUSINESS_EVENTS.BUSINESS_UPDATED;
+
+        this.emitBusinessEvent(dto.businessId, specificEvent, deliveryCommand);
       }
 
       return deliveryCommand;
     } catch (error) {
       console.error(error);
-
       throw new BadRequestException(
-        "Error creating/updating delivery command V2",
+        'Error creating/updating delivery command V2',
       );
     }
   }
@@ -166,22 +182,17 @@ export class DeliveryCommandsV2Service {
 
   async cancelByBusiness(businessId: string, orderId: string) {
     const command = await this.prisma.deliveryCommandV2.findFirst({
-      where: {
-        businessId,
-        orderId,
-      },
+      where: { businessId, orderId },
     });
 
     if (!command) {
       throw new NotFoundException(
-        "Delivery command not found for cancellation",
+        'Delivery command not found for cancellation',
       );
     }
 
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id: command.id,
-      },
+      where: { id: command.id },
       data: {
         businessStatus: BusinessCommandStatusV2.CANCELLED,
         updatedAt: new Date(),
@@ -189,6 +200,11 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_CANCEL_COMMAND,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
@@ -212,9 +228,7 @@ export class DeliveryCommandsV2Service {
     },
   ) {
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id,
-      },
+      where: { id },
       data: {
         ...updateData,
         updatedAt: new Date(),
@@ -222,6 +236,11 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_UPDATED,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
@@ -232,22 +251,15 @@ export class DeliveryCommandsV2Service {
 
   async updateFinished(businessId: string, orderId: string) {
     const command = await this.prisma.deliveryCommandV2.findFirst({
-      where: {
-        businessId,
-        orderId,
-      },
+      where: { businessId, orderId },
     });
 
     if (!command) {
-      throw new NotFoundException(
-        "Delivery command not found to finish",
-      );
+      throw new NotFoundException('Delivery command not found to finish');
     }
 
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id: command.id,
-      },
+      where: { id: command.id },
       data: {
         businessStatus: BusinessCommandStatusV2.COMPLETED,
         logisticsStatus: LogisticsCommandStatusV2.COMPLETED,
@@ -256,28 +268,26 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_FINISHED_COMMAND,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
 
   async updateFinishedManual(businessId: string, id: string) {
     const command = await this.prisma.deliveryCommandV2.findFirst({
-      where: {
-        businessId,
-        id,
-      },
+      where: { businessId, id },
     });
 
     if (!command) {
-      throw new NotFoundException(
-        "Delivery command not found to finish",
-      );
+      throw new NotFoundException('Delivery command not found to finish');
     }
 
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id: command.id,
-      },
+      where: { id: command.id },
       data: {
         businessStatus: BusinessCommandStatusV2.COMPLETED,
         logisticsStatus: LogisticsCommandStatusV2.COMPLETED,
@@ -286,6 +296,11 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_FINISHED_COMMAND,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
@@ -296,9 +311,7 @@ export class DeliveryCommandsV2Service {
 
   async baseQuoteOrder(id: string, quotedCost: number) {
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id,
-      },
+      where: { id },
       data: {
         quotedCost,
         logisticsStatus: LogisticsCommandStatusV2.QUOTED,
@@ -307,6 +320,11 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_QUOTE_COMMAND,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
@@ -317,9 +335,7 @@ export class DeliveryCommandsV2Service {
 
   async baseAcceptDispatch(id: string) {
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id,
-      },
+      where: { id },
       data: {
         logisticsStatus: LogisticsCommandStatusV2.ACCEPTED,
         updatedAt: new Date(),
@@ -327,6 +343,11 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_ACCEPT_COMMAND,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
@@ -344,9 +365,7 @@ export class DeliveryCommandsV2Service {
     },
   ) {
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id,
-      },
+      where: { id },
       data: {
         destinationAddress: dto.destinationAddress,
         destinationLatitude: dto.destinationLatitude,
@@ -356,6 +375,11 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_UPDATED,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
@@ -364,18 +388,13 @@ export class DeliveryCommandsV2Service {
   // BASE: ASSIGN COURIERS
   // --------------------------------------------------
 
-  async baseAssignCouriers(
-    id: string,
-    couriersToAdd: number = 1,
-  ) {
+  async baseAssignCouriers(id: string, couriersToAdd: number = 1) {
     const command = await this.prisma.deliveryCommandV2.findUnique({
-      where: {
-        id,
-      },
+      where: { id },
     });
 
     if (!command) {
-      throw new NotFoundException("Delivery command not found");
+      throw new NotFoundException('Delivery command not found');
     }
 
     const newAssignedCount = Math.min(
@@ -389,9 +408,7 @@ export class DeliveryCommandsV2Service {
         : command.logisticsStatus;
 
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id,
-      },
+      where: { id },
       data: {
         assignedCouriers: newAssignedCount,
         logisticsStatus: newLogisticsStatus,
@@ -400,6 +417,11 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_ASSIGN_COMMAND,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
@@ -410,9 +432,7 @@ export class DeliveryCommandsV2Service {
 
   async baseSetInTransit(id: string) {
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id,
-      },
+      where: { id },
       data: {
         logisticsStatus: LogisticsCommandStatusV2.IN_TRANSIT,
         updatedAt: new Date(),
@@ -420,6 +440,11 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_IN_TRANSIT_COMMAND,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
@@ -430,9 +455,7 @@ export class DeliveryCommandsV2Service {
 
   async baseSetComplet(id: string) {
     const updatedCommand = await this.prisma.deliveryCommandV2.update({
-      where: {
-        id,
-      },
+      where: { id },
       data: {
         logisticsStatus: LogisticsCommandStatusV2.COMPLETED,
         updatedAt: new Date(),
@@ -440,6 +463,11 @@ export class DeliveryCommandsV2Service {
     });
 
     this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_COMPLETE_COMMAND,
+      updatedCommand,
+    );
 
     return updatedCommand;
   }
