@@ -18,7 +18,7 @@ import {
 } from '@prisma/client';
 import { CreateDeliveryCommandDtoV2 } from '../dtos/request/create-delivery-command-v2.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
-import { DeliveryCommandsV2Service } from '../services/command/delivery-queries-v2.service';
+import { DeliveryCommandsV2Service } from '../services/command/delivery-command-v2.service';
 import { DeliveryQueriesV2Service } from '../services/query/delivery-queries-v2.service';
 import { GetBusinessUpdatesQueryDto } from '../dtos/request/get-business-updates-query.dto';
 
@@ -42,7 +42,7 @@ export class DeliveryCommandsV2Controller {
   @Delete()
   @Public()
   deleteAll() {
-    return this.commandsService.deleteAll();
+    return this.commandsService.deleteToday();
   }
 
   // ==========================================================================
@@ -205,6 +205,18 @@ export class DeliveryCommandsV2Controller {
       zoneId: query.zoneId,
       limit: query.limit ? parseInt(query.limit, 100) : undefined,
       page: query.page ? parseInt(query.page, 100) : undefined,
+    });
+  }
+
+  @Get('courier/command/pending-dispatches')
+  @Public()
+  getAvailableDispatchesForCourier(
+    @Query() query: { zoneId?: string; limit?: string; page?: string },
+  ) {
+    return this.queriesService.getAvailableDispatchesForCourier({
+      zoneId: query.zoneId,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+      page: query.page ? parseInt(query.page, 10) : undefined,
     });
   }
 

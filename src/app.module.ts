@@ -40,6 +40,7 @@ import { DeliveryCommandModule } from './delivery-command/delivery-command.modul
 import { CashRegisterModule } from './cash-register/cash-register.module';
 import { TreasuryAccountModule } from './TreasuryAccount/treasury-account.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { CourierModule } from './courier/courier.module';
 
 
 @Module({
@@ -53,6 +54,7 @@ import { RealtimeModule } from './realtime/realtime.module';
       max: 10000,     // Cantidad máxima de elementos en memoria
     }),
     RealtimeModule,
+    CourierModule,
     HealthModule,
     PrismaModule,
     AuthModule,

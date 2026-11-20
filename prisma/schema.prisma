@@ -1306,49 +1306,6 @@ enum TreasuryAccountType {
   DIGITAL_WALLET
   SAFE_BOX
 }
-
-model DeliveryCommandV2 {
-  id         String  @id @default(uuid())
-  businessId String
-  orderId    String?
-
-  // --- DOBLE ESTADO (Separación de incumbencias V2) ---
-  businessStatus  BusinessCommandStatusV2  @default(PENDING)
-  logisticsStatus LogisticsCommandStatusV2 @default(PENDING)
-
-  // Ubicaciones y logística base
-  originName           String?
-  originAddress        String?
-  originLatitude       Float?
-  originLongitude      Float?
-  destinationAddress   String?
-  destinationLatitude  Float?
-  destinationLongitude Float?
-  zoneId               String?
-  notes                String?
-  quotedCost           Int? // Abierto y editable por logística
-  externalId           String?
-  failureReason        String?
-
-  // --- CAMBIO DE PAGO ---
-  paymentAmount Int? // Si tiene valor (> 0), el cadete sabe que debe llevar plata / pagar
-
-  // Propiedades operativas
-  requiredCouriers Int     @default(1) // Cuántos cadetes pidió el comercio
-  assignedCouriers Int     @default(0) // <--- NUEVO: Cuántos cadetes aceptó/asignó la logística hasta ahora
-  isShareable      Boolean @default(true) // Indica si se puede combinar en el mismo viaje
-
-  // Tiempos
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Índices y restricciones independientes para la V2
-  @@index([businessId])
-  @@index([orderId])
-  @@index([businessStatus])
-  @@index([logisticsStatus])
-}
-
 // --- ENUMS EXCLUSIVOS PARA LA V2 ---
 
 enum BusinessCommandStatusV2 {
@@ -1368,4 +1325,113 @@ enum LogisticsCommandStatusV2 {
   IN_TRANSIT
   COMPLETED
   REJECTED
+}
+
+enum CommandAssignmentStatus {
+  ASSIGNED        // Aceptó / fue asignado al comando
+  GOING_TO_PICKUP // Yendo a buscar al local
+  PICKED_UP       // Retiró el pedido
+  DELIVERED       // Entregó
+  RELEASED        // Lo liberó / dejó disponible
+  CANCELLED       // Cancelado
+}
+
+enum CourierStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum VehicleType {
+  MOTORCYCLE
+  BICYCLE
+  CAR
+  ON_FOOT
+}
+
+model DeliveryCommandV2 {
+  id         String  @id @default(uuid())
+  businessId String? // Opcional: null cuando el comando lo crea logística directo (ej. WhatsApp / particular)
+  orderId    String?
+
+  // --- DOBLE ESTADO (Separación de incumbencias V2) ---
+  businessStatus  BusinessCommandStatusV2  @default(PENDING)
+  logisticsStatus LogisticsCommandStatusV2 @default(PENDING)
+
+  // Ubicaciones y logística base
+  originName           String?
+  originAddress        String?
+  originLatitude       Float?
+  originLongitude      Float?
+  destinationAddress   String?
+  destinationLatitude  Float?
+  destinationLongitude Float?
+  distanceKm           Float? // Distancia estimada entre origen y destino en km
+  zoneId               String?
+  notes                String?
+  quotedCost           Int? // Abierto y editable por logística
+  externalId           String?
+  failureReason        String?
+
+  // --- CAMBIO DE PAGO ---
+  paymentAmount Int? // Si tiene valor (> 0), el cadete sabe que debe llevar plata / pagar
+
+  // Propiedades operativas
+  requiredCouriers Int     @default(1) // Cuántos cadetes pidió el comercio o logística
+  assignedCouriers Int     @default(0) // Cuántos cadetes aceptó/asignó la logística hasta ahora
+  isShareable      Boolean @default(true) // Indica si se puede combinar en el mismo viaje
+
+  // Tiempos
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  assignments DeliveryCommandAssignment[]
+
+  // Índices y restricciones independientes para la V2
+  @@index([businessId])
+  @@index([orderId])
+  @@index([businessStatus])
+  @@index([logisticsStatus])
+}
+
+model DeliveryCommandAssignment {
+  id          String                  @id @default(uuid())
+  commandId   String
+  courierId   String
+  status      CommandAssignmentStatus @default(ASSIGNED)
+
+  assignedAt  DateTime                @default(now())
+  acceptedAt  DateTime?
+  pickedUpAt  DateTime?
+  deliveredAt DateTime?
+  releasedAt  DateTime?
+
+  command     DeliveryCommandV2       @relation(fields: [commandId], references: [id], onDelete: Cascade)
+  courier     Courier                 @relation(fields: [courierId], references: [id], onDelete: Restrict)
+
+  @@unique([commandId, courierId])
+  @@index([courierId, status])
+  @@index([commandId, status])
+}
+
+model Courier {
+  id                 String        @id @default(cuid())
+  courierNumber      Int           @unique @default(autoincrement())
+  dni                String        @unique
+  passwordHash       String
+  mustChangePassword Boolean       @default(true)
+  fullName           String
+  phone              String?
+  vehicleType        VehicleType   @default(MOTORCYCLE)
+  status             CourierStatus @default(ACTIVE)
+  isAvailable        Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relaciones
+  assignments        DeliveryCommandAssignment[]
+
+  @@index([status, isAvailable])
 }

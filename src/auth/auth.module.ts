@@ -14,6 +14,7 @@ import { TOKENS } from 'src/common/constants/tokens';
 import { DeliveryModule } from 'src/delivery/delivery.module';
 import { EmployeesModule } from 'src/employees/employees.module';
 import { BusinessModule } from 'src/business/business.module';
+import { CourierModule } from 'src/courier/courier.module';
 
 @Module({
   imports: [
@@ -32,6 +33,8 @@ import { BusinessModule } from 'src/business/business.module';
     // 2. Importar UsersModule:
     // Permite que AuthService y JwtStrategy accedan a UsersService
     UsersModule,
+
+    CourierModule,
 
     // 3. Configurar PassportModule:
     // Define la estrategia 'jwt' como la predeterminada para Passport

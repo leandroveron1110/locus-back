@@ -1,15 +1,15 @@
 import { DeliveryEmployeeRole, User, UserRole } from '@prisma/client';
 
 export class LoginResponseDto {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: UserRole;
+  id!: string;
+  firstName!: string;
+  lastName!: string;
+  email!: string;
+  role!: UserRole;
   statusId?: string;
   avatarId?: string;
 
-  businesses: {
+  businesses!: {
     id: string;
     role: string | 'OWNER'; // Soporta dueño o cualquier rol dinámico
     permissions?: string[]; // Lista de permisos

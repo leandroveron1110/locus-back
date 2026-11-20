@@ -3,7 +3,7 @@ import { DeliveryCommandsService } from "./services/command/delivery-command.ser
 import { DeliveryCommandsController } from "./controller/delivery-command.controller";
 import { DeliveryQueriesService } from "./services/query/delivery-queries.service";
 import { DeliveryCommandsV2Controller } from "./controller/delivery-commands-v2.controller";
-import { DeliveryCommandsV2Service } from "./services/command/delivery-queries-v2.service";
+import { DeliveryCommandsV2Service } from "./services/command/delivery-command-v2.service";
 import { DeliveryQueriesV2Service } from "./services/query/delivery-queries-v2.service";
 import { RealtimeModule } from "src/realtime/realtime.module";
 

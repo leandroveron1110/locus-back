@@ -2,7 +2,12 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dto/login.dto';
-import { User, PermissionEnum } from '@prisma/client';
+import {
+  User,
+  PermissionEnum,
+  VehicleType,
+  CourierStatus,
+} from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { TOKENS } from 'src/common/constants/tokens';
@@ -13,12 +18,15 @@ import { CreateUserDto } from 'src/users/dto/Request/create-user.dto';
 import { IDeliveryService } from 'src/delivery/interfaces/delivery-service.interface';
 import { EmployeesService } from 'src/employees/services/employees.service';
 import { IBusinessQueryService } from 'src/business/interfaces/business.interface';
+import { CourierCommandService } from 'src/courier/courier-command.service';
 
 @Injectable()
 export class AuthService implements IAuthService {
   constructor(
     @Inject(TOKENS.IUserService)
     private usersService: IUserService,
+
+    private courier: CourierCommandService,
 
     private jwtService: JwtService,
 
@@ -129,10 +137,12 @@ export class AuthService implements IAuthService {
       })),
       ...employeeBusinesses.map((e) => {
         const rolePermissions = e.role?.permissions ?? [];
-        const overrides = new Map(e.overrides?.map(o => [o.permission, o.allowed]) ?? []);
+        const overrides = new Map(
+          e.overrides?.map((o) => [o.permission, o.allowed]) ?? [],
+        );
 
         // 🚀 Lógica corregida para combinar permisos
-        const effectivePermissions = Array.from(rolePermissions).filter(p => {
+        const effectivePermissions = Array.from(rolePermissions).filter((p) => {
           return !(overrides.has(p) && overrides.get(p) === false);
         });
 
@@ -141,7 +151,7 @@ export class AuthService implements IAuthService {
             effectivePermissions.push(permission);
           }
         });
-        
+
         return {
           id: e.businessId,
           role: e.role?.name ?? 'UNASSIGNED',
@@ -210,28 +220,65 @@ export class AuthService implements IAuthService {
     };
   }
 
-  async loginAdmin(loginDto: LoginDto){
-  const user = await this.validateUser(loginDto.email, loginDto.password);
+  // -------------------------------
+  // LOGIN DELIVERY COURIER
+  // -------------------------------
+  async loginDeliveryCourier(loginDto: {
+    dni: string;
+    password: string;
+  }): Promise<{
+    user: {
+      id: string;
+      phone: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      dni: string;
+      mustChangePassword: boolean;
+      fullName: string;
+      vehicleType: VehicleType;
+      status: CourierStatus;
+      isAvailable: boolean;
+    };
+    accessToken: string;
+  }> {
+    const user = await this.courier.login(loginDto.dni, loginDto.password);
 
-  if (!user || user.role !== 'ADMIN') {
-    throw new UnauthorizedException('Credenciales inválidas para admin.');
+    const payload: JwtPayload = {
+      sub: user.id,
+      rol: 'CLIENT',
+      email: user.dni,
+      businesses: [],
+      deliveries: [],
+    };
+
+    return {
+      user: user,
+      accessToken: this.jwtService.sign(payload),
+    };
   }
 
-  const payload: JwtPayload = {
-    sub: user.id,
-    rol: user.role,
-    email: user.email,
-    businesses: [],
-    deliveries: [],
-  };
+  async loginAdmin(loginDto: LoginDto) {
+    const user = await this.validateUser(loginDto.email, loginDto.password);
 
-  const userDto = LoginResponseDto.fromPrisma(user);
+    if (!user || user.role !== 'ADMIN') {
+      throw new UnauthorizedException('Credenciales inválidas para admin.');
+    }
 
-  return {
-    user: userDto,
-    accessToken: this.jwtService.sign(payload),
-  };
-}
+    const payload: JwtPayload = {
+      sub: user.id,
+      rol: user.role,
+      email: user.email,
+      businesses: [],
+      deliveries: [],
+    };
+
+    const userDto = LoginResponseDto.fromPrisma(user);
+
+    return {
+      user: userDto,
+      accessToken: this.jwtService.sign(payload),
+    };
+  }
 
   // -------------------------------
   // Obtener perfil del usuario

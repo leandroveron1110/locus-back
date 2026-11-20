@@ -175,6 +175,51 @@ export class DeliveryQueriesV2Service {
     });
   }
 
+
+  async getAvailableDispatchesForCourier(filters: {
+    zoneId?: string;
+    limit?: number;
+    page?: number;
+  }) {
+    const limit = filters.limit || 50;
+    const page = filters.page || 1;
+    const skip = (page - 1) * limit;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    return this.prisma.deliveryCommandV2.findMany({
+      where: {
+        businessStatus: BusinessCommandStatusV2.DISPATCH_REQUESTED,
+        logisticsStatus: LogisticsCommandStatusV2.ACCEPTED,
+        createdAt: { gte: todayStart },
+        ...(filters.zoneId ? { zoneId: filters.zoneId } : {}),
+      },
+      select: {
+        id: true,
+        businessId: true,
+        orderId: true,
+        originName: true,
+        originAddress: true,
+        destinationAddress: true,
+        destinationLatitude: true,
+        destinationLongitude: true,
+        originLatitude: true,
+        originLongitude: true,
+        quotedCost: true,
+        requiredCouriers: true,
+        assignedCouriers: true,
+        isShareable: true,
+        logisticsStatus: true,
+        notes: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "asc" },
+      skip,
+      take: limit,
+    });
+  }
+
   /**
    * Sincronización incremental del estado actual de los comandos logísticos.
    *

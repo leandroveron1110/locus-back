@@ -16,6 +16,10 @@ import { UserRole } from '@prisma/client';
 import { DeliveryZonesQueryService } from '../services/delivery-zones-query.service';
 import { H3MigrationService } from '../services/H3Migration.service';
 import { DeliveryPriceCalculatorService } from '../services/delivery-price-calculator.service';
+import {
+  DeliveryPriceCalculatorKmService,
+  PricingConditions,
+} from '../services/delivery-price-calculator-km.service';
 
 @Controller('delivery-zones')
 export class DeliveryZonesController {
@@ -23,6 +27,7 @@ export class DeliveryZonesController {
     private readonly deliveryZonesService: DeliveryZonesService,
     private readonly deliveryZonesQueryService: DeliveryZonesQueryService,
     private readonly h3MigrationService: H3MigrationService,
+    private readonly deliveryPriceCalculatorKmService: DeliveryPriceCalculatorKmService,
     private readonly deliveryPriceCalculatorService: DeliveryPriceCalculatorService,
   ) {}
 
@@ -67,10 +72,60 @@ export class DeliveryZonesController {
       businessId: string;
       clientLat: number;
       clientLng: number;
+      conditions?: PricingConditions;
     },
   ) {
+    return this.deliveryPriceCalculatorKmService.calculateForBusiness(
+      cal.businessId,
+      cal.clientLat,
+      cal.clientLng,
+      cal.conditions
+        ? cal.conditions
+        : {
+            demandLevel: 'NORMAL',
+            serviceSuspended: false,
+            weatherLevel: 'NORMAL',
+          },
+    );
+  }
 
-    console.log('Calculating price for businessId:', cal.businessId, 'clientLat:', cal.clientLat, 'clientLng:', cal.clientLng);
+  @Post('calculate-distance')
+  @Roles(UserRole.OWNER, UserRole.CLIENT)
+  async distanceKm(
+    @Body()
+    cal: {
+      lat1: number;
+      lon1: number;
+      lat2: number;
+      lon2: number;
+    },
+  ) {
+    return this.deliveryPriceCalculatorKmService.getDistanceKmWithCache(
+      cal.lat1,
+      cal.lon1,
+      cal.lat2,
+      cal.lon2,
+    );
+  }
+
+  @Post('calculate-price/voy')
+  @Roles(UserRole.OWNER, UserRole.CLIENT)
+  async calculatePriceVoy(
+    @Body()
+    cal: {
+      businessId: string;
+      clientLat: number;
+      clientLng: number;
+    },
+  ) {
+    console.log(
+      'Calculating price for businessId:',
+      cal.businessId,
+      'clientLat:',
+      cal.clientLat,
+      'clientLng:',
+      cal.clientLng,
+    );
     // return {
     //   price: 2500,
     //   zoneName: 'Zona Centro',

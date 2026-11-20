@@ -79,6 +79,16 @@ export class AuthController {
     return this.authService.loginDelivery(loginDto);
   }
 
+  @Post('login/delivery/courier')
+  @Public()
+  async loginDeliveryCourier(@Body() loginDto: {
+    dni: string;
+    password: string;
+  }) {
+    console.log("login co", loginDto)
+    return this.authService.loginDeliveryCourier(loginDto);
+  }
+
   @Post('login/admin')
   @Public()
   async loginAdmin(@Body() loginDto: LoginDto) {

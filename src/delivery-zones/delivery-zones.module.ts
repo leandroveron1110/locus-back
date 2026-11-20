@@ -8,6 +8,7 @@ import { ZoneManagementController } from './controllers/zone-management.controll
 import { ZoneManagementService } from './services/zone-zanagement.service';
 import { H3MigrationService } from './services/H3Migration.service';
 import { DeliveryPriceCalculatorService } from './services/delivery-price-calculator.service';
+import { DeliveryPriceCalculatorKmService } from './services/delivery-price-calculator-km.service';
 
 @Module({
   controllers: [
@@ -17,6 +18,7 @@ import { DeliveryPriceCalculatorService } from './services/delivery-price-calcul
   ],
   providers: [
     DeliveryZonesService,
+    DeliveryPriceCalculatorKmService,
     DeliveryZonesQueryService,
     AddressIndexingService,
     ZoneManagementService,

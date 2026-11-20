@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 import {
   BusinessCommandStatusV2,
+  CommandAssignmentStatus,
   LogisticsCommandStatusV2,
 } from '@prisma/client';
 
@@ -52,15 +53,18 @@ export class DeliveryCommandsV2Service {
   }
 
   private emitBusinessEvent(
-    businessId: string,
+    businessId: string | null,
     event: BusinessEventType,
     payload: unknown,
   ) {
-    this.eventPublisher.emitToRoom(
-      BUSINESS_REALTIME_ROOMS.operations(businessId),
-      event,
-      payload,
-    );
+    if(businessId) {
+      this.eventPublisher.emitToRoom(
+        BUSINESS_REALTIME_ROOMS.operations(businessId),
+        event,
+        payload,
+      );
+
+    }
   }
 
   // --------------------------------------------------
@@ -174,6 +178,23 @@ export class DeliveryCommandsV2Service {
 
   async deleteAll() {
     return this.prisma.deliveryCommandV2.deleteMany();
+  }
+
+  async deleteToday() {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    return this.prisma.deliveryCommandV2.deleteMany({
+      where: {
+        createdAt: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+    });
   }
 
   // --------------------------------------------------
@@ -466,6 +487,201 @@ export class DeliveryCommandsV2Service {
     this.emitBusinessEvent(
       updatedCommand.businessId,
       BUSINESS_EVENTS.BUSINESS_COMPLETE_COMMAND,
+      updatedCommand,
+    );
+
+    return updatedCommand;
+  }
+
+  // --------------------------------------------------
+  // BASE: ASSIGN COURIER (Con registro de cadete)
+  // --------------------------------------------------
+
+  async assignCourier(commandId: string, courierId: string) {
+    const updatedCommand = await this.prisma.$transaction(async (tx) => {
+      const command = await tx.deliveryCommandV2.findUnique({
+        where: { id: commandId },
+      });
+
+      if (!command) {
+        throw new NotFoundException('Delivery command not found');
+      }
+
+      if (command.businessStatus === BusinessCommandStatusV2.CANCELLED) {
+        throw new BadRequestException(
+          'El pedido fue cancelado por el comercio',
+        );
+      }
+
+      if (command.assignedCouriers >= command.requiredCouriers) {
+        throw new BadRequestException(
+          'Este pedido ya tiene todos los cadetes requeridos',
+        );
+      }
+
+      const courier = await tx.courier.findUnique({
+        where: { id: courierId },
+        select: { id: true, status: true, isAvailable: true },
+      });
+
+      if (!courier || courier.status !== 'ACTIVE' || !courier.isAvailable) {
+        throw new BadRequestException('El cadete no está disponible');
+      }
+
+      await tx.deliveryCommandAssignment.create({
+        data: {
+          commandId,
+          courierId,
+          status: CommandAssignmentStatus.ASSIGNED,
+          acceptedAt: new Date(),
+        },
+      });
+
+      const newAssignedCount = command.assignedCouriers + 1;
+      const newLogisticsStatus =
+        newAssignedCount >= command.requiredCouriers
+          ? LogisticsCommandStatusV2.ASSIGNED
+          : command.logisticsStatus;
+
+      // Marcamos al cadete como ocupado (opcional si puede llevar packs;
+      // si puede llevar más de un pedido a la vez, podés omitir este update)
+      await tx.courier.update({
+        where: { id: courierId },
+        data: { isAvailable: false },
+      });
+
+      return tx.deliveryCommandV2.update({
+        where: { id: commandId },
+        data: {
+          assignedCouriers: newAssignedCount,
+          logisticsStatus: newLogisticsStatus,
+          updatedAt: new Date(),
+        },
+        include: {
+          assignments: {
+            include: {
+              courier: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  phone: true,
+                  vehicleType: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+
+    this.publishUpdated(updatedCommand);
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      BUSINESS_EVENTS.BUSINESS_ASSIGN_COMMAND,
+      updatedCommand,
+    );
+
+    return updatedCommand;
+  }
+
+  // --------------------------------------------------
+  // COURIER PROGRESS (Yendo a buscar / Retirado / Entregado)
+  // --------------------------------------------------
+
+  async updateAssignmentProgress(
+    commandId: string,
+    courierId: string,
+    status: CommandAssignmentStatus,
+  ) {
+    const updatedCommand = await this.prisma.$transaction(async (tx) => {
+      const assignment = await tx.deliveryCommandAssignment.findUnique({
+        where: {
+          commandId_courierId: { commandId, courierId },
+        },
+      });
+
+      if (!assignment) {
+        throw new NotFoundException(
+          'Asignación no encontrada para este cadete',
+        );
+      }
+
+      const now = new Date();
+
+      await tx.deliveryCommandAssignment.update({
+        where: { id: assignment.id },
+        data: {
+          status,
+          ...(status === CommandAssignmentStatus.PICKED_UP && {
+            pickedUpAt: now,
+          }),
+          ...(status === CommandAssignmentStatus.DELIVERED && {
+            deliveredAt: now,
+          }),
+          ...(status === CommandAssignmentStatus.RELEASED && {
+            releasedAt: now,
+          }),
+        },
+      });
+
+      // Sincronizamos el estado macro del comando según lo que hizo el cadete
+      let nextLogisticsStatus: LogisticsCommandStatusV2 | undefined;
+
+      if (status === CommandAssignmentStatus.PICKED_UP) {
+        nextLogisticsStatus = LogisticsCommandStatusV2.IN_TRANSIT;
+      } else if (status === CommandAssignmentStatus.DELIVERED) {
+        nextLogisticsStatus = LogisticsCommandStatusV2.COMPLETED;
+      }
+
+      // Si entregó o liberó el pedido, vuelve a quedar disponible
+      if (
+        status === CommandAssignmentStatus.DELIVERED ||
+        status === CommandAssignmentStatus.RELEASED
+      ) {
+        await tx.courier.update({
+          where: { id: courierId },
+          data: { isAvailable: true },
+        });
+      }
+
+      return tx.deliveryCommandV2.update({
+        where: { id: commandId },
+        data: {
+          ...(nextLogisticsStatus && { logisticsStatus: nextLogisticsStatus }),
+          ...(status === CommandAssignmentStatus.RELEASED && {
+            assignedCouriers: { decrement: 1 },
+          }),
+          updatedAt: now,
+        },
+        include: {
+          assignments: {
+            include: {
+              courier: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  phone: true,
+                  vehicleType: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+
+    this.publishUpdated(updatedCommand);
+
+    const businessEvent =
+      status === CommandAssignmentStatus.PICKED_UP
+        ? BUSINESS_EVENTS.BUSINESS_IN_TRANSIT_COMMAND
+        : status === CommandAssignmentStatus.DELIVERED
+          ? BUSINESS_EVENTS.BUSINESS_COMPLETE_COMMAND
+          : BUSINESS_EVENTS.BUSINESS_UPDATED;
+
+    this.emitBusinessEvent(
+      updatedCommand.businessId,
+      businessEvent,
       updatedCommand,
     );
 
